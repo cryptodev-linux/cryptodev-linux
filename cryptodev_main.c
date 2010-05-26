@@ -39,6 +39,7 @@
 #include <asm/ioctl.h>
 #include <linux/scatterlist.h>
 #include "cryptodev_int.h"
+#include "ncr_int.h"
 
 MODULE_AUTHOR("Nikos Mavrogiannopoulos <nmav@gnutls.org>");
 MODULE_DESCRIPTION("CryptoDev driver");
@@ -61,6 +62,15 @@ MODULE_PARM_DESC(enable_stats, "collect statictics about cryptodev usage");
 #endif
 
 /* ====== CryptoAPI ====== */
+struct fcrypt {
+	struct list_head list;
+	struct semaphore sem;
+};
+
+struct crypt_priv {
+	void * ncr;
+	struct fcrypt fcrypt;
+};
 
 #define FILL_SG(sg,ptr,len)					\
 	do {							\
@@ -83,11 +93,6 @@ struct csession {
 	unsigned long long stat[2];
 	size_t stat_max_size, stat_count;
 #endif
-};
-
-struct fcrypt {
-	struct list_head list;
-	struct semaphore sem;
 };
 
 /* Prepare session for future use. */
@@ -494,27 +499,36 @@ out_unlock:
 static int
 cryptodev_open(struct inode *inode, struct file *filp)
 {
-	struct fcrypt *fcr;
+	struct crypt_priv *pcr;
+	int ret;
 
-	fcr = kmalloc(sizeof(*fcr), GFP_KERNEL);
-	if(!fcr)
+	pcr = kmalloc(sizeof(*pcr), GFP_KERNEL);
+	if(!pcr)
 		return -ENOMEM;
 
-	memset(fcr, 0, sizeof(*fcr));
-	init_MUTEX(&fcr->sem);
-	INIT_LIST_HEAD(&fcr->list);
-	filp->private_data = fcr;
+	memset(pcr, 0, sizeof(*pcr));
+	init_MUTEX(&pcr->fcrypt->sem);
+	INIT_LIST_HEAD(&fcr->fcrypt->list);
+	
 
+	pcr->ncr = ncr_init_lists();
+	if (pcr->ncr == NULL) {
+		kfree(pcr);
+		return -ENOMEM;
+	}
+
+	filp->private_data = pcr;
 	return 0;
 }
 
 static int
 cryptodev_release(struct inode *inode, struct file *filp)
 {
-	struct fcrypt *fcr = filp->private_data;
+	struct crypt_priv *fcr = filp->private_data;
 
 	if(fcr) {
 		crypto_finish_all_sessions(fcr);
+		ncr_deinit_lists(fcr->ncr);
 		kfree(fcr);
 		filp->private_data = NULL;
 	}
@@ -544,9 +558,15 @@ cryptodev_ioctl(struct inode *inode, struct file *filp,
 	int __user *p = (void __user *)arg;
 	struct session_op sop;
 	struct crypt_op cop;
-	struct fcrypt *fcr = filp->private_data;
+	struct crypt_priv *pcr = filp->private_data;
+	struct fcrypt * fcr;
 	uint32_t ses;
 	int ret, fd;
+
+	if (unlikely(!pcr))
+		BUG();
+
+	fcr = pcr->fcr;
 
 	if (unlikely(!fcr))
 		BUG();
@@ -559,19 +579,16 @@ cryptodev_ioctl(struct inode *inode, struct file *filp,
 			fd = clonefd(filp);
 			put_user(fd, p);
 			return 0;
-
 		case CIOCGSESSION:
 			ret = copy_from_user(&sop, (void*)arg, sizeof(sop));
 			ret |= crypto_create_session(fcr, &sop);
 			if (unlikely(ret))
 				return ret;
 			return copy_to_user((void*)arg, &sop, sizeof(sop));
-
 		case CIOCFSESSION:
 			get_user(ses, (uint32_t*)arg);
 			ret = crypto_finish_session(fcr, ses);
 			return ret;
-
 		case CIOCCRYPT:
 			ret = copy_from_user(&cop, (void*)arg, sizeof(cop));
 			ret |= crypto_run(fcr, &cop);
@@ -580,7 +597,7 @@ cryptodev_ioctl(struct inode *inode, struct file *filp,
 			return copy_to_user((void*)arg, &cop, sizeof(cop));
 
 		default:
-			return -EINVAL;
+			return ncr_ioctl(file->f_cred->fsuid, pcr->ncr, cmd, arg);
 	}
 }
 
