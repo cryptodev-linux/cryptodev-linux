@@ -1,9 +1,5 @@
-/* This is a source compatible implementation with the original API of 
- * cryptodev by Angelos D. Keromytis, found at openbsd cryptodev.h.
- * Placed under public domain */
-
-#ifndef L_NCRYPTODEV_H
-#define L_NCRYPTODEV_H
+#ifndef L_NCR_H
+#define L_NCR_H
 
 #ifndef __KERNEL__
 #include <inttypes.h>
@@ -68,7 +64,7 @@ struct ncr_data_st {
 
 typedef int ncr_key_t;
 
-#define NCR_KEY_INVALID (api_key_t)(-1)
+#define NCR_KEY_INVALID (ncr_key_t)(-1)
 
 #define NCR_KEY_FLAG_EXPORTABLE 1
 #define NCR_KEY_FLAG_WRAPPABLE (1<<1)
@@ -110,7 +106,7 @@ struct ncr_key_generate_params_st {
 			unsigned int bits;
 		} dsa;
 		struct {
-			unsigned int bits;
+			usigned int bits;
 		} dh;
 	} params;
 };
@@ -222,8 +218,8 @@ struct ncr_storage_metadata_st {
 	gid_t gid;
 	mode_t mode;
 
-	api_algorithm_t algorithm;
-	api_key_type_t type;
+	ncr_algorithm_t algorithm;
+	ncr_key_type_t type;
 
 	uint8_t key_id[MAX_KEY_ID_SIZE];
 	size_t key_id_size;
