@@ -10,7 +10,7 @@
 #include <fcntl.h>
 
 #include <sys/ioctl.h>
-#include <crypto/cryptodev.h>
+#include "../cryptodev.h"
 
 #define	DATA_SIZE	4096
 #define	BLOCK_SIZE	16

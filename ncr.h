@@ -45,12 +45,14 @@ struct ncr_data_init_st {
 	ncr_data_t desc;
 	size_t max_object_size;
 	unsigned int flags;
+	void* initial_data; /* can be null */
+	size_t initial_data_size;
 };
 
 struct ncr_data_st {
 	ncr_data_t desc;
 	void* data;
-	size_t data_size;
+	size_t data_size; /* rw in get */
 	unsigned int append_flag; /* only when used with NCRIO_DATA_SET */
 };
 

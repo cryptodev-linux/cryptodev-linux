@@ -40,6 +40,7 @@
 #include <linux/scatterlist.h>
 #include "cryptodev_int.h"
 #include "ncr_int.h"
+#include <linux/version.h>
 
 MODULE_AUTHOR("Nikos Mavrogiannopoulos <nmav@gnutls.org>");
 MODULE_DESCRIPTION("CryptoDev driver");
@@ -561,6 +562,13 @@ cryptodev_ioctl(struct inode *inode, struct file *filp,
 	struct fcrypt * fcr;
 	uint32_t ses;
 	int ret, fd;
+	unsigned int uid;
+
+#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,27)
+			uid = filp->f_uid;
+#else
+			uid = filp->f_cred->fsuid;
+#endif
 
 	if (unlikely(!pcr))
 		BUG();
@@ -596,7 +604,7 @@ cryptodev_ioctl(struct inode *inode, struct file *filp,
 			return copy_to_user((void*)arg, &cop, sizeof(cop));
 
 		default:
-			return ncr_ioctl(filp->f_cred->fsuid, pcr->ncr, cmd, arg);
+			return ncr_ioctl(uid, pcr->ncr, cmd, arg);
 	}
 }
 

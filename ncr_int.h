@@ -2,14 +2,16 @@
 # define NCR_INT_H
 
 #include "ncr.h"
+#include <asm/atomic.h>
 
 struct data_item {
 	struct list_head list;
-	void* data;
+	uint8_t* data;
 	size_t data_size;
 	size_t max_data_size;
-	struct semaphore sem;
 	unsigned int flags;
+	atomic_t refcnt;
+	unsigned int uid;
 
 	ncr_data_t desc;
 };

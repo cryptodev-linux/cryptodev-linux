@@ -1,4 +1,4 @@
-KERNEL_DIR = /lib/modules/$(shell uname -r)/build
+KERNEL_DIR ?= /lib/modules/$(shell uname -r)/build
 VERSION = 0.1
 
 cryptodev-objs = cryptodev_main.o cryptodev_cipher.o ncr.o
@@ -12,6 +12,7 @@ install:
 	make -C $(KERNEL_DIR) SUBDIRS=`pwd` modules_install
 	@echo "Installing cryptodev.h in /usr/include/crypto ..."
 	@install -D cryptodev.h /usr/include/crypto/cryptodev.h
+	@install -D ncr.h /usr/include/crypto/ncr.h
 
 clean:
 	make -C $(KERNEL_DIR) SUBDIRS=`pwd` clean
