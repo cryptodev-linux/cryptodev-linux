@@ -46,6 +46,8 @@ test_ncr_data(int cfd)
 		perror("ioctl(NCRIO_DATA_INIT)");
 		return 1;
 	}
+	
+	fprintf(stderr, "Imported data\n");
 
 	memset(data, 0, sizeof(data));
 
@@ -64,6 +66,8 @@ test_ncr_data(int cfd)
 		return 1;
 	}
 
+	fprintf(stderr, "Verified imported data integrity\n");
+
 	/* test set */
 	memset(data, 0xf1, sizeof(data));
 
@@ -76,6 +80,8 @@ test_ncr_data(int cfd)
 		perror("ioctl(NCRIO_DATA_SET)");
 		return 1;
 	}
+
+	fprintf(stderr, "Imported new data\n");
 
 	/* test get after set */
 	memset(data, 0, sizeof(data));
@@ -96,6 +102,7 @@ test_ncr_data(int cfd)
 			return 1;
 		}
 	}
+	fprintf(stderr, "Verified new data\n");
 
 	return 0; /* ok */
 }
@@ -103,7 +110,7 @@ test_ncr_data(int cfd)
 int
 main()
 {
-	int fd = -1, cfd = -1;
+	int fd = -1;
 
 	/* Open the crypto device */
 	fd = open("/dev/crypto", O_RDWR, 0);
@@ -113,7 +120,7 @@ main()
 	}
 
 	/* Run the test itself */
-	if (test_ncr_data(cfd))
+	if (test_ncr_data(fd))
 		return 1;
 
 	/* Close the original descriptor */

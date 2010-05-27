@@ -575,9 +575,6 @@ cryptodev_ioctl(struct inode *inode, struct file *filp,
 
 	fcr = &pcr->fcrypt;
 
-	if (unlikely(!fcr))
-		BUG();
-
 	switch (cmd) {
 		case CIOCASYMFEAT:
 			put_user(0, p);

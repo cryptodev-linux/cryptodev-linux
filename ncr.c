@@ -30,15 +30,19 @@
 #include "ncr.h"
 #include "ncr_int.h"
 
+#define err() printk(KERN_DEBUG"ncr: %s: %d\n", __func__, __LINE__)
 
+static void _ncr_data_item_put( struct data_item* item);
 
 void* ncr_init_lists(void)
 {
 	struct ncr_lists *lst;
 
 	lst = kmalloc(sizeof(*lst), GFP_KERNEL);
-	if(!lst)
+	if(!lst) {
+		err();
 		return NULL;
+	}
 
 	memset(lst, 0, sizeof(*lst));
 
@@ -51,7 +55,16 @@ void* ncr_init_lists(void)
 void ncr_deinit_lists(struct ncr_lists *lst)
 {
 	if(lst) {
-		//data_clear_all(list->data);
+		struct data_item * item, *tmp;
+
+		down(&lst->data_sem);
+		
+		list_for_each_entry_safe(item, tmp, &lst->data_list, list) {
+			list_del(&item->list);
+			_ncr_data_item_put( item); /* decrement ref count */
+		}
+		up(&lst->data_sem);
+
 		kfree(lst);
 	}
 	
@@ -73,7 +86,7 @@ int mx = 0;
 }
 
 /* returns the data item corresponding to desc */
-static struct data_item* _ncr_data_item_get( struct ncr_lists* lst, ncr_data_t desc)
+static struct data_item* ncr_data_item_get( struct ncr_lists* lst, ncr_data_t desc)
 {
 struct data_item* item;
 
@@ -87,6 +100,7 @@ struct data_item* item;
 	}
 	up(&lst->data_sem);
 
+	err();
 	return NULL;
 }
 
@@ -94,9 +108,10 @@ static void* data_alloc(unsigned int uid, size_t size)
 {
 	/* FIXME: enforce a maximum memory limit per user */
 	if (size > 64*1024) {
+		err();
 		return NULL;
 	}
-	return kmalloc(GFP_KERNEL, size);
+	return kmalloc(size, GFP_KERNEL);
 }
 
 static void data_free(struct data_item * data)
@@ -105,7 +120,7 @@ static void data_free(struct data_item * data)
 	kfree(data->data);
 }
 
-static void _ncr_data_item_put( struct ncr_lists* lst, struct data_item* item)
+static void _ncr_data_item_put( struct data_item* item)
 {
 	if (atomic_dec_and_test(&item->refcnt)) {
 			data_free(item);
@@ -120,8 +135,9 @@ static int ncr_data_new(unsigned int uid, struct ncr_lists* lst, void __user* ar
 	
 	copy_from_user( &init, arg, sizeof(init));
 
-	data = kmalloc(GFP_KERNEL, sizeof(*data));
+	data = kmalloc(sizeof(*data), GFP_KERNEL);
 	if (data == NULL) {
+		err();
 		return -ENOMEM;
 	}
 
@@ -133,6 +149,7 @@ static int ncr_data_new(unsigned int uid, struct ncr_lists* lst, void __user* ar
 	data->data = data_alloc(uid, init.max_object_size);
 	if (data->data == NULL) {
 		kfree(data);
+		err();
 		return -ENOMEM;
 	}
 	data->max_data_size = init.max_object_size;
@@ -170,7 +187,7 @@ static int ncr_data_deinit(struct ncr_lists* lst, void __user* arg)
 	list_for_each_entry_safe(item, tmp, &lst->data_list, list) {
 		if(item->desc == desc) {
 			list_del(&item->list);
-			_ncr_data_item_put( lst, item); /* decrement ref count */
+			_ncr_data_item_put( item); /* decrement ref count */
 			break;
 		}
 	}
@@ -188,13 +205,15 @@ static int ncr_data_get(struct ncr_lists* lst, void __user* arg)
 	
 	copy_from_user( &get, arg, sizeof(get));
 
-	data = _ncr_data_item_get( lst, get.desc);
+	data = ncr_data_item_get( lst, get.desc);
 
 	if (data == NULL) {
+		err();
 		return -EINVAL;
 	}
 
 	if (!(data->flags & NCR_DATA_FLAG_EXPORTABLE)) {
+		err();
 		return -EPERM;
 	}
 
@@ -207,7 +226,7 @@ static int ncr_data_get(struct ncr_lists* lst, void __user* arg)
 	if (len > 0)
 		copy_to_user(get.data, data->data, len);
 
-	_ncr_data_item_put( lst, data);
+	_ncr_data_item_put( data);
 
 	return 0;
 }
@@ -220,14 +239,16 @@ static int ncr_data_set(struct ncr_lists* lst, void __user* arg)
 	
 	copy_from_user( &get, arg, sizeof(get));
 
-	data = _ncr_data_item_get( lst, get.desc);
+	data = ncr_data_item_get( lst, get.desc);
 
 	if (data == NULL) {
+		err();
 		return -EINVAL;
 	}
 
 	if ((get.data_size > data->max_data_size) ||
 		(get.data == NULL && get.data_size != 0)) {
+		err();
 		ret = -EINVAL;
 		goto cleanup;
 	}
@@ -238,6 +259,7 @@ static int ncr_data_set(struct ncr_lists* lst, void __user* arg)
 		data->data_size = get.data_size;
 	} else {
 		if (get.data_size+data->data_size > data->max_data_size) {
+			err();
 			ret = -EINVAL;
 			goto cleanup;
 		}
@@ -248,7 +270,7 @@ static int ncr_data_set(struct ncr_lists* lst, void __user* arg)
 	ret = 0;
 
 cleanup:
-	_ncr_data_item_put( lst, data);
+	_ncr_data_item_put( data);
 
 	return ret;
 }
