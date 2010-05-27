@@ -35,7 +35,6 @@
 void* ncr_init_lists(void)
 {
 	struct ncr_lists *lst;
-	int ret;
 
 	lst = kmalloc(sizeof(*lst), GFP_KERNEL);
 	if(!lst)

@@ -1,3 +1,8 @@
+#ifndef NCR_INT_H
+# define NCR_INT_H
+
+#include "ncr.h"
+
 struct data_item {
 	struct list_head list;
 	void* data;
@@ -23,5 +28,8 @@ struct ncr_lists {
 void* ncr_init_lists(void);
 void ncr_deinit_lists(struct ncr_lists *lst);
 
-int ncr_ioctl(struct ncr_lists* lists,
+int
+ncr_ioctl(unsigned int uid, struct ncr_lists* lst,
 		unsigned int cmd, unsigned long arg);
+
+#endif

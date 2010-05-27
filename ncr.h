@@ -28,9 +28,9 @@ typedef enum {
 
 
 typedef enum {
-	NCR_KEY_TYPE_SECRET=1;
-	NCR_KEY_TYPE_PUBLIC=2;
-	NCR_KEY_TYPE_PRIVATE=3;
+	NCR_KEY_TYPE_SECRET=1,
+	NCR_KEY_TYPE_PUBLIC=2,
+	NCR_KEY_TYPE_PRIVATE=3,
 } ncr_key_type_t;
 
 /* Data Handling
@@ -76,20 +76,6 @@ typedef int ncr_key_t;
 #define NCR_KEY_FLAG_DECRYPT (1<<2)
 #define NCR_KEY_FLAG_SIGN (1<<3)
 
-struct ncr_key_generate_st {
-	ncr_key_t desc;
-	ncr_algorithm_t algorithm;
-	unsigned int bits;
-	unsigned int keyflags;
-};
-
-struct ncr_key_generate_st {
-	ncr_key_t desc; /* input */
-	ncr_algorithm_t algorithm; /* input */
-	unsigned int bits; /* input */
-	
-};
-
 struct ncr_key_generate_params_st {
 	ncr_algorithm_t algorithm;
 	unsigned int keyflags;
@@ -106,7 +92,7 @@ struct ncr_key_generate_params_st {
 			unsigned int bits;
 		} dsa;
 		struct {
-			usigned int bits;
+			unsigned int bits;
 		} dh;
 	} params;
 };
@@ -116,7 +102,7 @@ struct ncr_key_generate_params_st {
 struct ncr_key_generate_st {
 	ncr_key_t desc;
 	ncr_key_t desc2; /* when called with GENERATE_PAIR */
-	ncr_key_generate_params_st params;
+	struct ncr_key_generate_params_st params;
 };
 
 /* used in derivation/encryption
@@ -199,7 +185,7 @@ struct ncr_public_key_params_st
 #define NCRIO_KEY_EXPORT       	_IOWR('c', 209, struct ncr_key_data_st)
 #define NCRIO_KEY_IMPORT       	_IOWR('c', 210, struct ncr_key_data_st)
 #define NCRIO_KEY_GET_PUBLIC   	_IOWR('c', 211, struct ncr_public_key_params_st)
-#define NCRIO_DATA_DEINIT       _IOR ('c', 212, ncr_data_t)
+#define NCRIO_KEY_DEINIT       _IOR ('c', 212, ncr_key_t)
 
 
 /* Storage ioctls
@@ -251,13 +237,13 @@ struct ncr_storage_remove_st {
 
 struct ncr_storage_traverse_st {
 	int traverse_id;
-	ncr_storage_metadata_st metadata;
+	struct ncr_storage_metadata_st metadata;
 };
 
 
 #define NCRIO_STORAGE_TRAVERSE_INIT     	_IOW('c', 227, int)
 #define NCRIO_STORAGE_TRAVERSE_NEXT     	_IOWR('c', 228, struct ncr_storage_traverse_st)
-#define NCRIO_STORAGE_TRAVERSE_NEXT     	_IOWR('c', 229, int)
+#define NCRIO_STORAGE_TRAVERSE_DEINIT     	_IOWR('c', 229, int)
 
 
 /* FIXME key wrap ioctls
@@ -283,7 +269,7 @@ typedef int ncr_session_t;
 struct ncr_session_st {
 	/* input */
 	ncr_algorithm_t algorithm;
-	ncr_key_params_st params;
+	struct ncr_key_params_st params;
 	ncr_key_t key;
 	ncr_crypto_op_t op;
 
@@ -319,3 +305,5 @@ struct ncr_session_op_st {
 	ncr_error_t err;
 };
 
+
+#endif

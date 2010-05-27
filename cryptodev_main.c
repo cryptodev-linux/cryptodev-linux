@@ -500,15 +500,14 @@ static int
 cryptodev_open(struct inode *inode, struct file *filp)
 {
 	struct crypt_priv *pcr;
-	int ret;
 
 	pcr = kmalloc(sizeof(*pcr), GFP_KERNEL);
 	if(!pcr)
 		return -ENOMEM;
 
 	memset(pcr, 0, sizeof(*pcr));
-	init_MUTEX(&pcr->fcrypt->sem);
-	INIT_LIST_HEAD(&fcr->fcrypt->list);
+	init_MUTEX(&pcr->fcrypt.sem);
+	INIT_LIST_HEAD(&pcr->fcrypt.list);
 	
 
 	pcr->ncr = ncr_init_lists();
@@ -524,12 +523,12 @@ cryptodev_open(struct inode *inode, struct file *filp)
 static int
 cryptodev_release(struct inode *inode, struct file *filp)
 {
-	struct crypt_priv *fcr = filp->private_data;
+	struct crypt_priv *pcr = filp->private_data;
 
-	if(fcr) {
-		crypto_finish_all_sessions(fcr);
-		ncr_deinit_lists(fcr->ncr);
-		kfree(fcr);
+	if(pcr) {
+		crypto_finish_all_sessions(&pcr->fcrypt);
+		ncr_deinit_lists(pcr->ncr);
+		kfree(pcr);
 		filp->private_data = NULL;
 	}
 
@@ -566,7 +565,7 @@ cryptodev_ioctl(struct inode *inode, struct file *filp,
 	if (unlikely(!pcr))
 		BUG();
 
-	fcr = pcr->fcr;
+	fcr = &pcr->fcrypt;
 
 	if (unlikely(!fcr))
 		BUG();
@@ -597,7 +596,7 @@ cryptodev_ioctl(struct inode *inode, struct file *filp,
 			return copy_to_user((void*)arg, &cop, sizeof(cop));
 
 		default:
-			return ncr_ioctl(file->f_cred->fsuid, pcr->ncr, cmd, arg);
+			return ncr_ioctl(filp->f_cred->fsuid, pcr->ncr, cmd, arg);
 	}
 }
 
