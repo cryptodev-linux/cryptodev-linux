@@ -128,22 +128,21 @@ test_ncr_data(int cfd)
 	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
-		perror("ioctl");
 		fprintf(stderr, "Verified that unexportable data cannot be exported\n");
 	} else {
 		fprintf(stderr, "Unexportable data were exported!?\n");
-		return 1; /* ok */
+		return 1;
 	}
 
-	for (i=0;i<512;i++ ) {
+	for (i=0;i<256;i++ ) {
 		init.max_object_size = DATA_SIZE;
 		init.flags = 0;
 		init.initial_data = data;
 		init.initial_data_size = sizeof(data);
 
 		if (ioctl(cfd, NCRIO_DATA_INIT, &init)) {
-			perror("ioctl(NCRIO_DATA_INIT)");
-			fprintf(stderr, "Reached maximum limit at: %d data\n", i);
+			fprintf(stderr, "Reached maximum limit at: %d data items\n", i);
+			break;
 		}
 	}
 

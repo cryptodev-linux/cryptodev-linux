@@ -26,6 +26,8 @@
 #include "cryptodev.h"
 #include <asm/atomic.h>
 #include <linux/version.h>
+#include <linux/file.h>
+#include <linux/cred.h>
 #include "ncr.h"
 #include "ncr_int.h"
 
@@ -57,7 +59,9 @@ struct limit_process_item_st {
 struct limit_st {
 	struct list_sem_st users;
 	struct list_sem_st processes;
-} limits;
+};
+
+static struct limit_st limits;
 
 void ncr_limits_init(void)
 {
@@ -87,6 +91,7 @@ int add = 1;
 	list_for_each_entry(uitem, &limits.users.list, list) {
 		if (uitem->uid == uid && uitem->type == type) {
 			add = 0;
+printk("user: %d max: %d, count: %d\n", (int)uid, max_per_user[type], atomic_read(&uitem->cnt));
 			if (atomic_add_unless(&uitem->cnt, 1, max_per_user[type])==0) {
 				err();
 				up(&limits.users.sem);
@@ -96,7 +101,7 @@ int add = 1;
 	}
 
 	if (add) {
-		uitem = kmalloc(GFP_KERNEL, sizeof(*uitem));
+		uitem = kmalloc( sizeof(*uitem), GFP_KERNEL);
 		if (uitem == NULL) {
 			err();
 			return -ENOMEM;
@@ -125,7 +130,7 @@ int add = 1;
 	
 
 	if (add) {
-		pitem = kmalloc(GFP_KERNEL, sizeof(*pitem));
+		pitem = kmalloc(sizeof(*pitem), GFP_KERNEL);
 		if (uitem == NULL) {
 			err();
 			return -ENOMEM;

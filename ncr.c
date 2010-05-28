@@ -50,6 +50,8 @@ void* ncr_init_lists(void)
 	init_MUTEX(&lst->key.sem);
 	INIT_LIST_HEAD(&lst->key.list);
 
+	ncr_limits_init();
+
 	return lst;
 }
 

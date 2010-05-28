@@ -91,5 +91,6 @@ typedef enum {
 
 void ncr_limits_remove(struct file *filp, limits_type_t type);
 int ncr_limits_add_and_check(struct file *filp, limits_type_t type);
+void ncr_limits_init(void);
 
 #endif
