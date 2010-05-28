@@ -34,30 +34,30 @@
 
 static void _ncr_data_item_put( struct data_item* item);
 
-void ncr_data_list_deinit(struct ncr_lists *lst)
+void ncr_data_list_deinit(struct list_sem_st* lst)
 {
 	if(lst) {
 		struct data_item * item, *tmp;
 
-		down(&lst->data_sem);
+		down(&lst->sem);
 		
-		list_for_each_entry_safe(item, tmp, &lst->data_list, list) {
+		list_for_each_entry_safe(item, tmp, &lst->list, list) {
 			list_del(&item->list);
 			_ncr_data_item_put( item); /* decrement ref count */
 		}
-		up(&lst->data_sem);
+		up(&lst->sem);
 
 	}
 }
 
 /* must be called with data semaphore down
  */
-static ncr_data_t _ncr_data_get_new_desc( struct ncr_lists* lst)
+static ncr_data_t _ncr_data_get_new_desc( struct list_sem_st* lst)
 {
 struct data_item* item;
 int mx = 0;
 
-	list_for_each_entry(item, &lst->data_list, list) {
+	list_for_each_entry(item, &lst->list, list) {
 		mx = max(mx, item->desc);
 	}
 	mx++;
@@ -66,27 +66,27 @@ int mx = 0;
 }
 
 /* returns the data item corresponding to desc */
-static struct data_item* ncr_data_item_get( struct ncr_lists* lst, ncr_data_t desc)
+static struct data_item* ncr_data_item_get( struct list_sem_st* lst, ncr_data_t desc)
 {
 struct data_item* item;
 
-	down(&lst->data_sem);
-	list_for_each_entry(item, &lst->data_list, list) {
+	down(&lst->sem);
+	list_for_each_entry(item, &lst->list, list) {
 		if (item->desc == desc) {
 			atomic_inc(&item->refcnt);
-			up(&lst->data_sem);
+			up(&lst->sem);
 			return item;
 		}
 	}
-	up(&lst->data_sem);
+	up(&lst->sem);
 
 	err();
 	return NULL;
 }
 
-static void* data_alloc(unsigned int uid, size_t size)
+static void* data_alloc(size_t size)
 {
-	/* FIXME: enforce a maximum memory limit per user */
+	/* FIXME: enforce a maximum memory limit per process and per user */
 	if (size > 64*1024) {
 		err();
 		return NULL;
@@ -94,25 +94,27 @@ static void* data_alloc(unsigned int uid, size_t size)
 	return kmalloc(size, GFP_KERNEL);
 }
 
-static void data_free(struct data_item * data)
-{
-	/* FIXME: enforce a maximum memory limit per user */
-	kfree(data->data);
-}
-
 static void _ncr_data_item_put( struct data_item* item)
 {
 	if (atomic_dec_and_test(&item->refcnt)) {
-			data_free(item);
+			ncr_limits_remove(item->filp, LIMIT_TYPE_DATA);
+			kfree(item->data);
 			kfree(item);
 	}
 }
 
-int ncr_data_new(unsigned int uid, struct ncr_lists* lst, void __user* arg)
+int ncr_data_init(struct file *filp, struct list_sem_st* lst, void __user* arg)
 {
 	struct ncr_data_init_st init;
 	struct data_item* data;
-	
+	int ret;
+
+	ret = ncr_limits_add_and_check(filp, LIMIT_TYPE_DATA);
+	if (ret < 0) {
+		err();
+		return ret;
+	}
+
 	copy_from_user( &init, arg, sizeof(init));
 
 	data = kmalloc(sizeof(*data), GFP_KERNEL);
@@ -124,9 +126,10 @@ int ncr_data_new(unsigned int uid, struct ncr_lists* lst, void __user* arg)
 	memset(data, 0, sizeof(*data));
 
 	data->flags = init.flags;
+	data->filp = filp;
 	atomic_set(&data->refcnt, 1);
 
-	data->data = data_alloc(uid, init.max_object_size);
+	data->data = data_alloc(init.max_object_size);
 	if (data->data == NULL) {
 		kfree(data);
 		err();
@@ -134,19 +137,19 @@ int ncr_data_new(unsigned int uid, struct ncr_lists* lst, void __user* arg)
 	}
 	data->max_data_size = init.max_object_size;
 
-	down(&lst->data_sem);
-
-	data->desc = _ncr_data_get_new_desc(lst);
-	data->uid = uid;
-
 	if (init.initial_data != NULL) {
 		copy_from_user(data->data, init.initial_data, init.initial_data_size);
 		data->data_size = init.initial_data_size;
 	}
 
-	list_add(&data->list, &lst->data_list);
+	down(&lst->sem);
+
+	data->desc = _ncr_data_get_new_desc(lst);
+	data->filp = filp;
+
+	list_add(&data->list, &lst->list);
 	
-	up(&lst->data_sem);
+	up(&lst->sem);
 
 	init.desc = data->desc;
 	copy_to_user(arg, &init, sizeof(init));
@@ -155,16 +158,16 @@ int ncr_data_new(unsigned int uid, struct ncr_lists* lst, void __user* arg)
 }
 
 
-int ncr_data_deinit(struct ncr_lists* lst, void __user* arg)
+int ncr_data_deinit(struct list_sem_st* lst, void __user* arg)
 {
 	ncr_data_t desc;
 	struct data_item * item, *tmp;
 
 	copy_from_user( &desc, arg, sizeof(desc));
 
-	down(&lst->data_sem);
+	down(&lst->sem);
 	
-	list_for_each_entry_safe(item, tmp, &lst->data_list, list) {
+	list_for_each_entry_safe(item, tmp, &lst->list, list) {
 		if(item->desc == desc) {
 			list_del(&item->list);
 			_ncr_data_item_put( item); /* decrement ref count */
@@ -172,12 +175,12 @@ int ncr_data_deinit(struct ncr_lists* lst, void __user* arg)
 		}
 	}
 	
-	up(&lst->data_sem);
+	up(&lst->sem);
 
 	return 0;
 }
 
-int ncr_data_get(struct ncr_lists* lst, void __user* arg)
+int ncr_data_get(struct list_sem_st* lst, void __user* arg)
 {
 	struct ncr_data_st get;
 	struct data_item * data;
@@ -211,7 +214,7 @@ int ncr_data_get(struct ncr_lists* lst, void __user* arg)
 	return 0;
 }
 
-int ncr_data_set(struct ncr_lists* lst, void __user* arg)
+int ncr_data_set(struct list_sem_st* lst, void __user* arg)
 {
 	struct ncr_data_st get;
 	struct data_item * data;

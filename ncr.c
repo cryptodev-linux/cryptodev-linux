@@ -44,8 +44,11 @@ void* ncr_init_lists(void)
 
 	memset(lst, 0, sizeof(*lst));
 
-	init_MUTEX(&lst->data_sem);
-	INIT_LIST_HEAD(&lst->data_list);
+	init_MUTEX(&lst->data.sem);
+	INIT_LIST_HEAD(&lst->data.list);
+
+	init_MUTEX(&lst->key.sem);
+	INIT_LIST_HEAD(&lst->key.list);
 
 	return lst;
 }
@@ -53,15 +56,16 @@ void* ncr_init_lists(void)
 void ncr_deinit_lists(struct ncr_lists *lst)
 {
 	if(lst) {
-		ncr_data_list_deinit(lst);
+		ncr_data_list_deinit(&lst->data);
+		ncr_key_list_deinit(&lst->key);
 
 		kfree(lst);
 	}
 }
 
 int
-ncr_ioctl(unsigned int uid, struct ncr_lists* lst,
-		unsigned int cmd, unsigned long __user arg)
+ncr_ioctl(struct ncr_lists* lst, struct file *filp,
+		unsigned int cmd, unsigned long arg)
 {
 
 	if (unlikely(!lst))
@@ -69,13 +73,31 @@ ncr_ioctl(unsigned int uid, struct ncr_lists* lst,
 
 	switch (cmd) {
 		case NCRIO_DATA_INIT:
-			return ncr_data_new(uid, lst, (void*)arg);
+			return ncr_data_init(filp, &lst->data, (void*)arg);
 		case NCRIO_DATA_GET:
-			return ncr_data_get(lst, (void*)arg);
+			return ncr_data_get(&lst->data, (void*)arg);
 		case NCRIO_DATA_SET:
-			return ncr_data_set(lst, (void*)arg);
+			return ncr_data_set(&lst->data, (void*)arg);
 		case NCRIO_DATA_DEINIT:
-			return ncr_data_deinit(lst, (void*)arg);
+			return ncr_data_deinit(&lst->data, (void*)arg);
+		case NCRIO_KEY_INIT:
+			return ncr_key_init(filp, &lst->key, (void*)arg);
+		case NCRIO_KEY_DEINIT:
+			return ncr_key_deinit(&lst->key, (void*)arg);
+#if 0
+		case NCRIO_KEY_GENERATE:
+			return ncr_key_generate(&lst->key, (void*)arg);
+		case NCRIO_KEY_GENERATE_PAIR:
+			return ncr_key_generate_pair(&lst->key, (void*)arg);
+		case NCRIO_KEY_DERIVE:
+			return ncr_key_derive(&lst->key, (void*)arg);
+		case NCRIO_KEY_EXPORT:
+			return ncr_key_export(&lst->key, (void*)arg);
+		case NCRIO_KEY_IMPORT:
+			return ncr_key_import(&lst->key, (void*)arg);
+		case NCRIO_KEY_GET_PUBLIC:
+			return ncr_key_get_public(&lst->key, (void*)arg);
+#endif
 		default:
 			return -EINVAL;
 	}
