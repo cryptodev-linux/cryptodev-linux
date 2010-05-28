@@ -104,7 +104,38 @@ test_ncr_data(int cfd)
 	}
 	fprintf(stderr, "Verified new data\n");
 
-	return 0; /* ok */
+	if (ioctl(cfd, NCRIO_DATA_DEINIT, &kdata.desc)) {
+		perror("ioctl(NCRIO_DATA_DEINIT)");
+		return 1;
+	}
+
+	fprintf(stderr, "Initializing unexportable data\n");
+	randomize_data(data, sizeof(data));
+
+	init.max_object_size = DATA_SIZE;
+	init.flags = 0;
+	init.initial_data = data;
+	init.initial_data_size = sizeof(data);
+
+	if (ioctl(cfd, NCRIO_DATA_INIT, &init)) {
+		perror("ioctl(NCRIO_DATA_INIT)");
+		return 1;
+	}
+
+	kdata.desc = init.desc;
+	kdata.data = data;
+	kdata.data_size = sizeof(data);
+	kdata.append_flag = 0;
+
+	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
+		perror("ioctl");
+		fprintf(stderr, "Verified that unexportable data cannot be exported\n");
+		return 0;
+	}
+
+	fprintf(stderr, "Unexportable data were exported!?\n");
+	
+	return 1; /* ok */
 }
 
 int
