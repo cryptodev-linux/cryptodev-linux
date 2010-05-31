@@ -98,6 +98,7 @@ typedef enum {
 void ncr_limits_remove(struct file *filp, limits_type_t type);
 int ncr_limits_add_and_check(struct file *filp, limits_type_t type);
 void ncr_limits_init(void);
+void ncr_limits_deinit(void);
 
 ncr_key_type_t ncr_algorithm_to_key_type(ncr_algorithm_t algo);
 

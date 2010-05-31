@@ -50,8 +50,6 @@ void* ncr_init_lists(void)
 	init_MUTEX(&lst->key.sem);
 	INIT_LIST_HEAD(&lst->key.list);
 
-	ncr_limits_init();
-
 	return lst;
 }
 
@@ -60,7 +58,6 @@ void ncr_deinit_lists(struct ncr_lists *lst)
 	if(lst) {
 		ncr_data_list_deinit(&lst->data);
 		ncr_key_list_deinit(&lst->key);
-
 		kfree(lst);
 	}
 }

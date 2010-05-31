@@ -728,6 +728,8 @@ cryptodev_register(void)
 {
 	int rc;
 
+	ncr_limits_init();
+
 	rc = misc_register (&cryptodev);
 	if (unlikely(rc)) {
 		printk(KERN_ERR PFX "registeration of /dev/crypto failed\n");
@@ -740,6 +742,7 @@ cryptodev_register(void)
 static void
 cryptodev_deregister(void)
 {
+	ncr_limits_deinit();
 	misc_deregister(&cryptodev);
 }
 

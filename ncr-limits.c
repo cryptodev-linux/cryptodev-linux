@@ -72,6 +72,27 @@ void ncr_limits_init(void)
 	INIT_LIST_HEAD(&limits.processes.list);
 }
 
+void ncr_limits_deinit(void)
+{
+struct limit_process_item_st* pitem, *ptmp;
+struct limit_user_item_st* uitem, *utmp;
+
+	down(&limits.users.sem);
+	list_for_each_entry_safe(uitem, utmp, &limits.users.list, list) {
+		list_del(&uitem->list);
+		kfree(uitem);
+	}
+	up(&limits.users.sem);
+	
+	down(&limits.processes.sem);
+	list_for_each_entry_safe(pitem, ptmp, &limits.processes.list, list) {
+		list_del(&pitem->list);
+		kfree(pitem);
+	}
+	up(&limits.processes.sem);
+
+}
+
 int ncr_limits_add_and_check(struct file *filp, limits_type_t type)
 {
 struct limit_process_item_st* pitem;

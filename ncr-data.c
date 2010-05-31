@@ -182,6 +182,7 @@ int ncr_data_get(struct list_sem_st* lst, void __user* arg)
 	struct ncr_data_st get;
 	struct data_item * data;
 	size_t len;
+	int ret;
 	
 	copy_from_user( &get, arg, sizeof(get));
 
@@ -194,7 +195,8 @@ int ncr_data_get(struct list_sem_st* lst, void __user* arg)
 
 	if (!(data->flags & NCR_DATA_FLAG_EXPORTABLE)) {
 		err();
-		return -EPERM;
+		ret = -EPERM;
+		goto cleanup;
 	}
 
 	len = min(get.data_size, data->data_size);
@@ -206,9 +208,12 @@ int ncr_data_get(struct list_sem_st* lst, void __user* arg)
 	if (len > 0)
 		copy_to_user(get.data, data->data, len);
 
+	ret = 0;
+
+cleanup:
 	_ncr_data_item_put( data);
 
-	return 0;
+	return ret;
 }
 
 int ncr_data_set(struct list_sem_st* lst, void __user* arg)
