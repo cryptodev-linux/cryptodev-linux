@@ -73,16 +73,22 @@ int ncr_data_get(struct list_sem_st*, void __user* arg);
 int ncr_data_deinit(struct list_sem_st*, void __user* arg);
 int ncr_data_init(struct file* filp, struct list_sem_st*, void __user* arg);
 void ncr_data_list_deinit(struct list_sem_st*);
+struct data_item* ncr_data_item_get( struct list_sem_st* lst, ncr_data_t desc);
+void _ncr_data_item_put( struct data_item* item);
 
 int ncr_key_init(struct file* filp, struct list_sem_st*, void __user* arg);
-int ncr_key_generate(struct list_sem_st*, void __user* arg);
+int ncr_key_deinit(struct list_sem_st*, void __user* arg);
+int ncr_key_export(struct list_sem_st* data_lst,
+	struct list_sem_st* key_lst,void __user* arg);
+int ncr_key_import(struct list_sem_st* data_lst,
+	struct list_sem_st* key_lst,void __user* arg);
+void ncr_key_list_deinit(struct list_sem_st* lst);
+int ncr_key_generate(struct list_sem_st* data_lst, void __user* arg);
+int ncr_key_info(struct list_sem_st*, void __user* arg);
+
 int ncr_key_generate_pair(struct list_sem_st* lst, void __user* arg);
 int ncr_key_derive(struct list_sem_st*, void __user* arg);
-int ncr_key_export(struct list_sem_st*, void __user* arg);
-int ncr_key_import(struct list_sem_st*, void __user* arg);
 int ncr_key_get_public(struct list_sem_st* lst, void __user* arg);
-int ncr_key_deinit(struct list_sem_st*, void __user* arg);
-void ncr_key_list_deinit(struct list_sem_st* lst);
 
 typedef enum {
 	LIMIT_TYPE_KEY,
@@ -92,5 +98,7 @@ typedef enum {
 void ncr_limits_remove(struct file *filp, limits_type_t type);
 int ncr_limits_add_and_check(struct file *filp, limits_type_t type);
 void ncr_limits_init(void);
+
+ncr_key_type_t ncr_algorithm_to_key_type(ncr_algorithm_t algo);
 
 #endif

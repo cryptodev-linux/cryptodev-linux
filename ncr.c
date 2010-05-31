@@ -82,21 +82,24 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 			return ncr_data_set(&lst->data, (void*)arg);
 		case NCRIO_DATA_DEINIT:
 			return ncr_data_deinit(&lst->data, (void*)arg);
+
 		case NCRIO_KEY_INIT:
 			return ncr_key_init(filp, &lst->key, (void*)arg);
 		case NCRIO_KEY_DEINIT:
 			return ncr_key_deinit(&lst->key, (void*)arg);
-#if 0
 		case NCRIO_KEY_GENERATE:
 			return ncr_key_generate(&lst->key, (void*)arg);
+		case NCRIO_KEY_EXPORT:
+			return ncr_key_export(&lst->data, &lst->key, (void*)arg);
+		case NCRIO_KEY_IMPORT:
+			return ncr_key_import(&lst->data, &lst->key, (void*)arg);
+		case NCRIO_KEY_GET_INFO:
+			return ncr_key_info(&lst->key, (void*)arg);
+#if 0
 		case NCRIO_KEY_GENERATE_PAIR:
 			return ncr_key_generate_pair(&lst->key, (void*)arg);
 		case NCRIO_KEY_DERIVE:
 			return ncr_key_derive(&lst->key, (void*)arg);
-		case NCRIO_KEY_EXPORT:
-			return ncr_key_export(&lst->key, (void*)arg);
-		case NCRIO_KEY_IMPORT:
-			return ncr_key_import(&lst->key, (void*)arg);
 		case NCRIO_KEY_GET_PUBLIC:
 			return ncr_key_get_public(&lst->key, (void*)arg);
 #endif
@@ -105,5 +108,30 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 	}
 }
 
+/* Returns NCR_KEY_TYPE_SECRET if a secret key algorithm or MAC is given,
+ * and NCR_KEY_TYPE_PUBLIC if a public key algorithm is given.
+ */
+ncr_key_type_t ncr_algorithm_to_key_type(ncr_algorithm_t algo)
+{
+	switch(algo) {
+		case NCR_ALG_3DES_CBC:
+		case NCR_ALG_AES_CBC:
+		case NCR_ALG_CAMELLIA_CBC:
+		case NCR_ALG_ARCFOUR:
+		case NCR_ALG_HMAC_SHA1:
+		case NCR_ALG_HMAC_MD5:
+		case NCR_ALG_HMAC_SHA2_224:
+		case NCR_ALG_HMAC_SHA2_256:
+		case NCR_ALG_HMAC_SHA2_384:
+		case NCR_ALG_HMAC_SHA2_512:
+			return NCR_KEY_TYPE_SECRET;
+		case NCR_ALG_RSA:
+		case NCR_ALG_DSA:
+			return NCR_KEY_TYPE_PUBLIC;
+		default:
+			return NCR_KEY_TYPE_INVALID;
+	}
+	
+}
 
 

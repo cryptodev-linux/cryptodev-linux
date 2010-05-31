@@ -24,10 +24,14 @@ typedef enum {
 	NCR_ALG_HMAC_SHA2_256,
 	NCR_ALG_HMAC_SHA2_384,
 	NCR_ALG_HMAC_SHA2_512,
+
+	NCR_ALG_RSA=140,
+	NCR_ALG_DSA,
 } ncr_algorithm_t;
 
 
 typedef enum {
+	NCR_KEY_TYPE_INVALID,
 	NCR_KEY_TYPE_SECRET=1,
 	NCR_KEY_TYPE_PUBLIC=2,
 	NCR_KEY_TYPE_PRIVATE=3,
@@ -79,12 +83,14 @@ typedef int ncr_key_t;
 #define NCR_KEY_FLAG_SIGN (1<<3)
 
 struct ncr_key_generate_params_st {
-	ncr_algorithm_t algorithm;
+	ncr_algorithm_t algorithm; /* just a cipher algorithm when
+	* generating secret keys
+	*/
 	unsigned int keyflags;
 	union {
 		struct {
 			unsigned int bits;
-		} cipher;
+		} secret;
 		struct {
 			unsigned int bits;
 			void* e;
@@ -143,6 +149,12 @@ struct ncr_key_info_st {
 struct ncr_key_data_st {
 	ncr_key_t key;
 	ncr_data_t data;
+	/* in case of import this will be used as key id */
+	uint8_t key_id[MAX_KEY_ID_SIZE];
+	size_t key_id_size;
+	ncr_key_type_t type;
+	unsigned int flags;
+	ncr_algorithm_t algorithm; /* valid for public/private keys */
 };
 
 struct ncr_public_key_params_st
@@ -180,13 +192,21 @@ struct ncr_public_key_params_st
 };
 
 #define NCRIO_KEY_INIT			_IOW ('c', 204, ncr_key_t)
+/* generate a secret key */
 #define NCRIO_KEY_GENERATE     	_IOR ('c', 205, struct ncr_key_generate_st)
+/* generate a public key pair */
 #define NCRIO_KEY_GENERATE_PAIR _IOR ('c', 206, struct ncr_key_generate_st)
+/* derive a new key from an old one */
 #define NCRIO_KEY_DERIVE        _IOR ('c', 207, struct ncr_key_params_st)
+/* return information on a key */
 #define NCRIO_KEY_GET_INFO      _IOWR('c', 208, struct ncr_key_info_st)
+/* export a secret key */
 #define NCRIO_KEY_EXPORT       	_IOWR('c', 209, struct ncr_key_data_st)
+/* import a secret key */
 #define NCRIO_KEY_IMPORT       	_IOWR('c', 210, struct ncr_key_data_st)
+/* return/set public /private paramters */
 #define NCRIO_KEY_GET_PUBLIC   	_IOWR('c', 211, struct ncr_public_key_params_st)
+
 #define NCRIO_KEY_DEINIT       _IOR ('c', 212, ncr_key_t)
 
 

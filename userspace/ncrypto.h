@@ -48,6 +48,14 @@ int ncr_key_import(ncr_key_t key, ncr_data_t obj); /* ioctl KEY_IMPORT */
 int ncr_key_get_id(ncr_key_t, void* id, size_t* id_size); /* KEY_GET_INFO */
 void ncr_key_deinit(ncr_key_t); /* ioctl KEY_DEINIT */
 
+typedef enum {
+	NCR_RSA_MODULUS,
+	NCR_RSA_EXPONENT,
+	NCR_DSA_P,
+	NCR_DSA_Q,
+	NCR_DSA_Y,
+} ncr_public_param_t;
+
 int ncr_key_get_public_param(ncr_key_t key, ncr_public_param_t, void* output, size_t* output_size);
 
 /* store keys */

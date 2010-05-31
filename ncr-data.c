@@ -22,7 +22,6 @@
 #include <linux/crypto.h>
 #include <linux/mm.h>
 #include <linux/highmem.h>
-#include <linux/random.h>
 #include "cryptodev.h"
 #include <asm/uaccess.h>
 #include <asm/ioctl.h>
@@ -31,8 +30,6 @@
 #include "ncr_int.h"
 
 #define err() printk(KERN_DEBUG"ncr: %s: %d\n", __func__, __LINE__)
-
-static void _ncr_data_item_put( struct data_item* item);
 
 void ncr_data_list_deinit(struct list_sem_st* lst)
 {
@@ -66,7 +63,7 @@ int mx = 0;
 }
 
 /* returns the data item corresponding to desc */
-static struct data_item* ncr_data_item_get( struct list_sem_st* lst, ncr_data_t desc)
+struct data_item* ncr_data_item_get( struct list_sem_st* lst, ncr_data_t desc)
 {
 struct data_item* item;
 
@@ -94,7 +91,7 @@ static void* data_alloc(size_t size)
 	return kmalloc(size, GFP_KERNEL);
 }
 
-static void _ncr_data_item_put( struct data_item* item)
+void _ncr_data_item_put( struct data_item* item)
 {
 	if (atomic_dec_and_test(&item->refcnt)) {
 			ncr_limits_remove(item->filp, LIMIT_TYPE_DATA);
