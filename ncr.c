@@ -99,6 +99,34 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 			return ncr_key_derive(&lst->key, (void*)arg);
 		case NCRIO_KEY_GET_PUBLIC:
 			return ncr_key_get_public(&lst->key, (void*)arg);
+		case NCRIO_KEY_SET_PUBLIC:
+			return ncr_key_set_public(&lst->key, (void*)arg);
+		case NCRIO_KEY_GET_PRIVATE:
+			return ncr_key_get_private(&lst->key, (void*)arg);
+		case NCRIO_KEY_SET_PRIVATE:
+			return ncr_key_set_private(&lst->key, (void*)arg);
+#endif
+		case NCRIO_STORAGE_STORE:
+			return ncr_storage_store(&lst->key, (void*)arg);
+		case NCRIO_STORAGE_LOAD:
+			return ncr_storage_load(&lst->key, (void*)arg);
+#if 0
+		case NCRIO_STORAGE_MKSTEMP:
+			return ncr_storage_mkstemp(&lst->key, (void*)arg);
+		case NCRIO_STORAGE_CHMOD:
+			return ncr_storage_chmod((void*)arg);
+		case NCRIO_STORAGE_CHOWN:
+			return ncr_storage_chown((void*)arg);
+		case NCRIO_STORAGE_REMOVE:
+			return ncr_storage_remove((void*)arg);
+		case NCRIO_STORAGE_LOAD_METADATA:
+			return ncr_storage_metadata_load((void*)arg);
+		case NCRIO_STORAGE_TRAVERSE_INIT:
+			return ncr_storage_traverse_init(&lst->traverse, (void*)arg);
+		case NCRIO_STORAGE_TRAVERSE_NEXT:
+			return ncr_storage_traverse_next(&lst->traverse, (void*)arg);
+		case NCRIO_STORAGE_TRAVERSE_DEINIT:
+			return ncr_storage_traverse_deinit(&lst->traverse, (void*)arg);
 #endif
 		default:
 			return -EINVAL;

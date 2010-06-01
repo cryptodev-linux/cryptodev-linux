@@ -19,7 +19,6 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <linux/crypto.h>
 #include <linux/mm.h>
 #include <linux/highmem.h>
 #include <linux/random.h>
@@ -30,14 +29,10 @@
 #include "ncr.h"
 #include "ncr_int.h"
 
-#define err() printk(KERN_DEBUG"ncr: %s: %d\n", __func__, __LINE__)
-
-static void _ncr_key_item_put( struct key_item* item);
-
 void ncr_key_list_deinit(struct list_sem_st* lst)
 {
 	if(lst) {
-		struct key_item * item, *tmp;
+		struct key_item_st * item, *tmp;
 
 		down(&lst->sem);
 
@@ -53,7 +48,7 @@ void ncr_key_list_deinit(struct list_sem_st* lst)
  */
 static ncr_key_t _ncr_key_get_new_desc( struct list_sem_st* lst)
 {
-struct key_item* item;
+struct key_item_st* item;
 int mx = 0;
 
 	list_for_each_entry(item, &lst->list, list) {
@@ -65,9 +60,9 @@ int mx = 0;
 }
 
 /* returns the data item corresponding to desc */
-static struct key_item* ncr_key_item_get( struct list_sem_st* lst, ncr_key_t desc)
+struct key_item_st* ncr_key_item_get( struct list_sem_st* lst, ncr_key_t desc)
 {
-struct key_item* item;
+struct key_item_st* item;
 
 	down(&lst->sem);
 	list_for_each_entry(item, &lst->list, list) {
@@ -83,7 +78,7 @@ struct key_item* item;
 	return NULL;
 }
 
-static void _ncr_key_item_put( struct key_item* item)
+void _ncr_key_item_put( struct key_item_st* item)
 {
 	if (atomic_dec_and_test(&item->refcnt)) {
 			ncr_limits_remove(item->filp, LIMIT_TYPE_KEY);
@@ -94,7 +89,7 @@ static void _ncr_key_item_put( struct key_item* item)
 int ncr_key_init(struct file *filp, struct list_sem_st* lst, void __user* arg)
 {
 	ncr_key_t desc;
-	struct key_item* key;
+	struct key_item_st* key;
 	int ret;
 
 	ret = ncr_limits_add_and_check(filp, LIMIT_TYPE_KEY);
@@ -134,7 +129,7 @@ int ncr_key_init(struct file *filp, struct list_sem_st* lst, void __user* arg)
 int ncr_key_deinit(struct list_sem_st* lst, void __user* arg)
 {
 	ncr_key_t desc;
-	struct key_item * item, *tmp;
+	struct key_item_st * item, *tmp;
 
 	copy_from_user( &desc, arg, sizeof(desc));
 
@@ -160,8 +155,8 @@ int ncr_key_export(struct list_sem_st* data_lst,
 	struct list_sem_st* key_lst, void __user* arg)
 {
 struct ncr_key_data_st data;
-struct key_item* item = NULL;
-struct data_item* ditem = NULL;
+struct key_item_st* item = NULL;
+struct data_item_st* ditem = NULL;
 int ret;
 
 	copy_from_user( &data, arg, sizeof(data));
@@ -227,8 +222,8 @@ int ncr_key_import(struct list_sem_st* data_lst,
 	struct list_sem_st* key_lst, void __user* arg)
 {
 struct ncr_key_data_st data;
-struct key_item* item = NULL;
-struct data_item* ditem = NULL;
+struct key_item_st* item = NULL;
+struct data_item_st* ditem = NULL;
 int ret;
 
 	copy_from_user( &data, arg, sizeof(data));
@@ -303,7 +298,7 @@ fail:
 int ncr_key_generate(struct list_sem_st* lst, void __user* arg)
 {
 struct ncr_key_generate_st gen;
-struct key_item* item = NULL;
+struct key_item_st* item = NULL;
 int ret;
 size_t size;
 
@@ -354,7 +349,7 @@ fail:
 int ncr_key_info(struct list_sem_st* lst, void __user* arg)
 {
 struct ncr_key_info_st info;
-struct key_item* item = NULL;
+struct key_item_st* item = NULL;
 
 	copy_from_user( &info, arg, sizeof(info));
 

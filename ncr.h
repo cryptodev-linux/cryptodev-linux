@@ -160,7 +160,7 @@ struct ncr_key_data_st {
 struct ncr_public_key_params_st
 {
 	ncr_key_t key;
-	ncr_key_type_t type;
+	ncr_algorithm_t algorithm;
 	union {
 		struct {
 			void* m;
@@ -191,6 +191,48 @@ struct ncr_public_key_params_st
 	} params;
 };
 
+struct ncr_private_key_params_st
+{
+	ncr_key_t key;
+	ncr_algorithm_t algorithm;
+	union {
+		struct {
+			void* m;
+			size_t m_size;
+			void* e;
+			size_t e_size;
+			void* d;
+			size_t d_size;
+			void* p;
+			size_t p_size;
+			void* q;
+			size_t q_size;
+			void* c;
+			size_t c_size;
+			void* exp1;
+			size_t exp1_size;
+			void* exp2;
+			size_t exp2_size;
+		} rsa;		
+		struct {
+			void* y;
+			size_t y_size;
+			void* x;
+			size_t x_size;
+			void* p;
+			size_t p_size;
+			void* q;
+			size_t q_size;
+			void* g;
+			size_t g_size;
+		} dsa;
+		struct {
+			void* private;
+			size_t private_size;
+		} dh;
+	} params;
+};
+
 #define NCRIO_KEY_INIT			_IOW ('c', 204, ncr_key_t)
 /* generate a secret key */
 #define NCRIO_KEY_GENERATE     	_IOR ('c', 205, struct ncr_key_generate_st)
@@ -206,8 +248,11 @@ struct ncr_public_key_params_st
 #define NCRIO_KEY_IMPORT       	_IOWR('c', 210, struct ncr_key_data_st)
 /* return/set public /private paramters */
 #define NCRIO_KEY_GET_PUBLIC   	_IOWR('c', 211, struct ncr_public_key_params_st)
+#define NCRIO_KEY_SET_PUBLIC   	_IOWR('c', 212, struct ncr_public_key_params_st)
+#define NCRIO_KEY_GET_PRIVATE   	_IOWR('c', 213, struct ncr_private_key_params_st)
+#define NCRIO_KEY_SET_PRIVATE   	_IOWR('c', 214, struct ncr_private_key_params_st)
 
-#define NCRIO_KEY_DEINIT       _IOR ('c', 212, ncr_key_t)
+#define NCRIO_KEY_DEINIT       _IOR ('c', 215, ncr_key_t)
 
 
 /* Storage ioctls
@@ -249,13 +294,13 @@ struct ncr_storage_remove_st {
 };
 
 
-#define NCRIO_STORAGE_STORE			_IOW ('c', 220, struct ncr_storage_st)
-#define NCRIO_STORAGE_MKSTEMP     	_IOR ('c', 221, struct ncr_storage_st)
-#define NCRIO_STORAGE_LOAD			_IOR ('c', 222, struct ncr_storage_st)
-#define NCRIO_STORAGE_CHMOD        _IOR ('c', 223, struct ncr_storage_chmod_st)
-#define NCRIO_STORAGE_CHOWN        _IOR ('c', 224, struct ncr_storage_chown_st)
-#define NCRIO_STORAGE_REMOVE      _IOR('c', 225, struct ncr_storage_remove_st)
-#define NCRIO_STORAGE_LOAD_METADATA			_IOWR ('c', 226, struct ncr_storage_metadata_st)
+#define NCRIO_STORAGE_STORE			_IOW ('c', 230, struct ncr_storage_st)
+#define NCRIO_STORAGE_MKSTEMP     	_IOR ('c', 231, struct ncr_storage_st)
+#define NCRIO_STORAGE_LOAD			_IOR ('c', 232, struct ncr_storage_st)
+#define NCRIO_STORAGE_CHMOD        _IOR ('c', 233, struct ncr_storage_chmod_st)
+#define NCRIO_STORAGE_CHOWN        _IOR ('c', 234, struct ncr_storage_chown_st)
+#define NCRIO_STORAGE_REMOVE      _IOR('c', 235, struct ncr_storage_remove_st)
+#define NCRIO_STORAGE_LOAD_METADATA			_IOWR ('c', 236, struct ncr_storage_metadata_st)
 
 struct ncr_storage_traverse_st {
 	int traverse_id;
@@ -263,9 +308,9 @@ struct ncr_storage_traverse_st {
 };
 
 
-#define NCRIO_STORAGE_TRAVERSE_INIT     	_IOW('c', 227, int)
-#define NCRIO_STORAGE_TRAVERSE_NEXT     	_IOWR('c', 228, struct ncr_storage_traverse_st)
-#define NCRIO_STORAGE_TRAVERSE_DEINIT     	_IOWR('c', 229, int)
+#define NCRIO_STORAGE_TRAVERSE_INIT     	_IOW('c', 237, int)
+#define NCRIO_STORAGE_TRAVERSE_NEXT     	_IOWR('c', 238, struct ncr_storage_traverse_st)
+#define NCRIO_STORAGE_TRAVERSE_DEINIT     	_IOWR('c', 239, int)
 
 
 /* FIXME key wrap ioctls

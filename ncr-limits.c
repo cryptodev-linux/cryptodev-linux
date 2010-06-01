@@ -112,7 +112,7 @@ int add = 1;
 	list_for_each_entry(uitem, &limits.users.list, list) {
 		if (uitem->uid == uid && uitem->type == type) {
 			add = 0;
-printk("user: %d max: %d, count: %d\n", (int)uid, max_per_user[type], atomic_read(&uitem->cnt));
+
 			if (atomic_add_unless(&uitem->cnt, 1, max_per_user[type])==0) {
 				err();
 				up(&limits.users.sem);

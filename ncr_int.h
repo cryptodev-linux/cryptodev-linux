@@ -6,7 +6,7 @@
 
 #define err() printk(KERN_DEBUG"ncr: %s: %d\n", __func__, __LINE__)
 
-struct data_item {
+struct data_item_st {
 	struct list_head list;
 	/* This object is not protected from concurrent access.
 	 * I see no reason to allow concurrent writes (reads are
@@ -24,7 +24,7 @@ struct data_item {
 
 #define MAX_KEY_SIZE 32 /* in bytes */
 
-struct key_item {
+struct key_item_st {
 	struct list_head list;
 	/* This object is also not protected from concurrent access.
 	 */
@@ -73,8 +73,8 @@ int ncr_data_get(struct list_sem_st*, void __user* arg);
 int ncr_data_deinit(struct list_sem_st*, void __user* arg);
 int ncr_data_init(struct file* filp, struct list_sem_st*, void __user* arg);
 void ncr_data_list_deinit(struct list_sem_st*);
-struct data_item* ncr_data_item_get( struct list_sem_st* lst, ncr_data_t desc);
-void _ncr_data_item_put( struct data_item* item);
+struct data_item_st* ncr_data_item_get( struct list_sem_st* lst, ncr_data_t desc);
+void _ncr_data_item_put( struct data_item_st* item);
 
 int ncr_key_init(struct file* filp, struct list_sem_st*, void __user* arg);
 int ncr_key_deinit(struct list_sem_st*, void __user* arg);
@@ -90,6 +90,9 @@ int ncr_key_generate_pair(struct list_sem_st* lst, void __user* arg);
 int ncr_key_derive(struct list_sem_st*, void __user* arg);
 int ncr_key_get_public(struct list_sem_st* lst, void __user* arg);
 
+struct key_item_st* ncr_key_item_get( struct list_sem_st* lst, ncr_key_t desc);
+void _ncr_key_item_put( struct key_item_st* item);
+
 typedef enum {
 	LIMIT_TYPE_KEY,
 	LIMIT_TYPE_DATA
@@ -101,5 +104,7 @@ void ncr_limits_init(void);
 void ncr_limits_deinit(void);
 
 ncr_key_type_t ncr_algorithm_to_key_type(ncr_algorithm_t algo);
+
+#include "ncr-storage.h"
 
 #endif

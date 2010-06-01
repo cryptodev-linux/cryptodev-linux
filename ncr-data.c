@@ -29,12 +29,10 @@
 #include "ncr.h"
 #include "ncr_int.h"
 
-#define err() printk(KERN_DEBUG"ncr: %s: %d\n", __func__, __LINE__)
-
 void ncr_data_list_deinit(struct list_sem_st* lst)
 {
 	if(lst) {
-		struct data_item * item, *tmp;
+		struct data_item_st * item, *tmp;
 
 		down(&lst->sem);
 		
@@ -51,7 +49,7 @@ void ncr_data_list_deinit(struct list_sem_st* lst)
  */
 static ncr_data_t _ncr_data_get_new_desc( struct list_sem_st* lst)
 {
-struct data_item* item;
+struct data_item_st* item;
 int mx = 0;
 
 	list_for_each_entry(item, &lst->list, list) {
@@ -63,9 +61,9 @@ int mx = 0;
 }
 
 /* returns the data item corresponding to desc */
-struct data_item* ncr_data_item_get( struct list_sem_st* lst, ncr_data_t desc)
+struct data_item_st* ncr_data_item_get( struct list_sem_st* lst, ncr_data_t desc)
 {
-struct data_item* item;
+struct data_item_st* item;
 
 	down(&lst->sem);
 	list_for_each_entry(item, &lst->list, list) {
@@ -91,7 +89,7 @@ static void* data_alloc(size_t size)
 	return kmalloc(size, GFP_KERNEL);
 }
 
-void _ncr_data_item_put( struct data_item* item)
+void _ncr_data_item_put( struct data_item_st* item)
 {
 	if (atomic_dec_and_test(&item->refcnt)) {
 			ncr_limits_remove(item->filp, LIMIT_TYPE_DATA);
@@ -103,7 +101,7 @@ void _ncr_data_item_put( struct data_item* item)
 int ncr_data_init(struct file *filp, struct list_sem_st* lst, void __user* arg)
 {
 	struct ncr_data_init_st init;
-	struct data_item* data;
+	struct data_item_st* data;
 	int ret;
 
 	ret = ncr_limits_add_and_check(filp, LIMIT_TYPE_DATA);
@@ -158,7 +156,7 @@ int ncr_data_init(struct file *filp, struct list_sem_st* lst, void __user* arg)
 int ncr_data_deinit(struct list_sem_st* lst, void __user* arg)
 {
 	ncr_data_t desc;
-	struct data_item * item, *tmp;
+	struct data_item_st * item, *tmp;
 
 	copy_from_user( &desc, arg, sizeof(desc));
 
@@ -180,7 +178,7 @@ int ncr_data_deinit(struct list_sem_st* lst, void __user* arg)
 int ncr_data_get(struct list_sem_st* lst, void __user* arg)
 {
 	struct ncr_data_st get;
-	struct data_item * data;
+	struct data_item_st * data;
 	size_t len;
 	int ret;
 	
@@ -219,7 +217,7 @@ cleanup:
 int ncr_data_set(struct list_sem_st* lst, void __user* arg)
 {
 	struct ncr_data_st get;
-	struct data_item * data;
+	struct data_item_st * data;
 	int ret;
 	
 	copy_from_user( &get, arg, sizeof(get));
