@@ -58,11 +58,9 @@ int _ncr_key_to_store(const struct key_item_st *key, const char* label,
 	switch(key->type) {
 		case NCR_KEY_TYPE_SECRET:
 			/* uint16_t size + raw key */
-			output->raw_key = kmalloc(sizeof(uint8_t)+sizeof(uint16_t)+MAX_KEY_SIZE, GFP_KERNEL);
-			if (output->raw_key == NULL) {
-				err();
-				return -ENOMEM;
-			}
+			if (sizeof(output->raw_key) < key->key.secret.size + 2)
+				BUG();
+
 			output->raw_key[0] = (key->key.secret.size >> 8) & 0xff;
 			output->raw_key[1] = (key->key.secret.size) & 0xff;
 			memcpy(&output->raw_key[2], key->key.secret.data, key->key.secret.size);
@@ -121,8 +119,6 @@ int ncr_storage_store(struct list_sem_st* key_lst, void __user* arg)
 	}
 
 	ret = _ncr_store(&tostore);
-	kfree(tostore.raw_key);
-	
 	if (ret < 0) {
 		err();
 		goto fail;
@@ -175,8 +171,6 @@ int ncr_storage_load(struct list_sem_st* key_lst, void __user* arg)
 	}
 
 	ret = _ncr_store_to_key(&loaded, key);
-	kfree(loaded.raw_key);
-
 	if (ret < 0) {
 		err();
 		goto fail;

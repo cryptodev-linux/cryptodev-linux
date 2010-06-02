@@ -1,11 +1,13 @@
 #ifndef NCR_STORAGE_H
 # define NCR_STORAGE_H
 
+#define MAX_RAW_KEY_SIZE 4096
+
 struct storage_item_st {
 	/* metadata */
-	char label[MAX_LABEL_SIZE];
-	uid_t owner;
-	gid_t group;
+	uint8_t label[MAX_LABEL_SIZE];
+	uint32_t owner;
+	uint32_t group;
 	mode_t mode;
 
 	uint16_t algorithm;
@@ -15,9 +17,9 @@ struct storage_item_st {
 	uint8_t key_id_size;
 
 	/* data */
-	uint8_t * raw_key;
-	size_t raw_key_size;
-};
+	uint8_t raw_key[MAX_RAW_KEY_SIZE];
+	uint16_t raw_key_size;
+} __attribute__ ((__packed__));
 
 int ncr_storage_store(struct list_sem_st* key_lst, void __user* arg);
 int ncr_storage_load(struct list_sem_st* key_lst, void __user* arg);

@@ -30,8 +30,6 @@
 #include "ncr.h"
 #include "ncr_int.h"
 
-#define err() printk(KERN_DEBUG"ncr: %s: %d\n", __func__, __LINE__)
-
 void* ncr_init_lists(void)
 {
 	struct ncr_lists *lst;
