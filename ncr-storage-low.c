@@ -41,6 +41,7 @@ struct event_item_st {
 	struct completion completed;
 	void* reply;
 	size_t reply_size;
+	uint32_t ireply;
 	uint32_t id;
 };
 
@@ -68,10 +69,11 @@ struct event_item_st* item;
 	return 0;
 }
 
-static void event_wait(uint32_t id)
+static int event_wait(uint32_t id)
 {
 struct event_item_st* item;
 struct completion* completed = NULL;
+int ret = 0;
 
 	down(&event_list.sem);
 
@@ -82,9 +84,12 @@ struct completion* completed = NULL;
 		}
 	}
 	up(&event_list.sem);
-	if (completed)
-		wait_for_completion(completed);
+	if (completed) {
+		ret = wait_for_completion_interruptible(completed);
+	}
+	return 0;
 }
+
 
 static void event_complete(uint32_t id)
 {
@@ -119,6 +124,23 @@ struct event_item_st* item;
 	return;
 }
 
+static void event_set_idata(uint32_t id, uint32_t data)
+{
+struct event_item_st* item;
+
+	down(&event_list.sem);
+
+	list_for_each_entry(item, &event_list.list, list) {
+		if (id == item->id) {
+			item->ireply = data;
+			break;
+		}
+	}
+	up(&event_list.sem);
+	
+	return;
+}
+
 static void* event_get_data(uint32_t id, size_t *reply_size)
 {
 struct event_item_st* item;
@@ -130,6 +152,24 @@ void* reply = NULL;
 		if (id == item->id) {
 			reply = &item->reply;
 			*reply_size = item->reply_size;
+			break;
+		}
+	}
+	up(&event_list.sem);
+	
+	return reply;
+}
+
+static uint32_t event_get_idata(uint32_t id)
+{
+struct event_item_st* item;
+uint32_t reply = -1;
+
+	down(&event_list.sem);
+
+	list_for_each_entry(item, &event_list.list, list) {
+		if (id == item->id) {
+			reply = item->ireply;
 			break;
 		}
 	}
@@ -157,22 +197,14 @@ struct event_item_st* item, *tmp;
 }
 
 
-/* attributes (variables): the index in this enum is used as a reference for the type,
- *             userspace application has to indicate the corresponding type
- *             the policy is used for security considerations 
- */
-enum {
-	ATTR_UNSPEC,
-	ATTR_DATA,
-	__ATTR_MAX,
-};
-#define ATTR_MAX (__ATTR_MAX - 1)
-
 /* attribute policy: defines which attribute has which type (e.g int, char * etc)
  * possible values defined in net/netlink.h 
  */
 static struct nla_policy ncr_genl_policy[ATTR_MAX + 1] = {
-	[ATTR_DATA] = { .type = NLA_BINARY },
+	[ATTR_STRUCT_LOAD] = { .type = NLA_BINARY },
+	[ATTR_STRUCT_LOADED] = { .type = NLA_BINARY },
+	[ATTR_STORE_ACK] = { .type = NLA_BINARY },
+	[ATTR_STRUCT_STORE] = { .type = NLA_BINARY },
 };
 
 static atomic_t ncr_event_sr;
@@ -183,31 +215,19 @@ static uint32_t listener_pid = -1;
 static struct genl_family ncr_gnl_family = {
 	.id = GENL_ID_GENERATE,         //genetlink should generate an id
 	.hdrsize = 0,
-	.name = "KEY_STORAGE",        //the name of this family, used by userspace application
+	.name = NCR_NL_STORAGE_NAME,        //the name of this family, used by userspace application
 	.version = VERSION_NR,                   //version number  
 	.maxattr = ATTR_MAX,
 };
 
-/* commands: enumeration of all commands (functions), 
- * used by userspace application to identify command to be ececuted
- */
-enum {
-	CMD_LISTENING,
-	CMD_STORE,
-	CMD_LOAD,
-	CMD_STORE_ACK,
-	CMD_LOADED_DATA,
-	__CMD_MAX,
-};
-#define CMD_MAX (__CMD_MAX - 1)
 
 /* an echo command, receives a message, prints it and sends another message back */
 int _ncr_store(const struct storage_item_st * tostore)
 {
 	struct sk_buff *skb;
 	int ret;
-	uint8_t *reply;
-	size_t size, reply_size;
+	uint32_t reply;
+	size_t size;
 	struct nlattr *attr;
 	void* msg, *msg_head;
 	uint32_t id;
@@ -238,7 +258,7 @@ int _ncr_store(const struct storage_item_st * tostore)
 	}
 
 	/* fill the data */
-	attr = nla_reserve(skb, ATTR_DATA,
+	attr = nla_reserve(skb, ATTR_STRUCT_STORE,
 					sizeof(struct storage_item_st));
 	if (!attr) {
 		err();
@@ -264,13 +284,16 @@ int _ncr_store(const struct storage_item_st * tostore)
 		goto out;
 
 	/* wait for an acknowledgment */
-	event_wait(id);
+	ret = event_wait(id);
+	if (ret) {
+		goto out;
+	}
 
-	reply = event_get_data(id, &reply_size);
-	if (reply_size < 1)
+	reply = event_get_idata(id, &reply_size);
+	if (reply == (uint32_t)-1)
 		BUG();
 
-	if (reply[0] != 0) {
+	if (reply != 0) {
 		/* write failed */
 		ret = -EIO;
 	} else {
@@ -325,7 +348,7 @@ int _ncr_load(struct storage_item_st * toload)
 	}
 
 	/* fill the data */
-	attr = nla_reserve(skb, ATTR_DATA,
+	attr = nla_reserve(skb, ATTR_STRUCT_LOAD,
 					sizeof(struct ncr_gnl_load_cmd_st));
 	if (!attr) {
 		err();
@@ -361,7 +384,10 @@ int _ncr_load(struct storage_item_st * toload)
 		goto out;
 
 	/* wait for an answer */
-	event_wait(id);
+	ret = event_wait(id);
+	if (ret) {
+		goto out;
+	}
 
 	reply = event_get_data(id, &reply_size);
 	if (reply_size != sizeof(struct storage_item_st))
@@ -406,7 +432,7 @@ int ncr_gnl_store_ack(struct sk_buff *skb, struct genl_info *info)
 	/*for each attribute there is an index in info->attrs which points to a nlattr structure
 	 *in this structure the data is given
 	 */
-	na = info->attrs[ATTR_DATA];
+	na = info->attrs[ATTR_STORE_ACK];
 	if (na) {
 		len = nla_len(na);
 		data = (void *)nla_data(na);
@@ -415,17 +441,13 @@ int ncr_gnl_store_ack(struct sk_buff *skb, struct genl_info *info)
 		else {
 			
 			memcpy( &reply, data, sizeof(reply));
-			event_reply = kmalloc(1, GFP_KERNEL);
-			if (event_reply != NULL) {
-				if (reply.reply == 0)
-					event_reply[0] = 0;
-				else event_reply[0] = 1; /* fail */
-				event_set_data(reply.id, event_reply, 1);
-			}
+
+			event_set_idata(reply.id, (uint32_t)reply.reply[0]);
+
 			event_complete(reply.id);
 		}
 	} else
-		printk(KERN_DEBUG"no info->attrs %i\n", ATTR_DATA);
+		printk(KERN_DEBUG"no info->attrs %i\n", ATTR_STORE_ACK);
 
 	return 0;
 }
@@ -444,7 +466,7 @@ int ncr_gnl_loaded_data(struct sk_buff *skb, struct genl_info *info)
 	/*for each attribute there is an index in info->attrs which points to a nlattr structure
 	 *in this structure the data is given
 	 */
-	na = info->attrs[ATTR_DATA];
+	na = info->attrs[ATTR_STRUCT_LOADED];
 	if (na) {
 		len = nla_len(na);
 		data = (void *)nla_data(na);
@@ -461,7 +483,7 @@ int ncr_gnl_loaded_data(struct sk_buff *skb, struct genl_info *info)
 			event_complete(reply.id);
 		}
 	} else
-		printk(KERN_DEBUG"no info->attrs %i\n", ATTR_DATA);
+		printk(KERN_DEBUG"no info->attrs %i\n", ATTR_STRUCT_LOADED);
 
 	return 0;
 }
