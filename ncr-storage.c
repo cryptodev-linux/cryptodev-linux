@@ -25,6 +25,8 @@
 #include <asm/uaccess.h>
 #include <asm/ioctl.h>
 #include <linux/scatterlist.h>
+#include <linux/file.h>
+#include <linux/cred.h>
 #include <linux/version.h>
 #include "ncr.h"
 #include "ncr_int.h"
@@ -39,12 +41,13 @@ int _ncr_key_to_store(const struct key_item_st *key, const char* label,
 	uid_t uid = key->filp->f_uid;
 	gid_t gid = key->filp->f_gid;
 #else
-	gid_t gid = key->filp->f_cred->fsgid;
+	uid_t uid = key->filp->f_cred->fsuid;
 	gid_t gid = key->filp->f_cred->fsgid;
 #endif
 	/* copy metadata first */
 	memcpy(output->key_id, key->key_id, sizeof(output->key_id));
 	output->key_id_size = key->key_id_size;
+	output->flags = key->flags;
 
 	output->algorithm = key->algorithm;
 	output->type = key->type;
@@ -79,6 +82,7 @@ int _ncr_store_to_key(const struct storage_item_st* raw, struct key_item_st *key
 
 	key->algorithm = raw->algorithm;
 	key->type = raw->type;
+	key->flags = raw->flags;
 
 	switch(key->type) {
 		case NCR_KEY_TYPE_SECRET:
@@ -120,6 +124,7 @@ int ncr_storage_store(struct list_sem_st* key_lst, void __user* arg)
 
 	ret = _ncr_store(&tostore);
 	if (ret < 0) {
+		printk("cryptodev: Cannot store. Is ncr-server running?\n");
 		err();
 		goto fail;
 	}
@@ -154,7 +159,7 @@ int ncr_storage_load(struct list_sem_st* key_lst, void __user* arg)
 	uid = key->filp->f_uid;
 	gid = key->filp->f_gid;
 #else
-	gid = key->filp->f_cred->fsgid;
+	uid = key->filp->f_cred->fsuid;
 	gid = key->filp->f_cred->fsgid;
 #endif
 

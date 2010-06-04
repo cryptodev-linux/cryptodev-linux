@@ -1,7 +1,7 @@
 #ifndef _STORAGE_LOW
 #define _STORAGE_LOW
 
-#include <ncr.h>
+#include "ncr.h"
 
 #define NCR_NL_STORAGE_NAME "KEY_STORAGE"
 
@@ -16,6 +16,7 @@ enum {
 	CMD_LOAD, /* sent by kernel */
 	CMD_STORE_ACK, /* sent by server */
 	CMD_LOADED_DATA, /* sent by server */
+	CMD_CLOSE, /* sent by kernel */
 	__CMD_MAX,
 };
 #define CMD_MAX (__CMD_MAX - 1)
@@ -29,7 +30,7 @@ enum {
 	ATTR_STRUCT_LOAD,
 	ATTR_STRUCT_LOADED,
 	ATTR_STRUCT_STORE,
-	ATTR_STORE_ACK, /* u8*/
+	ATTR_STORE_U8, /* u8*/
 	__ATTR_MAX,
 };
 #define ATTR_MAX (__ATTR_MAX - 1)
@@ -43,9 +44,10 @@ struct storage_item_st {
 	uint32_t owner;
 	uint32_t group;
 	mode_t mode;
-
+	
 	uint16_t algorithm;
 	uint8_t type;
+	uint32_t flags;
 
 	uint8_t key_id[MAX_KEY_ID_SIZE];
 	uint8_t key_id_size;

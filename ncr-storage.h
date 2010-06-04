@@ -18,4 +18,8 @@ int ncr_storage_traverse_deinit(struct list_sem_st* tr_lst, void __user* arg);
 int _ncr_store(const struct storage_item_st * tostore);
 int _ncr_load(struct storage_item_st * loaded);
 
+/* Netlink subsystem; */
+void ncr_gnl_deinit(void);
+int ncr_gnl_init(void);
+
 #endif /* NCR_STORAGE_H */

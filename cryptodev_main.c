@@ -510,7 +510,6 @@ cryptodev_open(struct inode *inode, struct file *filp)
 	init_MUTEX(&pcr->fcrypt.sem);
 	INIT_LIST_HEAD(&pcr->fcrypt.list);
 	
-
 	pcr->ncr = ncr_init_lists();
 	if (pcr->ncr == NULL) {
 		kfree(pcr);
@@ -730,9 +729,17 @@ cryptodev_register(void)
 
 	ncr_limits_init();
 
+	rc = ncr_gnl_init();
+	if (rc < 0) {
+		ncr_limits_deinit();
+		return rc;
+	}
+
 	rc = misc_register (&cryptodev);
 	if (unlikely(rc)) {
-		printk(KERN_ERR PFX "registeration of /dev/crypto failed\n");
+		ncr_gnl_deinit();
+		ncr_limits_deinit();
+		printk(KERN_ERR PFX "registration of /dev/crypto failed\n");
 		return rc;
 	}
 
@@ -742,8 +749,9 @@ cryptodev_register(void)
 static void
 cryptodev_deregister(void)
 {
-	ncr_limits_deinit();
 	misc_deregister(&cryptodev);
+	ncr_gnl_deinit();
+	ncr_limits_deinit();
 }
 
 /* ====== Module init/exit ====== */

@@ -4,7 +4,7 @@
 #include "ncr.h"
 #include <asm/atomic.h>
 
-#define err() printk(KERN_DEBUG"ncr: %s: %d\n", __func__, __LINE__)
+#define err() printk(KERN_DEBUG"ncr: %s: %s: %d\n", __FILE__, __func__, __LINE__)
 
 struct data_item_st {
 	struct list_head list;

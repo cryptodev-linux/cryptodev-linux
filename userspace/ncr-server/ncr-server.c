@@ -7,9 +7,9 @@
 #include <netlink/genl/ctrl.h>
 #include "../ncr-storage-low.h"
 #include "ncr-server.h"
-#include <list.h>
+#include "list.h"
 
-static int _notify_listening(struct nl_sock * sock);
+static int _notify_listening(int family, struct nl_handle * sock);
 
 static struct nla_policy def_policy[ATTR_MAX+1] =
 {
@@ -19,18 +19,20 @@ static struct nla_policy def_policy[ATTR_MAX+1] =
                           .minlen = sizeof(struct ncr_gnl_load_cmd_st) },
 };
 
-static struct actions {
-	list_head list;
+struct todo_actions {
+	struct list_head list;
 	int cmd; /* CMD_* */
 	union {
 		struct storage_item_st tostore;
 		struct ncr_gnl_load_cmd_st toload;
 	} data;
-} todo;
+};
+
+static struct todo_actions todo;
 
 static int add_store_cmd(struct storage_item_st* tostore)
 {
-	struct actions* item;
+	struct todo_actions* item;
 
 	item = malloc(sizeof(*item));
 	if (item == NULL) {
@@ -38,15 +40,15 @@ static int add_store_cmd(struct storage_item_st* tostore)
 		return -ERR_MEM;
 	}
 	item->cmd = CMD_STORE;
-	memcpy(item->data.tostore, tostore, sizeof(item->data.tostore));
+	memcpy(&item->data.tostore, tostore, sizeof(item->data.tostore));
 
-	list_add(item, &todo.list);
+	list_add(&item->list, &todo.list);
 	return 0;
 }
 
 static int add_load_cmd(struct ncr_gnl_load_cmd_st* toload)
 {
-	struct actions* item;
+	struct todo_actions* item;
 
 	item = malloc(sizeof(*item));
 	if (item == NULL) {
@@ -54,9 +56,9 @@ static int add_load_cmd(struct ncr_gnl_load_cmd_st* toload)
 		return -ERR_MEM;
 	}
 	item->cmd = CMD_LOAD;
-	memcpy(item->data.toload, toload, sizeof(item->data.toload));
+	memcpy(&item->data.toload, toload, sizeof(item->data.toload));
 
-	list_add(item, &todo.list);
+	list_add(&item->list, &todo.list);
 	return 0;
 }
 
@@ -65,37 +67,55 @@ static int msg_cb(struct nl_msg *msg, void *arg)
 	struct nlmsghdr *nlh = nlmsg_hdr(msg);
 	struct nlattr *attrs[ATTR_MAX+1];
 
+fprintf(stderr, "Received message: ");
 		// Validate message and parse attributes
 	genlmsg_parse(nlh, 0, attrs, ATTR_MAX, def_policy);
 
 	if (attrs[ATTR_STRUCT_STORE]) {
-		struct storage_item_st *item = nla_get(attrs[ATTR_STRUCT_STORE]);
+		struct nl_data* data = nla_get_data(attrs[ATTR_STRUCT_STORE]);
+		struct storage_item_st *item = nl_data_get(data);
+
+fprintf(stderr, "Store!\n");
+		
+		if (nl_data_get_size(data) != sizeof(struct storage_item_st)) {
+			err();
+			fprintf(stderr, "Received incorrect structure!\n");
+			return -1;
+		}
 		fprintf(stderr, "asked to store: %s\n", item->label);
 
 		add_store_cmd(item);
 	}
 
 	if (attrs[ATTR_STRUCT_LOAD]) {
-		struct ncr_gnl_load_cmd_st *load = nla_get(attrs[ATTR_STRUCT_LOAD]);
+		struct nl_data* data = nla_get_data(attrs[ATTR_STRUCT_STORE]);
+		struct ncr_gnl_load_cmd_st *load = nl_data_get(data);
+
+fprintf(stderr, "Load!\n");
+		if (nl_data_get_size(data) != sizeof(struct ncr_gnl_load_cmd_st)) {
+			err();
+			fprintf(stderr, "Received incorrect structure!\n");
+			return -1;
+		}
 		fprintf(stderr, "asked to load: %s\n", load->label);
 
-		add_load_cmd(item);
+		add_load_cmd(load);
 	}
-
+fprintf(stderr, "\n");
 	return NL_STOP;
 }
 
 
 int main()
 {
-struct nl_sock *sock;
-int ret;
+struct nl_handle *sock;
+int ret, family;
 
 	memset(&todo, 0, sizeof(todo));
-	LIST_HEAD_INIT(&todo.list);
+	INIT_LIST_HEAD(&todo.list);
 
 	// Allocate a new netlink socket
-	sock = nl_socket_alloc();
+	sock = nl_handle_alloc();
 	if (sock == NULL) {
 		err();
 		return ERR_CONNECT;
@@ -122,14 +142,16 @@ int ret;
 		exit(1);
 	}
 
-	ret = _notify_listening(sock);
+	ret = _notify_listening(family, sock);
 	if (ret < 0) {
 		fprintf(stderr, "Could not notify kernel subsystem.\n");
 		exit(1);
 	}
+	fprintf(stderr, "Notified kernel for being a listener...\n");
 
 	// Wait for the answer and receive it
 	do {
+		fprintf(stderr, "Waiting for message...\n");
 		ret = nl_recvmsgs_default(sock);
 
 		/* we have to consume the todo list */
@@ -140,12 +162,14 @@ int ret;
 	} while (ret == 0);
 	fprintf(stderr, "received: %d\n", ret);
 
+	return 0;
 }
 
-static int _notify_listening(struct nl_sock * sock)
+static int _notify_listening(int family, struct nl_handle * sock)
 {
 struct nl_msg *msg;
-int family, ret;
+void * hdr;
+int ret;
 
 	// Construct a generic netlink by allocating a new message, fill in
 	// the header and append a simple integer attribute.
@@ -155,8 +179,13 @@ int family, ret;
 		return ERR_MEM;
 	}
 
-	genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, family, 0, NLM_F_REQUEST,
+	hdr = genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, family, 0, NLM_F_REQUEST,
 	 CMD_LISTENING, NCR_NL_STORAGE_VERSION);
+	 
+	if (hdr == NULL) {
+		err();
+		return ERR_SEND;
+	}
 
 	// Send message over netlink socket
 	ret = nl_send_auto_complete(sock, msg);
@@ -171,10 +200,10 @@ int family, ret;
 }
 
 
-static int send_store_ack(struct nl_sock * sock, uint8_t val)
+static int send_store_ack(int family, struct nl_handle * sock, uint8_t val)
 {
 struct nl_msg *msg;
-int family, ret;
+int ret;
 
 	// Construct a generic netlink by allocating a new message, fill in
 	// the header and append a simple integer attribute.
@@ -187,7 +216,7 @@ int family, ret;
 	genlmsg_put(msg, NL_AUTO_PID, NL_AUTO_SEQ, family, 0, NLM_F_REQUEST,
 	 CMD_STORE_ACK, NCR_NL_STORAGE_VERSION);
 
-	ret = nla_put_u8(msg, ATTR_STORE_ACK, val);
+	ret = nla_put_u8(msg, ATTR_STORE_U8, val);
 	if (ret < 0) {
 		err();
 		ret = ERR_SEND;
