@@ -116,10 +116,7 @@ struct ncr_key_generate_st {
 /* used in derivation/encryption
  */
 struct ncr_key_params_st {
-	ncr_key_t oldkey;
-	ncr_key_t newkey;
-
-	unsigned int keyflags; /* for new key */
+	ncr_key_t key;
 
 	union {
 		struct {
@@ -131,6 +128,13 @@ struct ncr_key_params_st {
 			size_t peer_public_size;
 		} dh;
 	} params;
+};
+
+struct ncr_key_derivation_params_st {
+	ncr_key_t newkey;
+	unsigned int keyflags; /* for new key */
+	
+	struct ncr_key_params_st key;
 };
 
 #define MAX_KEY_ID_SIZE 20
@@ -239,7 +243,7 @@ struct ncr_private_key_params_st
 /* generate a public key pair */
 #define NCRIO_KEY_GENERATE_PAIR _IOR ('c', 206, struct ncr_key_generate_st)
 /* derive a new key from an old one */
-#define NCRIO_KEY_DERIVE        _IOR ('c', 207, struct ncr_key_params_st)
+#define NCRIO_KEY_DERIVE        _IOR ('c', 207, struct ncr_key_derivation_params_st)
 /* return information on a key */
 #define NCRIO_KEY_GET_INFO      _IOWR('c', 208, struct ncr_key_info_st)
 /* export a secret key */
@@ -254,68 +258,17 @@ struct ncr_private_key_params_st
 
 #define NCRIO_KEY_DEINIT       _IOR ('c', 215, ncr_key_t)
 
-
-/* Storage ioctls
- */
-#define MAX_LABEL_SIZE 128
-
-struct ncr_storage_st {
-	ncr_key_t key;
-	char label[MAX_LABEL_SIZE]; /* or template */
-	mode_t mode;
-};
-
-struct ncr_storage_metadata_st {
-	char label[MAX_LABEL_SIZE];
-	uid_t uid;
-	gid_t gid;
-	mode_t mode;
-
-	ncr_algorithm_t algorithm;
-	ncr_key_type_t type;
-
-	uint8_t key_id[MAX_KEY_ID_SIZE];
-	size_t key_id_size;
-};
-
-struct ncr_storage_chown_st {
-	char label[MAX_LABEL_SIZE];
-	uid_t uid;
-	gid_t gid;
-};
-
-struct ncr_storage_chmod_st {
-	char label[MAX_LABEL_SIZE];
-	mode_t mode;
-};
-
-struct ncr_storage_remove_st {
-	char label[MAX_LABEL_SIZE];
-};
-
-
-#define NCRIO_STORAGE_STORE			_IOW ('c', 230, struct ncr_storage_st)
-#define NCRIO_STORAGE_MKSTEMP     	_IOR ('c', 231, struct ncr_storage_st)
-#define NCRIO_STORAGE_LOAD			_IOR ('c', 232, struct ncr_storage_st)
-#define NCRIO_STORAGE_CHMOD        _IOR ('c', 233, struct ncr_storage_chmod_st)
-#define NCRIO_STORAGE_CHOWN        _IOR ('c', 234, struct ncr_storage_chown_st)
-#define NCRIO_STORAGE_REMOVE      _IOR('c', 235, struct ncr_storage_remove_st)
-#define NCRIO_STORAGE_LOAD_METADATA			_IOWR ('c', 236, struct ncr_storage_metadata_st)
-
-struct ncr_storage_traverse_st {
-	int traverse_id;
-	struct ncr_storage_metadata_st metadata;
-};
-
-
-#define NCRIO_STORAGE_TRAVERSE_INIT     	_IOW('c', 237, int)
-#define NCRIO_STORAGE_TRAVERSE_NEXT     	_IOWR('c', 238, struct ncr_storage_traverse_st)
-#define NCRIO_STORAGE_TRAVERSE_DEINIT     	_IOWR('c', 239, int)
-
-
 /* FIXME key wrap ioctls
  */
+struct ncr_key_wrap_st {
+	ncr_algorithm_t algorithm;
+	ncr_key_t keytowrap;
+	struct ncr_key_params_st key;
+	ncr_data_t data; /* encrypted keytowrap */
+};
 
+#define NCRIO_KEY_WRAP        _IOR ('c', 250, struct ncr_key_wrap_st)
+#define NCRIO_KEY_UNWRAP        _IOR ('c', 251, struct ncr_key_wrap_st)
 
 /* Crypto Operations ioctls
  */
@@ -337,7 +290,6 @@ struct ncr_session_st {
 	/* input */
 	ncr_algorithm_t algorithm;
 	struct ncr_key_params_st params;
-	ncr_key_t key;
 	ncr_crypto_op_t op;
 
 	/* output */

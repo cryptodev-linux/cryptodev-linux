@@ -105,6 +105,5 @@ void ncr_limits_deinit(void);
 
 ncr_key_type_t ncr_algorithm_to_key_type(ncr_algorithm_t algo);
 
-#include "ncr-storage.h"
 
 #endif
