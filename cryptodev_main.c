@@ -198,7 +198,17 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 
 	/* Set-up crypto transform. */
 	if (alg_name) {
-		ret = cryptodev_cipher_init(&ses_new->cdata, alg_name, sop->key, sop->keylen);
+		uint8_t keyp[CRYPTO_CIPHER_MAX_KEY_LEN];
+
+		if (unlikely(sop->keylen > CRYPTO_CIPHER_MAX_KEY_LEN)) {
+			dprintk(1,KERN_DEBUG,"Setting key failed for %s-%zu.\n",
+				alg_name, sop->keylen*8);
+			ret = -EINVAL;
+			goto error;
+		}
+		copy_from_user(keyp, sop->key, sop->keylen);
+
+		ret = cryptodev_cipher_init(&ses_new->cdata, alg_name, keyp, sop->keylen);
 		if (ret < 0) {
 			dprintk(1,KERN_DEBUG,"%s: Failed to load cipher for %s\n", __func__,
 				   alg_name);
@@ -208,7 +218,17 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 	}
 
 	if (hash_name) {
-		ret = cryptodev_hash_init(&ses_new->hdata, hash_name, hmac_mode, sop->mackey, sop->mackeylen);
+		uint8_t keyp[CRYPTO_HMAC_MAX_KEY_LEN];
+
+		if (unlikely(sop->mackeylen > CRYPTO_HMAC_MAX_KEY_LEN)) {
+			dprintk(1,KERN_DEBUG,"Setting key failed for %s-%zu.\n",
+				alg_name, sop->mackeylen*8);
+			ret = -EINVAL;
+			goto error;
+		}
+		copy_from_user(keyp, sop->mackey, sop->mackeylen);
+
+		ret = cryptodev_hash_init(&ses_new->hdata, hash_name, hmac_mode, keyp, sop->mackeylen);
 		if (ret != 0) {
 			dprintk(1,KERN_DEBUG,"%s: Failed to load hash for %s\n", __func__,
 				   hash_name);

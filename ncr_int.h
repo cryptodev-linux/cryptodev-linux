@@ -3,8 +3,18 @@
 
 #include "ncr.h"
 #include <asm/atomic.h>
+#include "cryptodev_int.h"
 
 #define err() printk(KERN_DEBUG"ncr: %s: %s: %d\n", __FILE__, __func__, __LINE__)
+
+struct session_item_st {
+	struct list_head list;
+
+	struct cipher_data ctx;
+
+	atomic_t refcnt;
+	ncr_session_t desc;
+};
 
 struct data_item_st {
 	struct list_head list;
@@ -12,6 +22,7 @@ struct data_item_st {
 	 * I see no reason to allow concurrent writes (reads are
 	 * not an issue).
 	 */
+
 	uint8_t* data;
 	size_t data_size;
 	size_t max_data_size;
@@ -60,6 +71,7 @@ struct ncr_lists {
 	struct list_sem_st key;
 
 	/* sessions */
+	struct list_sem_st sessions;
 };
 
 void* ncr_init_lists(void);
@@ -105,5 +117,35 @@ void ncr_limits_deinit(void);
 
 ncr_key_type_t ncr_algorithm_to_key_type(ncr_algorithm_t algo);
 
+int ncr_key_wrap(struct list_sem_st* keys, struct list_sem_st* data, struct list_sem_st* sess_lst, void __user* arg);
+int ncr_key_unwrap(struct list_sem_st*, struct list_sem_st* data, struct list_sem_st* sess_lst, void __user* arg);
+
+/* sessions */
+struct session_item_st* ncr_session_new(struct list_sem_st* lst);
+void _ncr_sessions_item_put( struct session_item_st* item);
+struct session_item_st* ncr_sessions_item_get( struct list_sem_st* lst, ncr_session_t desc);
+void ncr_sessions_list_deinit(struct list_sem_st* lst);
+void ncr_session_deinit(struct list_sem_st* lst, ncr_session_t desc);
+
+/* misc helper macros */
+inline static unsigned int key_flags_to_data(unsigned int key_flags)
+{
+	unsigned int flags = 0;
+
+	if (key_flags & NCR_KEY_FLAG_EXPORTABLE)
+		flags |= NCR_DATA_FLAG_EXPORTABLE;
+
+	return flags;
+}
+
+inline static unsigned int data_flags_to_key(unsigned int data_flags)
+{
+	unsigned int flags = 0;
+
+	if (data_flags & NCR_DATA_FLAG_EXPORTABLE)
+		flags |= NCR_KEY_FLAG_EXPORTABLE;
+
+	return flags;
+}
 
 #endif

@@ -48,6 +48,9 @@ void* ncr_init_lists(void)
 	init_MUTEX(&lst->key.sem);
 	INIT_LIST_HEAD(&lst->key.list);
 
+	init_MUTEX(&lst->sessions.sem);
+	INIT_LIST_HEAD(&lst->sessions.list);
+
 	return lst;
 }
 
@@ -56,6 +59,7 @@ void ncr_deinit_lists(struct ncr_lists *lst)
 	if(lst) {
 		ncr_data_list_deinit(&lst->data);
 		ncr_key_list_deinit(&lst->key);
+		ncr_sessions_list_deinit(&lst->sessions);
 		kfree(lst);
 	}
 }
@@ -90,6 +94,10 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 			return ncr_key_import(&lst->data, &lst->key, (void*)arg);
 		case NCRIO_KEY_GET_INFO:
 			return ncr_key_info(&lst->key, (void*)arg);
+		case NCRIO_KEY_WRAP:
+			return ncr_key_wrap(&lst->key, &lst->data, &lst->sessions, (void*)arg);
+		case NCRIO_KEY_UNWRAP:
+			return ncr_key_unwrap(&lst->key, &lst->data, &lst->sessions, (void*)arg);
 #if 0
 		case NCRIO_KEY_GENERATE_PAIR:
 			return ncr_key_generate_pair(&lst->key, (void*)arg);

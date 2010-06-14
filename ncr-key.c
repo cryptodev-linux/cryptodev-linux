@@ -183,10 +183,7 @@ int ret;
 			}
 
 			/* found */
-			ditem->flags = 0;
-			if ((item->flags & NCR_KEY_FLAG_EXPORTABLE)) {
-				ditem->flags |= NCR_DATA_FLAG_EXPORTABLE;
-			}
+			ditem->flags = key_flags_to_data(item->flags);
 
 			if (item->key.secret.size > 0) {
 				memcpy(ditem->data, item->key.secret.data, item->key.secret.size);

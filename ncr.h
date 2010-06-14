@@ -11,6 +11,8 @@ typedef enum {
 	NCR_ALG_CAMELLIA_CBC,
 	NCR_ALG_ARCFOUR,
 
+	NCR_ALG_AES_ECB,
+
 	NCR_ALG_SHA1=40,
 	NCR_ALG_MD5,
 	NCR_ALG_SHA2_224,
@@ -29,6 +31,9 @@ typedef enum {
 	NCR_ALG_DSA,
 } ncr_algorithm_t;
 
+typedef enum {
+	NCR_WALG_AES_RFC3394,
+} ncr_wrap_algorithm_t;
 
 typedef enum {
 	NCR_KEY_TYPE_INVALID,
@@ -261,7 +266,7 @@ struct ncr_private_key_params_st
 /* FIXME key wrap ioctls
  */
 struct ncr_key_wrap_st {
-	ncr_algorithm_t algorithm;
+	ncr_wrap_algorithm_t algorithm;
 	ncr_key_t keytowrap;
 	struct ncr_key_params_st key;
 	ncr_data_t data; /* encrypted keytowrap */
