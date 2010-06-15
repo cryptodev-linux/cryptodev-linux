@@ -329,5 +329,16 @@ struct ncr_session_op_st {
 	ncr_error_t err;
 };
 
+struct ncr_session_once_op_st {
+	struct ncr_session_st init;
+	struct ncr_session_op_st op;
+};
+
+#define NCRIO_SESSION_INIT        _IOR ('c', 300, struct ncr_session_st)
+#define NCRIO_SESSION_UPDATE        _IOWR ('c', 301, struct ncr_session_op_st)
+#define NCRIO_SESSION_FINAL        _IOR ('c', 302, struct ncr_session_op_st)
+
+/* everything in one call */
+#define NCRIO_SESSION_ONCE        _IOWR ('c', 303, struct ncr_session_once_op_st)
 
 #endif
