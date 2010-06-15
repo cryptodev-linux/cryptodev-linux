@@ -24,6 +24,8 @@
 #include "ncr.h"
 #include "ncr_int.h"
 
+static void _ncr_session_remove(struct list_sem_st* lst, ncr_session_t desc);
+
 void ncr_sessions_list_deinit(struct list_sem_st* lst)
 {
 	if(lst) {
@@ -77,7 +79,7 @@ struct session_item_st* item;
 void _ncr_sessions_item_put( struct session_item_st* item)
 {
 	if (atomic_dec_and_test(&item->refcnt)) {
-			kfree(item);
+		kfree(item);
 	}
 }
 
@@ -178,7 +180,7 @@ int i = 0;
 int ncr_session_init(struct ncr_lists* lists, void __user* arg)
 {
 	struct ncr_session_st session;
-	struct session_item_st* ns;
+	struct session_item_st* ns = NULL;
 	struct key_item_st *key = NULL;
 	int ret;
 	const char* str;
@@ -277,7 +279,7 @@ int ncr_session_init(struct ncr_lists* lists, void __user* arg)
 fail:
 	if (key) _ncr_key_item_put(key);
 	if (ret < 0)
-		_ncr_sessions_item_put(ns);
+		_ncr_session_remove(&lists->sessions, ns->desc);
 
 	return ret;
 }
@@ -328,6 +330,9 @@ int ncr_session_update(struct ncr_lists* lists, void __user* arg)
 				err();
 				goto fail;
 			}
+			/* FIXME: handle ciphers that do not require that */
+			odata->data_size = data->data_size;
+
 			break;
 		case NCR_OP_DECRYPT:
 			/* obtain data item */
@@ -357,6 +362,9 @@ int ncr_session_update(struct ncr_lists* lists, void __user* arg)
 				err();
 				goto fail;
 			}
+			/* FIXME: handle ciphers that do not require that */
+			odata->data_size = data->data_size;
+
 			break;
 
 		case NCR_OP_MAC:
@@ -392,7 +400,7 @@ fail:
 	return ret;
 }
 
-static void _ncr_session_deinit(struct list_sem_st* lst, ncr_session_t desc)
+static void _ncr_session_remove(struct list_sem_st* lst, ncr_session_t desc)
 {
 	struct session_item_st * item, *tmp;
 
@@ -473,7 +481,7 @@ fail:
 	if (odata) _ncr_data_item_put(odata);
 	if (data) _ncr_data_item_put(data);
 	_ncr_sessions_item_put(sess);
-	_ncr_session_deinit(&lists->sessions, op.ses);
+	_ncr_session_remove(&lists->sessions, op.ses);
 
 	return ret;
 }
