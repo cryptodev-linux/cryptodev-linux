@@ -378,30 +378,32 @@ static int test_ncr_data(int cfd)
 	return 0;
 }
 
+/* Key wrapping */
 static int
-test_ncr_store_key(int cfd)
+test_ncr_wrap_key(int cfd)
 {
+	int i;
 	struct ncr_data_init_st dinit;
 	struct ncr_key_generate_st kgen;
 	ncr_key_t key, key2;
 	struct ncr_key_data_st keydata;
 	struct ncr_data_st kdata;
+	struct ncr_key_wrap_st kwrap;
 	uint8_t data[KEY_DATA_SIZE];
-	uint8_t data_bak[KEY_DATA_SIZE];
-	struct ncr_storage_st kstore;
 
-	fprintf(stdout, "Tests on Key Storage:\n");
 
-	/* test 1: generate a key in kernel and store it.
-	 * The try to load it.
+	fprintf(stdout, "Tests on Keys:\n");
+
+	/* test 1: generate a key in userspace import it
+	 * to kernel via data and export it.
 	 */
-	fprintf(stdout, "\tKey storage/retrieval...\n");
 
-	/* initialize data */
+	fprintf(stdout, "\tKey Wrap test...\n");
+
 	dinit.max_object_size = KEY_DATA_SIZE;
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
-	dinit.initial_data = NULL;
-	dinit.initial_data_size = 0;
+	dinit.initial_data = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
+	dinit.initial_data_size = 16;
 
 	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -409,89 +411,76 @@ test_ncr_store_key(int cfd)
 		return 1;
 	}
 
+	/* convert it to key */
 	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
 
-	if (ioctl(cfd, NCRIO_KEY_INIT, &key2)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_INIT)");
-		return 1;
-	}
-
-	kgen.desc = key;
-	kgen.params.algorithm = NCR_ALG_AES_CBC;
-	kgen.params.keyflags = NCR_KEY_FLAG_EXPORTABLE;
-	kgen.params.params.secret.bits = 128; /* 16  bytes */
+	keydata.key_id[0] = 'a';
+	keydata.key_id[2] = 'b';
+	keydata.key_id_size = 2;
+	keydata.type = NCR_KEY_TYPE_SECRET;
+	keydata.algorithm = NCR_ALG_AES_CBC;
+	keydata.flags = NCR_KEY_FLAG_EXPORTABLE;
 	
-	if (ioctl(cfd, NCRIO_KEY_GENERATE, &kgen)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_IMPORT)");
-		return 1;
-	}
-
-
-	memset(&keydata, 0, sizeof(keydata));
 	keydata.key = key;
 	keydata.data = dinit.desc;
 
-	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+	if (ioctl(cfd, NCRIO_KEY_IMPORT, &keydata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_IMPORT)");
 		return 1;
 	}
 
-	/* now read data */
-	memset(data, 0, sizeof(data));
-
+#define DKEY "\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF"
+	/* now key data */
+	kdata.data = DKEY;
+	kdata.data_size = 16;
 	kdata.desc = dinit.desc;
-	kdata.data = data_bak;
-	kdata.data_size = sizeof(data_bak);
 	kdata.append_flag = 0;
 
-	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
+	if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_DATA_GET)");
-		return 1;
-	}
-	
-	/* ok now key stands in data[]. Store it. */
-	
-	kstore.key = key;
-	strcpy(kstore.label, "testkey");
-	kstore.mode = S_IRWXU;
-
-	if (ioctl(cfd, NCRIO_STORAGE_STORE, &kstore)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_STORAGE_STORE)");
+		perror("ioctl(NCRIO_DATA_INIT)");
 		return 1;
 	}
 
-	kstore.key = key2;
-
-	if (ioctl(cfd, NCRIO_STORAGE_LOAD, &kstore)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_STORAGE_LOAD)");
+	/* convert it to key */
+	if (ioctl(cfd, NCRIO_KEY_INIT, &key2)) {
+		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
-	
-	/* export it */
-	memset(&keydata, 0, sizeof(keydata));
-	keydata.key = key2;
-	keydata.data = dinit.desc;
 
-	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+	keydata.key_id[0] = 'b';
+	keydata.key_id[2] = 'a';
+	keydata.key_id_size = 2;
+	keydata.type = NCR_KEY_TYPE_SECRET;
+	keydata.algorithm = NCR_ALG_AES_CBC;
+	keydata.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
+	
+	keydata.key = key;
+	keydata.data = kdata.desc;
+
+	if (ioctl(cfd, NCRIO_KEY_IMPORT, &keydata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_IMPORT)");
 		return 1;
 	}
 
-	/* now read data */
-	memset(data, 0, sizeof(data));
+	/* now try wrapping key2 using key */
+	memset(&kwrap, 0, sizeof(kwrap));
+	kwrap.algorithm = NCR_WALG_AES_RFC3394;
+	kwrap.keytowrap = key2;
+	kwrap.key.key = key;
+	kwrap.data = kdata.desc;
 
-	kdata.desc = dinit.desc;
+	if (ioctl(cfd, NCRIO_KEY_WRAP, &kwrap)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_WRAP)");
+		return 1;
+	}
+
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
 	kdata.append_flag = 0;
@@ -501,33 +490,72 @@ test_ncr_store_key(int cfd)
 		perror("ioctl(NCRIO_DATA_GET)");
 		return 1;
 	}
-	
-	if (memcmp(data, data_bak, kdata.data_size)!=0) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		fprintf(stderr, "Loaded data do not match stored\n");
-		return 1;
-	}
-	
-	if (ioctl(cfd, NCRIO_KEY_DEINIT, &key)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_DEINIT)");
-		return 1;
+
+	if (kdata.data_size != 24 || memcmp(kdata.data,
+		"\x1F\xA6\x8B\x0A\x81\x12\xB4\x47\xAE\xF3\x4B\xD8\xFB\x5A\x7B\x82\x9D\x3E\x86\x23\x71\xD2\xCF\xE5", 24) != 0) {
+		fprintf(stderr, "Wrapped data do not match.\n");
 	}
 
+
+fprintf(stderr, "Data[%d]: ", kdata.data_size);
+for(i=0;i<kdata.data_size;i++)
+  fprintf(stderr, "%.2x:", data[i]);
+fprintf(stderr, "\n");
+
+
+	/* test unwrapping */
+	fprintf(stdout, "\tKey Unwrap test...\n");
+
+	/* reset key2 */
 	if (ioctl(cfd, NCRIO_KEY_DEINIT, &key2)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_DEINIT)");
 		return 1;
 	}
 
-	if (ioctl(cfd, NCRIO_DATA_DEINIT, &dinit.desc)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_DATA_DEINIT)");
+	if (ioctl(cfd, NCRIO_KEY_INIT, &key2)) {
+		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
-	
 
-	return 0;
+	memset(&kwrap, 0, sizeof(kwrap));
+	kwrap.algorithm = NCR_WALG_AES_RFC3394;
+	kwrap.keytowrap = key2;
+	kwrap.key.key = key;
+	kwrap.data = kdata.desc;
+
+	if (ioctl(cfd, NCRIO_KEY_UNWRAP, &kwrap)) {
+		perror("ioctl(NCRIO_KEY_UNWRAP)");
+		return 1;
+	}
+
+	/* now export the unwrapped */
+	memset(&keydata, 0, sizeof(keydata));
+	keydata.key = key2;
+	keydata.data = kdata.desc;
+
+	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_IMPORT)");
+		return 1;
+	}
+
+	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_DATA_GET)");
+		return 1;
+	}
+
+	if (kdata.data_size != 16 || memcmp(kdata.data, DKEY, 16) != 0) {
+		fprintf(stderr, "Unwrapped data do not match.\n");
+	}
+
+
+fprintf(stderr, "Data[%d]: ", kdata.data_size);
+for(i=0;i<kdata.data_size;i++)
+  fprintf(stderr, "%.2x:", data[i]);
+fprintf(stderr, "\n");
+
+
 }
 
 int
@@ -564,7 +592,7 @@ main()
 	if (test_ncr_key(fd))
 		return 1;
 
-	if (test_ncr_store_key(fd))
+	if (test_ncr_wrap_key(fd))
 		return 1;
 
 	/* Close the original descriptor */
