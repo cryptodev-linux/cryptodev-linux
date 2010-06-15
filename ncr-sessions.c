@@ -271,6 +271,9 @@ int ncr_session_init(struct ncr_lists* lists, void __user* arg)
 
 	ret = 0;
 
+	session.ses = ns->desc;
+	copy_to_user( arg, &session, sizeof(session));
+
 fail:
 	if (key) _ncr_key_item_put(key);
 	if (ret < 0)
@@ -478,6 +481,7 @@ fail:
 int ncr_session_once(struct ncr_lists* lists, void __user* arg)
 {
 	struct __user ncr_session_once_op_st* op = arg;
+	struct ncr_session_once_op_st kop;
 	int ret;
 
 	ret = ncr_session_init(lists, &op->init);
@@ -485,6 +489,10 @@ int ncr_session_once(struct ncr_lists* lists, void __user* arg)
 		err();
 		return ret;
 	}
+
+	copy_from_user(&kop, arg, sizeof(kop));
+	kop.op.ses = kop.init.ses;
+	copy_to_user(arg, &kop, sizeof(kop));
 
 	ret = ncr_session_final(lists, &op->op);
 	if (ret < 0) {
