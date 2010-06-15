@@ -179,7 +179,7 @@ struct scatterlist sg, sg2;
 	sg_init_one(&sg, ciphertext, ciphertext_size);
 	sg_init_one(&sg2, plaintext, plaintext_size);
 
-	return cryptodev_cipher_encrypt( cdata, &sg, &sg2, ciphertext_size);
+	return cryptodev_cipher_decrypt( cdata, &sg, &sg2, ciphertext_size);
 }
 
 
