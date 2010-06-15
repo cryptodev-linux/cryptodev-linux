@@ -89,7 +89,7 @@ struct cipher_data ctx;
 
 
 	{
-		val64_t R[n+1];
+		val64_t R[n];
 
 		/* R = P */
 		for (i=0;i<n;i++) {
@@ -109,13 +109,13 @@ struct cipher_data ctx;
 			val64_xor(&A, i+1); /* A ^= t */
 
 			for (j=0;j<n-1;j++)
-				memcpy(R[i], R[i+1], sizeof(R[i]));
+				memcpy(R[j], R[j+1], sizeof(R[j]));
 			memcpy(R[n-1], &aes_block[8], 8); /* R[n-1] = LSB64(AES(A^{t-1}|R_{1}^{t-1})) */
 		}
 
 		memcpy(output->data, A, sizeof(A));
-		for (j=1;j<n;j++)
-			memcpy(&output->data[j*8], R[j], 8);
+		for (j=0;j<n;j++)
+			memcpy(&output->data[(j+1)*8], R[j], 8);
 		output->data_size = (n+1)*8;
 	}
 
@@ -248,7 +248,9 @@ int ret;
 	switch(wrap.algorithm) {
 		case NCR_WALG_AES_RFC3394:
 			ret = wrap_aes(wkey, key, data);
+			break;
 		default:
+			err();
 			ret = -EINVAL;
 	}
 
@@ -295,7 +297,9 @@ int ret;
 	switch(wrap.algorithm) {
 		case NCR_WALG_AES_RFC3394:
 			ret = unwrap_aes(wkey, key, data);
+			break;
 		default:
+			err();
 			ret = -EINVAL;
 	}
 

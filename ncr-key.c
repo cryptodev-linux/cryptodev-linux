@@ -243,8 +243,8 @@ int ret;
 	item->flags = data.flags;
 	/* if data cannot be exported then the flags above
 	 * should be overriden */
-	if ((ditem->flags & NCR_DATA_FLAG_EXPORTABLE)) {
-		item->flags |= NCR_KEY_FLAG_EXPORTABLE;
+	if (!(ditem->flags & NCR_DATA_FLAG_EXPORTABLE)) {
+		item->flags &= ~NCR_KEY_FLAG_EXPORTABLE;
 	}
 
 	switch(item->type) {

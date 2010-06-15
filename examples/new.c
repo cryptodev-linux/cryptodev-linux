@@ -28,6 +28,7 @@ int i;
 }
 
 #define KEY_DATA_SIZE 16
+#define WRAPPED_KEY_DATA_SIZE 32
 static int
 test_ncr_key(int cfd)
 {
@@ -389,7 +390,7 @@ test_ncr_wrap_key(int cfd)
 	struct ncr_key_data_st keydata;
 	struct ncr_data_st kdata;
 	struct ncr_key_wrap_st kwrap;
-	uint8_t data[KEY_DATA_SIZE];
+	uint8_t data[WRAPPED_KEY_DATA_SIZE];
 
 
 	fprintf(stdout, "Tests on Keys:\n");
@@ -400,7 +401,7 @@ test_ncr_wrap_key(int cfd)
 
 	fprintf(stdout, "\tKey Wrap test...\n");
 
-	dinit.max_object_size = KEY_DATA_SIZE;
+	dinit.max_object_size = WRAPPED_KEY_DATA_SIZE;
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
 	dinit.initial_data = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
 	dinit.initial_data_size = 16;
@@ -422,7 +423,7 @@ test_ncr_wrap_key(int cfd)
 	keydata.key_id_size = 2;
 	keydata.type = NCR_KEY_TYPE_SECRET;
 	keydata.algorithm = NCR_ALG_AES_CBC;
-	keydata.flags = NCR_KEY_FLAG_EXPORTABLE;
+	keydata.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
 	
 	keydata.key = key;
 	keydata.data = dinit.desc;
@@ -459,7 +460,7 @@ test_ncr_wrap_key(int cfd)
 	keydata.algorithm = NCR_ALG_AES_CBC;
 	keydata.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
 	
-	keydata.key = key;
+	keydata.key = key2;
 	keydata.data = kdata.desc;
 
 	if (ioctl(cfd, NCRIO_KEY_IMPORT, &keydata)) {
@@ -494,13 +495,15 @@ test_ncr_wrap_key(int cfd)
 	if (kdata.data_size != 24 || memcmp(kdata.data,
 		"\x1F\xA6\x8B\x0A\x81\x12\xB4\x47\xAE\xF3\x4B\xD8\xFB\x5A\x7B\x82\x9D\x3E\x86\x23\x71\xD2\xCF\xE5", 24) != 0) {
 		fprintf(stderr, "Wrapped data do not match.\n");
+
+		fprintf(stderr, "Data[%d]: ",(int) kdata.data_size);
+		for(i=0;i<kdata.data_size;i++)
+			fprintf(stderr, "%.2x:", data[i]);
+		fprintf(stderr, "\n");
+		return 1;
 	}
 
 
-fprintf(stderr, "Data[%d]: ", kdata.data_size);
-for(i=0;i<kdata.data_size;i++)
-  fprintf(stderr, "%.2x:", data[i]);
-fprintf(stderr, "\n");
 
 
 	/* test unwrapping */
@@ -547,13 +550,14 @@ fprintf(stderr, "\n");
 
 	if (kdata.data_size != 16 || memcmp(kdata.data, DKEY, 16) != 0) {
 		fprintf(stderr, "Unwrapped data do not match.\n");
+		fprintf(stderr, "Data[%d]: ", (int) kdata.data_size);
+		for(i=0;i<kdata.data_size;i++)
+			fprintf(stderr, "%.2x:", data[i]);
+		fprintf(stderr, "\n");
+		return 1;
 	}
 
 
-fprintf(stderr, "Data[%d]: ", kdata.data_size);
-for(i=0;i<kdata.data_size;i++)
-  fprintf(stderr, "%.2x:", data[i]);
-fprintf(stderr, "\n");
 
 
 }
@@ -703,7 +707,7 @@ test_ncr_aes(int cfd)
 		if (kdata.data_size != 16 || memcmp(kdata.data, aes_vectors[i].ciphertext, 16) != 0) {
 			fprintf(stderr, "AES test vector %d failed!\n", i);
 
-			fprintf(stderr, "Cipher[%d]: ", kdata.data_size);
+			fprintf(stderr, "Cipher[%d]: ", (int)kdata.data_size);
 			for(j=0;j<kdata.data_size;j++)
 			  fprintf(stderr, "%.2x:", (int)data[j]);
 			fprintf(stderr, "\n");
@@ -712,7 +716,7 @@ test_ncr_aes(int cfd)
 			for(j=0;j<16;j++)
 			  fprintf(stderr, "%.2x:", (int)aes_vectors[i].ciphertext[j]);
 			fprintf(stderr, "\n");
-//			return 1;
+			return 1;
 		}
 	}
 
@@ -734,6 +738,7 @@ main()
 		perror("open(/dev/crypto)");
 		return 1;
 	}
+#if 0
 
 	/* Run the test itself */
 	if (test_ncr_data(fd))
@@ -753,15 +758,14 @@ main()
 		perror("open(/dev/crypto)");
 		return 1;
 	}
-
 	if (test_ncr_key(fd))
 		return 1;
 
 	if (test_ncr_aes(fd))
 		return 1;
-
-//	if (test_ncr_wrap_key(fd))
-//		return 1;
+#endif
+	if (test_ncr_wrap_key(fd))
+		return 1;
 
 	/* Close the original descriptor */
 	if (close(fd)) {
