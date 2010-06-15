@@ -50,7 +50,7 @@ void ncr_data_list_deinit(struct list_sem_st* lst)
 static ncr_data_t _ncr_data_get_new_desc( struct list_sem_st* lst)
 {
 struct data_item_st* item;
-int mx = 0;
+int mx = 1;
 
 	list_for_each_entry(item, &lst->list, list) {
 		mx = max(mx, item->desc);

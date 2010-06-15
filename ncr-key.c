@@ -49,7 +49,7 @@ void ncr_key_list_deinit(struct list_sem_st* lst)
 static ncr_key_t _ncr_key_get_new_desc( struct list_sem_st* lst)
 {
 struct key_item_st* item;
-int mx = 0;
+int mx = 1;
 
 	list_for_each_entry(item, &lst->list, list) {
 		mx = max(mx, item->desc);
