@@ -532,6 +532,11 @@ test_ncr_wrap_key(int cfd)
 	}
 
 	/* now export the unwrapped */
+#if 0
+	/* this cannot be performed like that, because unwrap
+	 * always sets keys as unexportable. Maybe we can implement
+	 * a data comparison ioctl().
+	 */
 	memset(&keydata, 0, sizeof(keydata));
 	keydata.key = key2;
 	keydata.data = kdata.desc;
@@ -556,7 +561,7 @@ test_ncr_wrap_key(int cfd)
 		fprintf(stderr, "\n");
 		return 1;
 	}
-
+#endif
 
 
 
@@ -642,10 +647,8 @@ test_ncr_aes(int cfd)
 	keydata.algorithm = NCR_ALG_AES_CBC;
 	keydata.flags = NCR_KEY_FLAG_EXPORTABLE;
 	
-	keydata.key = key;
-	keydata.data = dd;
 
-	fprintf(stdout, "Tests on AES\n");
+	fprintf(stdout, "Tests on AES Encryption\n");
 	for (i=0;i<sizeof(aes_vectors)/sizeof(aes_vectors[0]);i++) {
 
 		/* import key */
@@ -660,6 +663,8 @@ test_ncr_aes(int cfd)
 			return 1;
 		}
 
+		keydata.key = key;
+		keydata.data = dd;
 		if (ioctl(cfd, NCRIO_KEY_IMPORT, &keydata)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 			perror("ioctl(NCRIO_KEY_IMPORT)");
@@ -720,6 +725,84 @@ test_ncr_aes(int cfd)
 		}
 	}
 
+	fprintf(stdout, "Tests on AES Decryption\n");
+	for (i=0;i<sizeof(aes_vectors)/sizeof(aes_vectors[0]);i++) {
+
+		/* import key */
+		kdata.data = (void*)aes_vectors[i].key;
+		kdata.data_size = 16;
+		kdata.desc = dd;
+		kdata.append_flag = 0;
+
+		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_DATA_INIT)");
+			return 1;
+		}
+
+		keydata.key = key;
+		keydata.data = dd;
+		if (ioctl(cfd, NCRIO_KEY_IMPORT, &keydata)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_IMPORT)");
+			return 1;
+		}
+
+		/* import ciphertext */
+
+		kdata.data = (void*)aes_vectors[i].ciphertext;
+		kdata.data_size = 16;
+		kdata.desc = dd;
+		kdata.append_flag = 0;
+
+		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_DATA_INIT)");
+			return 1;
+		}
+
+		/* decrypt */
+		memset(&nop, 0, sizeof(nop));
+		nop.init.algorithm = NCR_ALG_AES_ECB;
+		nop.init.params.key = key;
+		nop.init.op = NCR_OP_DECRYPT;
+		nop.op.data.cipher.ciphertext = dd;
+		nop.op.data.cipher.plaintext = dd2;
+
+		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_SESSION_ONCE)");
+			return 1;
+		}
+
+		/* verify */
+		kdata.desc = dd2;
+		kdata.data = data;
+		kdata.data_size = sizeof(data);
+		kdata.append_flag = 0;
+
+		if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_DATA_GET)");
+			return 1;
+		}
+
+		if (kdata.data_size != 16 || memcmp(kdata.data, aes_vectors[i].plaintext, 16) != 0) {
+			fprintf(stderr, "AES test vector %d failed!\n", i);
+
+			fprintf(stderr, "Plain[%d]: ", (int)kdata.data_size);
+			for(j=0;j<kdata.data_size;j++)
+			  fprintf(stderr, "%.2x:", (int)data[j]);
+			fprintf(stderr, "\n");
+
+			fprintf(stderr, "Expected[%d]: ", 16);
+			for(j=0;j<16;j++)
+			  fprintf(stderr, "%.2x:", (int)aes_vectors[i].plaintext[j]);
+			fprintf(stderr, "\n");
+//			return 1;
+		}
+	}
+
 
 	fprintf(stdout, "\n");
 
@@ -738,7 +821,6 @@ main()
 		perror("open(/dev/crypto)");
 		return 1;
 	}
-#if 0
 
 	/* Run the test itself */
 	if (test_ncr_data(fd))
@@ -763,7 +845,7 @@ main()
 
 	if (test_ncr_aes(fd))
 		return 1;
-#endif
+
 	if (test_ncr_wrap_key(fd))
 		return 1;
 

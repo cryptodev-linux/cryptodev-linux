@@ -50,7 +50,7 @@ void val64_xor( val64_t * val, uint32_t x)
 /* Wraps using the RFC3394 way.
  */
 static int wrap_aes(struct key_item_st* tobewrapped, struct key_item_st *kek,
-	struct data_item_st* output)
+	struct data_item_st* output, const void* iv, size_t iv_size)
 {
 size_t key_size, n;
 uint8_t *raw_key;
@@ -62,6 +62,11 @@ struct cipher_data ctx;
 	if (tobewrapped->type != NCR_KEY_TYPE_SECRET) {
 		err();
 		return -EINVAL;
+	}
+	
+	if (iv_size < sizeof(initA)) {
+		iv_size = sizeof(initA);
+		iv = initA;
 	}
 
 	ret = cryptodev_cipher_init(&ctx, "ecb(aes)", kek->key.secret.data, kek->key.secret.size);
@@ -96,7 +101,7 @@ struct cipher_data ctx;
 			memcpy(R[i], &raw_key[i*8], 8);
 		}
 
-		memcpy(A, initA, sizeof(initA));
+		memcpy(A, iv, 8);
 
 		for (i=0;i<6*n;i++) {
 			memcpy(aes_block, A, 8);
@@ -128,15 +133,33 @@ cleanup:
 	return ret;
 }
 
-static int unwrap_aes(struct key_item_st* output, struct key_item_st *kek,
-	struct data_item_st* wrapped)
+#if 0
+/* for debugging */
+void print_val64(char* str, val64_t val)
 {
-size_t key_size, n;
-uint8_t *raw_key;
+	int i;
+	printk("%s: ",str);
+	for (i=0;i<8;i++)
+	  printk("%.2x", val[i]);
+	printk("\n");
+	
+}
+#endif
+
+static int unwrap_aes(struct key_item_st* output, struct key_item_st *kek,
+	struct data_item_st* wrapped, const void* iv, size_t iv_size)
+{
+size_t wrapped_key_size, n;
+uint8_t *wrapped_key;
 val64_t A;
 int i, j, ret;
 uint8_t aes_block[16];
 struct cipher_data ctx;
+
+	if (iv_size < sizeof(initA)) {
+		iv_size = sizeof(initA);
+		iv = initA;
+	}
 
 	ret = cryptodev_cipher_init(&ctx, "ecb(aes)", kek->key.secret.data, kek->key.secret.size);
 	if (ret < 0) {
@@ -146,16 +169,16 @@ struct cipher_data ctx;
 
 	output->type = NCR_KEY_TYPE_SECRET;
 
-	raw_key = wrapped->data;
-	key_size = wrapped->data_size;
+	wrapped_key = wrapped->data;
+	wrapped_key_size = wrapped->data_size;
 
-	if (key_size % 8 != 0) {
+	if (wrapped_key_size % 8 != 0) {
 		err();
 		ret = -EINVAL;
 		goto cleanup;
 	}
 
-	n = key_size/8 - 1;
+	n = wrapped_key_size/8 - 1;
 
 	if (sizeof(output->key.secret.data) < (n-1)*8) {
 		err();
@@ -166,10 +189,10 @@ struct cipher_data ctx;
 	{
 		val64_t R[n];
 
-		memcpy(A, raw_key, 8); /* A = C[0] */
+		memcpy(A, wrapped_key, 8); /* A = C[0] */
 		for (i=0;i<n;i++)
-			memcpy(R[i], &raw_key[(i+1)*8], 8);
-		
+			memcpy(R[i], &wrapped_key[(i+1)*8], 8);
+
 		for (i=(6*n)-1;i>=0;i--) {
 			val64_xor(&A, i+1);
 
@@ -180,22 +203,27 @@ struct cipher_data ctx;
 				aes_block, sizeof(aes_block));
 
 			memcpy(A, aes_block, 8);
-			memcpy(R[0], &aes_block[8], 8);
 
-			for (j=1;j<n;j++)
+			for (j=n-1;j>=1;j--)
 				memcpy(R[j], R[j-1], sizeof(R[j]));
+
+			memcpy(R[0], &aes_block[8], 8);
 		}
 
-		if (memcmp(A, initA, sizeof(initA))!= 0) {
+
+		if (memcmp(A, iv, 8)!= 0) {
 			err();
 			ret = -EINVAL;
 			goto cleanup;
 		}
 
+		memset(&output->key, 0, sizeof(output->key));
 		for (i=0;i<n;i++) {
 			memcpy(&output->key.secret.data[i*8], R[i], sizeof(R[i]));
 		}
 		output->key.secret.size = n*8;
+		output->flags = NCR_KEY_FLAG_WRAPPABLE;
+		output->type = NCR_KEY_TYPE_SECRET;
 
 	}
 
@@ -229,6 +257,7 @@ int ret;
 		return -EPERM;
 	}
 
+	/* FIXME: allow alternative IV */
 	key = ncr_key_item_get( key_lst, wrap.key.key);
 	if (key == NULL) {
 		err();
@@ -247,7 +276,7 @@ int ret;
 
 	switch(wrap.algorithm) {
 		case NCR_WALG_AES_RFC3394:
-			ret = wrap_aes(wkey, key, data);
+			ret = wrap_aes(wkey, key, data, wrap.key.params.cipher.iv, wrap.key.params.cipher.iv_size);
 			break;
 		default:
 			err();
@@ -262,6 +291,9 @@ fail:
 	return ret;
 }
 
+/* Unwraps keys. All keys unwrapped are not accessible by 
+ * userspace.
+ */
 int ncr_key_unwrap(struct list_sem_st* key_lst, struct list_sem_st* data_lst, void __user* arg)
 {
 struct ncr_key_wrap_st wrap;
@@ -296,7 +328,7 @@ int ret;
 
 	switch(wrap.algorithm) {
 		case NCR_WALG_AES_RFC3394:
-			ret = unwrap_aes(wkey, key, data);
+			ret = unwrap_aes(wkey, key, data, wrap.key.params.cipher.iv, wrap.key.params.cipher.iv_size);
 			break;
 		default:
 			err();
