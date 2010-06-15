@@ -558,6 +558,153 @@ fprintf(stderr, "\n");
 
 }
 
+struct aes_vectors_st {
+	const uint8_t* key;
+	const uint8_t* plaintext;
+	const uint8_t* ciphertext;
+} aes_vectors[] = {
+	{
+		.key = "\x80\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+		.plaintext = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+		.ciphertext = "\x4b\xc3\xf8\x83\x45\x0c\x11\x3c\x64\xca\x42\xe1\x11\x2a\x9e\x87",
+	},
+	{
+		.key = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+		.plaintext = "\xf3\x44\x81\xec\x3c\xc6\x27\xba\xcd\x5d\xc3\xfb\x08\xf2\x73\xe6",
+		.ciphertext = "\x03\x36\x76\x3e\x96\x6d\x92\x59\x5a\x56\x7c\xc9\xce\x53\x7f\x5e",
+	},
+	{
+		.key = "\x10\xa5\x88\x69\xd7\x4b\xe5\xa3\x74\xcf\x86\x7c\xfb\x47\x38\x59",
+		.plaintext = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+		.ciphertext = "\x6d\x25\x1e\x69\x44\xb0\x51\xe0\x4e\xaa\x6f\xb4\xdb\xf7\x84\x65",
+	},
+	{
+		.key = "\xca\xea\x65\xcd\xbb\x75\xe9\x16\x9e\xcd\x22\xeb\xe6\xe5\x46\x75",
+		.plaintext = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+		.ciphertext = "\x6e\x29\x20\x11\x90\x15\x2d\xf4\xee\x05\x81\x39\xde\xf6\x10\xbb",
+	},
+	{
+		.key = "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xfe",
+		.plaintext = "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
+		.ciphertext = "\x9b\xa4\xa9\x14\x3f\x4e\x5d\x40\x48\x52\x1c\x4f\x88\x77\xd8\x8e",
+	},
+};
+
+/* Key wrapping */
+static int
+test_ncr_aes(int cfd)
+{
+	struct ncr_data_init_st dinit;
+	struct ncr_key_generate_st kgen;
+	ncr_key_t key;
+	struct ncr_key_data_st keydata;
+	struct ncr_data_st kdata;
+	ncr_data_t dd, dd2;
+	uint8_t data[KEY_DATA_SIZE];
+	int i;
+	struct ncr_session_once_op_st nop;
+
+	dinit.max_object_size = KEY_DATA_SIZE;
+	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
+	dinit.initial_data = NULL;
+	dinit.initial_data_size = 0;
+
+	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_DATA_INIT)");
+		return 1;
+	}
+
+	dd = dinit.desc;
+
+	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_DATA_INIT)");
+		return 1;
+	}
+
+	dd2 = dinit.desc;
+
+	/* convert it to key */
+	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+
+	keydata.key_id[0] = 'a';
+	keydata.key_id[2] = 'b';
+	keydata.key_id_size = 2;
+	keydata.type = NCR_KEY_TYPE_SECRET;
+	keydata.algorithm = NCR_ALG_AES_CBC;
+	keydata.flags = NCR_KEY_FLAG_EXPORTABLE;
+	
+	keydata.key = key;
+	keydata.data = dd;
+
+	fprintf(stdout, "Tests on AES\n");
+	for (i=0;i<sizeof(aes_vectors)/sizeof(aes_vectors[0]);i++) {
+
+		/* import key */
+		kdata.data = (void*)aes_vectors[i].key;
+		kdata.data_size = 16;
+		kdata.desc = dd;
+		kdata.append_flag = 0;
+
+		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_DATA_INIT)");
+			return 1;
+		}
+
+		if (ioctl(cfd, NCRIO_KEY_IMPORT, &keydata)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_IMPORT)");
+			return 1;
+		}
+		/* import data */
+
+		kdata.data = (void*)aes_vectors[i].plaintext;
+		kdata.data_size = 16;
+		kdata.desc = dd;
+		kdata.append_flag = 0;
+
+		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_DATA_INIT)");
+			return 1;
+		}
+
+		/* encrypt */
+		nop.init.algorithm = NCR_ALG_AES_ECB;
+		nop.init.params.key = key;
+		nop.init.op = NCR_OP_ENCRYPT;
+		nop.op.data.cipher.plaintext = dd;
+		nop.op.data.cipher.ciphertext = dd2;
+
+		/* verify */
+		kdata.desc = dd2;
+		kdata.data = data;
+		kdata.data_size = sizeof(data);
+		kdata.append_flag = 0;
+
+		if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_DATA_GET)");
+			return 1;
+		}
+
+		if (memcmp(kdata.data, aes_vectors[i].ciphertext, 16) != 0) {
+			fprintf(stderr, "AES test vector %d failed!\n", i);
+		}
+	}
+
+
+	fprintf(stdout, "\n");
+
+	return 0;
+
+}
+
 int
 main()
 {
@@ -590,6 +737,9 @@ main()
 	}
 
 	if (test_ncr_key(fd))
+		return 1;
+
+	if (test_ncr_aes(fd))
 		return 1;
 
 	if (test_ncr_wrap_key(fd))
