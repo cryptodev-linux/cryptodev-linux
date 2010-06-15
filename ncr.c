@@ -95,9 +95,17 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 		case NCRIO_KEY_GET_INFO:
 			return ncr_key_info(&lst->key, (void*)arg);
 		case NCRIO_KEY_WRAP:
-			return ncr_key_wrap(&lst->key, &lst->data, &lst->sessions, (void*)arg);
+			return ncr_key_wrap(&lst->key, &lst->data, (void*)arg);
 		case NCRIO_KEY_UNWRAP:
-			return ncr_key_unwrap(&lst->key, &lst->data, &lst->sessions, (void*)arg);
+			return ncr_key_unwrap(&lst->key, &lst->data, (void*)arg);
+		case NCRIO_SESSION_INIT:
+			return ncr_session_init(lst, (void*)arg); 
+		case NCRIO_SESSION_UPDATE:
+			return ncr_session_update(lst, (void*)arg); 
+		case NCRIO_SESSION_FINAL:
+			return ncr_session_final(lst, (void*)arg); 
+		case NCRIO_SESSION_ONCE:
+			return ncr_session_once(lst, (void*)arg); 
 #if 0
 		case NCRIO_KEY_GENERATE_PAIR:
 			return ncr_key_generate_pair(&lst->key, (void*)arg);

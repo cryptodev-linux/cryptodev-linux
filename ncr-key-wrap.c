@@ -28,7 +28,7 @@
 #include <linux/scatterlist.h>
 #include "ncr.h"
 #include "ncr_int.h"
-#include "ncr-cipher.h"
+#include "cryptodev_int.h"
 
 typedef uint8_t val64_t[8];
 
@@ -49,8 +49,7 @@ void val64_xor( val64_t * val, uint32_t x)
 
 /* Wraps using the RFC3394 way.
  */
-static int wrap_aes(struct list_sem_st* sess_lst,
-	struct key_item_st* tobewrapped, struct key_item_st *kek,
+static int wrap_aes(struct key_item_st* tobewrapped, struct key_item_st *kek,
 	struct data_item_st* output)
 {
 size_t key_size, n;
@@ -58,18 +57,17 @@ uint8_t *raw_key;
 val64_t A;
 int i, j, ret;
 uint8_t aes_block[16];
-ncr_session_t kd;
-
-	kd = ncr_cipher_init(sess_lst, NCR_ALG_AES_ECB, kek, NULL, 0);
-	if (kd == NCR_SESSION_INVALID) {
-		err();
-		return -ENOMEM;
-	}
+struct cipher_data ctx;
 
 	if (tobewrapped->type != NCR_KEY_TYPE_SECRET) {
 		err();
-		ret = -EINVAL;
-		goto cleanup;
+		return -EINVAL;
+	}
+
+	ret = cryptodev_cipher_init(&ctx, "ecb(aes)", kek->key.secret.data, kek->key.secret.size);
+	if (ret < 0) {
+		err();
+		return ret;
 	}
 
 	raw_key = tobewrapped->key.secret.data;
@@ -104,7 +102,8 @@ ncr_session_t kd;
 			memcpy(aes_block, A, 8);
 			memcpy(&aes_block[8], R[0], 8);
 
-			_ncr_cipher_encrypt(sess_lst, kd, aes_block, sizeof(aes_block));
+			_cryptodev_cipher_encrypt(&ctx, aes_block, sizeof(aes_block),
+				aes_block, sizeof(aes_block));
 
 			memcpy(A, aes_block, 8); /* A = MSB64(AES(A^{t-1}|R_{1}^{t-1})) */
 			val64_xor(&A, i+1); /* A ^= t */
@@ -124,13 +123,12 @@ ncr_session_t kd;
 	ret = 0;
 
 cleanup:
-	ncr_cipher_deinit(sess_lst, kd);
+	cryptodev_cipher_deinit(&ctx);
 
 	return ret;
 }
 
-static int unwrap_aes(struct list_sem_st* sess_lst,
-	struct key_item_st* output, struct key_item_st *kek,
+static int unwrap_aes(struct key_item_st* output, struct key_item_st *kek,
 	struct data_item_st* wrapped)
 {
 size_t key_size, n;
@@ -138,12 +136,12 @@ uint8_t *raw_key;
 val64_t A;
 int i, j, ret;
 uint8_t aes_block[16];
-ncr_session_t kd;
+struct cipher_data ctx;
 
-	kd = ncr_cipher_init(sess_lst, NCR_ALG_AES_ECB, kek, NULL, 0);
-	if (kd == NCR_SESSION_INVALID) {
+	ret = cryptodev_cipher_init(&ctx, "ecb(aes)", kek->key.secret.data, kek->key.secret.size);
+	if (ret < 0) {
 		err();
-		return -ENOMEM;
+		return ret;
 	}
 
 	output->type = NCR_KEY_TYPE_SECRET;
@@ -178,7 +176,8 @@ ncr_session_t kd;
 			memcpy(aes_block, A, 8);
 			memcpy(&aes_block[8], R[n-1], 8);
 
-			_ncr_cipher_decrypt(sess_lst, kd, aes_block, sizeof(aes_block));
+			_cryptodev_cipher_decrypt(&ctx, aes_block, sizeof(aes_block),
+				aes_block, sizeof(aes_block));
 
 			memcpy(A, aes_block, 8);
 			memcpy(R[0], &aes_block[8], 8);
@@ -204,12 +203,12 @@ ncr_session_t kd;
 	ret = 0;
 
 cleanup:
-	ncr_cipher_deinit(sess_lst, kd);
+	cryptodev_cipher_deinit(&ctx);
 
 	return ret;
 }
 
-int ncr_key_wrap(struct list_sem_st* key_lst, struct list_sem_st* data_lst, struct list_sem_st* sess_lst, void __user* arg)
+int ncr_key_wrap(struct list_sem_st* key_lst, struct list_sem_st* data_lst, void __user* arg)
 {
 struct ncr_key_wrap_st wrap;
 struct key_item_st* wkey = NULL;
@@ -248,7 +247,7 @@ int ret;
 
 	switch(wrap.algorithm) {
 		case NCR_WALG_AES_RFC3394:
-			ret = wrap_aes(sess_lst, wkey, key, data);
+			ret = wrap_aes(wkey, key, data);
 		default:
 			ret = -EINVAL;
 	}
@@ -261,7 +260,7 @@ fail:
 	return ret;
 }
 
-int ncr_key_unwrap(struct list_sem_st* key_lst, struct list_sem_st* data_lst, struct list_sem_st* sess_lst, void __user* arg)
+int ncr_key_unwrap(struct list_sem_st* key_lst, struct list_sem_st* data_lst, void __user* arg)
 {
 struct ncr_key_wrap_st wrap;
 struct key_item_st* wkey = NULL;
@@ -295,7 +294,7 @@ int ret;
 
 	switch(wrap.algorithm) {
 		case NCR_WALG_AES_RFC3394:
-			ret = unwrap_aes(sess_lst, wkey, key, data);
+			ret = unwrap_aes(wkey, key, data);
 		default:
 			ret = -EINVAL;
 	}

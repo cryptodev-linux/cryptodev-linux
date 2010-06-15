@@ -5,7 +5,10 @@
 #include <inttypes.h>
 #endif
 
+#define NCR_CIPHER_MAX_BLOCK_LEN 32
+#define NCR_HASH_MAX_OUTPUT_SIZE  64
 typedef enum {
+	NCR_ALG_NONE,
 	NCR_ALG_3DES_CBC=2,
 	NCR_ALG_AES_CBC,
 	NCR_ALG_CAMELLIA_CBC,
@@ -31,6 +34,8 @@ typedef enum {
 	NCR_ALG_DSA,
 } ncr_algorithm_t;
 
+
+
 typedef enum {
 	NCR_WALG_AES_RFC3394,
 } ncr_wrap_algorithm_t;
@@ -48,7 +53,7 @@ typedef enum {
 #define NCR_DATA_FLAG_SIGN_ONLY 2 /* this object can only be used with hash/sign operations */
 
 typedef int ncr_data_t;
-#define NCR_DATA_INVALID (ncr_data_t)(-1)
+#define NCR_DATA_INVALID (ncr_data_t)(0)
 
 struct ncr_data_init_st {
 	ncr_data_t desc;
@@ -75,7 +80,7 @@ struct ncr_data_st {
 
 typedef int ncr_key_t;
 
-#define NCR_KEY_INVALID (ncr_key_t)(-1)
+#define NCR_KEY_INVALID (ncr_key_t)(0)
 
 #define NCR_KEY_FLAG_EXPORTABLE 1
 #define NCR_KEY_FLAG_WRAPPABLE (1<<1)
@@ -125,7 +130,7 @@ struct ncr_key_params_st {
 
 	union {
 		struct {
-			void* iv;
+			uint8_t iv[NCR_CIPHER_MAX_BLOCK_LEN];
 			size_t iv_size;
 		} cipher;
 		struct {
@@ -288,7 +293,7 @@ typedef enum {
 } ncr_crypto_op_t;
 
 typedef int ncr_session_t;
-#define NCR_SESSION_INVALID (ncr_session_t)-1
+#define NCR_SESSION_INVALID (ncr_session_t)0
 
 /* input of CIOCGSESSION */
 struct ncr_session_st {

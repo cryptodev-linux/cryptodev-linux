@@ -159,6 +159,30 @@ static inline int waitfor (struct cryptodev_result* cr, ssize_t ret)
 	return 0;
 }
 
+
+int _cryptodev_cipher_encrypt(struct cipher_data* cdata, const void* plaintext,
+	size_t plaintext_size, void* ciphertext, size_t ciphertext_size)
+{
+struct scatterlist sg, sg2;
+
+	sg_init_one(&sg, plaintext, plaintext_size);
+	sg_init_one(&sg2, ciphertext, ciphertext_size);
+
+	return cryptodev_cipher_encrypt( cdata, &sg, &sg2, plaintext_size);
+}
+
+int _cryptodev_cipher_decrypt(struct cipher_data* cdata, const void* ciphertext,
+	size_t ciphertext_size, void* plaintext, size_t plaintext_size)
+{
+struct scatterlist sg, sg2;
+
+	sg_init_one(&sg, ciphertext, ciphertext_size);
+	sg_init_one(&sg2, plaintext, plaintext_size);
+
+	return cryptodev_cipher_encrypt( cdata, &sg, &sg2, ciphertext_size);
+}
+
+
 ssize_t cryptodev_cipher_encrypt( struct cipher_data* cdata, struct scatterlist *sg1, struct scatterlist *sg2, size_t len)
 {
 	int ret;
@@ -272,6 +296,14 @@ ssize_t cryptodev_hash_update( struct hash_data* hdata, struct scatterlist *sg, 
 	return waitfor(hdata->async.result,ret);
 }
 
+ssize_t _cryptodev_hash_update( struct hash_data* hdata, const void* data, size_t len)
+{
+struct scatterlist sg;
+
+	sg_init_one(&sg, data, len);
+
+	return cryptodev_hash_update( hdata, &sg, len);
+}
 
 int cryptodev_hash_final( struct hash_data* hdata, void* output)
 {
