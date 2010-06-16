@@ -27,6 +27,8 @@
 #include <asm/uaccess.h>
 #include <asm/ioctl.h>
 #include <linux/scatterlist.h>
+#include <linux/cred.h>  
+#include <linux/capability.h>
 #include "ncr.h"
 #include "ncr_int.h"
 
@@ -76,11 +78,21 @@ void ncr_master_key_reset(void)
 static int ncr_master_key_set(void* __user arg)
 {
 struct ncr_master_key_st st;
+
+	if (current_euid() != 0 && !capable(CAP_SYS_ADMIN)) {
+		err();
+		return -EPERM;
+	}
+
 	copy_from_user(&st, arg, sizeof(st));
 
 	if (st.key_size > sizeof(master_key.key.secret.data)) {
 		err();
 		return -EINVAL;
+	}
+
+	if (master_key.type != NCR_KEY_TYPE_INVALID) {
+		dprintk(0, KERN_DEBUG, "Master key was previously initialized.\n");
 	}
 
 	master_key.type = NCR_KEY_TYPE_SECRET;
@@ -101,7 +113,7 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 
 	switch (cmd) {
 		case NCRIO_DATA_INIT:
-			return ncr_data_init(filp, &lst->data, (void*)arg);
+			return ncr_data_init(&lst->data, (void*)arg);
 		case NCRIO_DATA_GET:
 			return ncr_data_get(&lst->data, (void*)arg);
 		case NCRIO_DATA_SET:
@@ -110,7 +122,7 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 			return ncr_data_deinit(&lst->data, (void*)arg);
 
 		case NCRIO_KEY_INIT:
-			return ncr_key_init(filp, &lst->key, (void*)arg);
+			return ncr_key_init(&lst->key, (void*)arg);
 		case NCRIO_KEY_DEINIT:
 			return ncr_key_deinit(&lst->key, (void*)arg);
 		case NCRIO_KEY_GENERATE:

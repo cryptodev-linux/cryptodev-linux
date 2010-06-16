@@ -32,7 +32,10 @@ struct data_item_st {
 	unsigned int flags;
 	atomic_t refcnt;
 
-	struct file *filp; /* who has it */
+	/* owner. The one charged with this */
+	uid_t uid;
+	pid_t pid;
+
 	ncr_data_t desc;
 };
 
@@ -55,7 +58,10 @@ struct key_item_st {
 
 	atomic_t refcnt;
 
-	struct file *filp; /* who has it */
+	/* owner. The one charged with this */
+	uid_t uid;
+	pid_t pid;
+
 	ncr_key_t desc;
 };
 
@@ -84,12 +90,12 @@ int ncr_ioctl(struct ncr_lists*, struct file *filp,
 int ncr_data_set(struct list_sem_st*, void __user* arg);
 int ncr_data_get(struct list_sem_st*, void __user* arg);
 int ncr_data_deinit(struct list_sem_st*, void __user* arg);
-int ncr_data_init(struct file* filp, struct list_sem_st*, void __user* arg);
+int ncr_data_init(struct list_sem_st*, void __user* arg);
 void ncr_data_list_deinit(struct list_sem_st*);
 struct data_item_st* ncr_data_item_get( struct list_sem_st* lst, ncr_data_t desc);
 void _ncr_data_item_put( struct data_item_st* item);
 
-int ncr_key_init(struct file* filp, struct list_sem_st*, void __user* arg);
+int ncr_key_init(struct list_sem_st*, void __user* arg);
 int ncr_key_deinit(struct list_sem_st*, void __user* arg);
 int ncr_key_export(struct list_sem_st* data_lst,
 	struct list_sem_st* key_lst,void __user* arg);
@@ -111,8 +117,8 @@ typedef enum {
 	LIMIT_TYPE_DATA
 } limits_type_t;
 
-void ncr_limits_remove(struct file *filp, limits_type_t type);
-int ncr_limits_add_and_check(struct file *filp, limits_type_t type);
+void ncr_limits_remove(uid_t uid, pid_t pid, limits_type_t type);
+int ncr_limits_add_and_check(uid_t uid, pid_t pid, limits_type_t type);
 void ncr_limits_init(void);
 void ncr_limits_deinit(void);
 

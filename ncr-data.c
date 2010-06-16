@@ -92,19 +92,19 @@ static void* data_alloc(size_t size)
 void _ncr_data_item_put( struct data_item_st* item)
 {
 	if (atomic_dec_and_test(&item->refcnt)) {
-			ncr_limits_remove(item->filp, LIMIT_TYPE_DATA);
+			ncr_limits_remove(item->uid, item->pid, LIMIT_TYPE_DATA);
 			kfree(item->data);
 			kfree(item);
 	}
 }
 
-int ncr_data_init(struct file *filp, struct list_sem_st* lst, void __user* arg)
+int ncr_data_init(struct list_sem_st* lst, void __user* arg)
 {
 	struct ncr_data_init_st init;
 	struct data_item_st* data;
 	int ret;
 
-	ret = ncr_limits_add_and_check(filp, LIMIT_TYPE_DATA);
+	ret = ncr_limits_add_and_check(current_euid(), task_pid_nr(current), LIMIT_TYPE_DATA);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -121,7 +121,9 @@ int ncr_data_init(struct file *filp, struct list_sem_st* lst, void __user* arg)
 	memset(data, 0, sizeof(*data));
 
 	data->flags = init.flags;
-	data->filp = filp;
+	data->uid = current_euid();
+	data->pid = task_pid_nr(current);
+
 	atomic_set(&data->refcnt, 1);
 
 	data->data = data_alloc(init.max_object_size);
@@ -140,7 +142,6 @@ int ncr_data_init(struct file *filp, struct list_sem_st* lst, void __user* arg)
 	down(&lst->sem);
 
 	data->desc = _ncr_data_get_new_desc(lst);
-	data->filp = filp;
 
 	list_add(&data->list, &lst->list);
 	

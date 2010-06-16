@@ -81,18 +81,18 @@ struct key_item_st* item;
 void _ncr_key_item_put( struct key_item_st* item)
 {
 	if (atomic_dec_and_test(&item->refcnt)) {
-			ncr_limits_remove(item->filp, LIMIT_TYPE_KEY);
+			ncr_limits_remove(item->uid, item->pid, LIMIT_TYPE_KEY);
 			kfree(item);
 	}
 }
 
-int ncr_key_init(struct file *filp, struct list_sem_st* lst, void __user* arg)
+int ncr_key_init(struct list_sem_st* lst, void __user* arg)
 {
 	ncr_key_t desc;
 	struct key_item_st* key;
 	int ret;
 
-	ret = ncr_limits_add_and_check(filp, LIMIT_TYPE_KEY);
+	ret = ncr_limits_add_and_check(current_euid(), task_pid_nr(current), LIMIT_TYPE_KEY);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -113,7 +113,8 @@ int ncr_key_init(struct file *filp, struct list_sem_st* lst, void __user* arg)
 	down(&lst->sem);
 
 	key->desc = _ncr_key_get_new_desc(lst);
-	key->filp = filp;
+	key->uid = current_euid();
+	key->pid = task_pid_nr(current);
 
 	list_add(&key->list, &lst->list);
 	

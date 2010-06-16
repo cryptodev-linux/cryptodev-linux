@@ -51,7 +51,7 @@ struct limit_user_item_st {
 
 struct limit_process_item_st {
 	struct list_head list;
-	struct pid * pid;
+	pid_t pid;
 	limits_type_t type;
 	atomic_t cnt;
 };
@@ -93,20 +93,11 @@ struct limit_user_item_st* uitem, *utmp;
 
 }
 
-int ncr_limits_add_and_check(struct file *filp, limits_type_t type)
+int ncr_limits_add_and_check(uid_t uid, pid_t pid, limits_type_t type)
 {
 struct limit_process_item_st* pitem;
 struct limit_user_item_st* uitem;
-uid_t uid;
 int add = 1;
-
-/* FIXME: is this uid ok?
- */
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,27)
-	uid = filp->f_uid;
-#else
-	uid = filp->f_cred->fsuid;
-#endif
 
 	down(&limits.users.sem);
 	list_for_each_entry(uitem, &limits.users.list, list) {
@@ -139,7 +130,7 @@ int add = 1;
 	/* check process limits */
 	down(&limits.processes.sem);
 	list_for_each_entry(pitem, &limits.processes.list, list) {
-		if (pitem->pid == filp->f_owner.pid && pitem->type == type) {
+		if (pitem->pid == pid && pitem->type == type) {
 			add = 0;
 			if (atomic_add_unless(&pitem->cnt, 1, max_per_process[type])==0) {
 				err();
@@ -156,7 +147,7 @@ int add = 1;
 			err();
 			return -ENOMEM;
 		}
-		pitem->pid = filp->f_owner.pid;
+		pitem->pid = task_pid_nr(current);
 		pitem->type = type;
 		atomic_set(&pitem->cnt, 1);
 
@@ -167,19 +158,10 @@ int add = 1;
 	return 0;
 }
 
-void ncr_limits_remove(struct file *filp, limits_type_t type)
+void ncr_limits_remove(uid_t uid, pid_t pid, limits_type_t type)
 {
 struct limit_process_item_st* pitem;
 struct limit_user_item_st* uitem;
-uid_t uid;
-
-/* FIXME: is this uid ok?
- */
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(2,6,27)
-	uid = filp->f_uid;
-#else
-	uid = filp->f_cred->fsuid;
-#endif
 
 	down(&limits.users.sem);
 	list_for_each_entry(uitem, &limits.users.list, list) {
@@ -192,11 +174,11 @@ uid_t uid;
 	/* check process limits */
 	down(&limits.processes.sem);
 	list_for_each_entry(pitem, &limits.processes.list, list) {
-		if (pitem->pid == filp->f_owner.pid && pitem->type == type) {
+		if (pitem->pid == pid && pitem->type == type) {
 			atomic_dec(&pitem->cnt);
 		}
 	}
-		up(&limits.processes.sem);
+	up(&limits.processes.sem);
 
 	return;
 }
