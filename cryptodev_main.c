@@ -748,6 +748,7 @@ cryptodev_register(void)
 	int rc;
 
 	ncr_limits_init();
+	ncr_master_key_reset();
 
 	rc = misc_register (&cryptodev);
 	if (unlikely(rc)) {

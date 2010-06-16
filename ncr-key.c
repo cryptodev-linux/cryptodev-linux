@@ -260,7 +260,7 @@ int ret;
 				memcpy(item->key_id, data.key_id, data.key_id_size);
 
 
-			if (ditem->data_size > MAX_KEY_SIZE) {
+			if (ditem->data_size > NCR_CIPHER_MAX_KEY_LEN) {
 				err();
 				ret = -EINVAL;
 				goto fail;
@@ -320,7 +320,7 @@ size_t size;
 
 	size = gen.params.params.secret.bits/8;
 	if ((gen.params.params.secret.bits % 8 != 0) ||
-			(size > MAX_KEY_SIZE)) {
+			(size > NCR_CIPHER_MAX_KEY_LEN)) {
 		err();
 		ret = -EINVAL;
 		goto fail;

@@ -30,6 +30,10 @@
 #include "ncr.h"
 #include "ncr_int.h"
 
+/* This is the master wrapping key for storage of keys
+ */
+struct key_item_st master_key;
+
 void* ncr_init_lists(void)
 {
 	struct ncr_lists *lst;
@@ -62,6 +66,29 @@ void ncr_deinit_lists(struct ncr_lists *lst)
 		ncr_sessions_list_deinit(&lst->sessions);
 		kfree(lst);
 	}
+}
+
+void ncr_master_key_reset(void)
+{
+	memset(&master_key, 0, sizeof(master_key));
+}
+
+static int ncr_master_key_set(void* __user arg)
+{
+struct ncr_master_key_st st;
+	copy_from_user(&st, arg, sizeof(st));
+
+	if (st.key_size > sizeof(master_key.key.secret.data)) {
+		err();
+		return -EINVAL;
+	}
+
+	master_key.type = NCR_KEY_TYPE_SECRET;
+	
+	memcpy(master_key.key.secret.data, st.key, st.key_size);
+	master_key.key.secret.size = st.key_size;
+
+	return 0;
 }
 
 int
@@ -98,6 +125,10 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 			return ncr_key_wrap(&lst->key, &lst->data, (void*)arg);
 		case NCRIO_KEY_UNWRAP:
 			return ncr_key_unwrap(&lst->key, &lst->data, (void*)arg);
+		case NCRIO_KEY_STORAGE_WRAP:
+			return ncr_key_storage_wrap(&lst->key, &lst->data, (void*)arg);
+		case NCRIO_KEY_STORAGE_UNWRAP:
+			return ncr_key_storage_unwrap(&lst->key, &lst->data, (void*)arg);
 		case NCRIO_SESSION_INIT:
 			return ncr_session_init(lst, (void*)arg); 
 		case NCRIO_SESSION_UPDATE:
@@ -105,7 +136,9 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 		case NCRIO_SESSION_FINAL:
 			return ncr_session_final(lst, (void*)arg); 
 		case NCRIO_SESSION_ONCE:
-			return ncr_session_once(lst, (void*)arg); 
+			return ncr_session_once(lst, (void*)arg);
+		case NCRIO_MASTER_KEY_SET:
+			return ncr_master_key_set((void*)arg);
 #if 0
 		case NCRIO_KEY_GENERATE_PAIR:
 			return ncr_key_generate_pair(&lst->key, (void*)arg);

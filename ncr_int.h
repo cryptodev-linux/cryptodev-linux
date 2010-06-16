@@ -36,8 +36,6 @@ struct data_item_st {
 	ncr_data_t desc;
 };
 
-#define MAX_KEY_SIZE 32 /* in bytes */
-
 struct key_item_st {
 	struct list_head list;
 	/* This object is also not protected from concurrent access.
@@ -50,7 +48,7 @@ struct key_item_st {
 
 	union {
 		struct {
-			uint8_t data[MAX_KEY_SIZE];
+			uint8_t data[NCR_CIPHER_MAX_KEY_LEN];
 			size_t size;
 		} secret;
 	} key;
@@ -122,6 +120,8 @@ ncr_key_type_t ncr_algorithm_to_key_type(ncr_algorithm_t algo);
 
 int ncr_key_wrap(struct list_sem_st* keys, struct list_sem_st* data, void __user* arg);
 int ncr_key_unwrap(struct list_sem_st*, struct list_sem_st* data, void __user* arg);
+int ncr_key_storage_wrap(struct list_sem_st* key_lst, struct list_sem_st* data_lst, void __user* arg);
+int ncr_key_storage_unwrap(struct list_sem_st*, struct list_sem_st* data, void __user* arg);
 
 /* sessions */
 struct session_item_st* ncr_session_new(struct list_sem_st* lst);
@@ -133,6 +133,11 @@ int ncr_session_init(struct ncr_lists* lists, void __user* arg);
 int ncr_session_update(struct ncr_lists* lists, void __user* arg);
 int ncr_session_final(struct ncr_lists* lists, void __user* arg);
 int ncr_session_once(struct ncr_lists* lists, void __user* arg);
+
+/* master key */
+extern struct key_item_st master_key;
+
+void ncr_master_key_reset(void);
 
 /* misc helper macros */
 inline static unsigned int key_flags_to_data(unsigned int key_flags)

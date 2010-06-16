@@ -6,7 +6,9 @@
 #endif
 
 #define NCR_CIPHER_MAX_BLOCK_LEN 32
+#define NCR_CIPHER_MAX_KEY_LEN 64
 #define NCR_HASH_MAX_OUTPUT_SIZE  64
+
 typedef enum {
 	NCR_ALG_NONE,
 	NCR_ALG_3DES_CBC=2,
@@ -37,7 +39,8 @@ typedef enum {
 
 
 typedef enum {
-	NCR_WALG_AES_RFC3394,
+	NCR_WALG_AES_RFC3394, /* for secret keys only */
+	NCR_WALG_AES_RFC5649, /* can wrap arbitrary key */
 } ncr_wrap_algorithm_t;
 
 typedef enum {
@@ -279,6 +282,24 @@ struct ncr_key_wrap_st {
 
 #define NCRIO_KEY_WRAP        _IOR ('c', 250, struct ncr_key_wrap_st)
 #define NCRIO_KEY_UNWRAP        _IOR ('c', 251, struct ncr_key_wrap_st)
+
+/* Internal ops  */
+struct ncr_master_key_st {
+	uint8_t key[NCR_CIPHER_MAX_KEY_LEN];
+	uint16_t key_size;
+};
+
+#define NCRIO_MASTER_KEY_SET        _IOR ('c', 260, struct ncr_master_key_st)
+
+/* These are similar to key_wrap and unwrap except that will store some extra
+ * fields to be able to recover a key */
+struct ncr_key_storage_wrap_st {
+	ncr_key_t keytowrap;
+	ncr_data_t data; /* encrypted keytowrap */
+};
+
+#define NCRIO_KEY_STORAGE_WRAP        _IOR ('c', 261, struct ncr_key_storage_wrap_st)
+#define NCRIO_KEY_STORAGE_UNWRAP        _IOR ('c', 262, struct ncr_key_storage_wrap_st)
 
 /* Crypto Operations ioctls
  */
