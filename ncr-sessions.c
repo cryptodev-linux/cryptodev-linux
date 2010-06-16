@@ -120,7 +120,7 @@ static const struct algo_properties_st {
 	{ .algo = NCR_ALG_AES_ECB, .kstr = "ecb(aes)", .needs_iv = 0 },
 	{ .algo = NCR_ALG_SHA1, .kstr = "sha1", .needs_iv = 0, .digest_size = 20 },
 	{ .algo = NCR_ALG_MD5, .kstr = "md5", .needs_iv = 0, .digest_size = 16 },
-	{ .algo = NCR_ALG_SHA2_224, .kstr = "sha224", .needs_iv = 0, .digest_size = 24 },
+	{ .algo = NCR_ALG_SHA2_224, .kstr = "sha224", .needs_iv = 0, .digest_size = 28 },
 	{ .algo = NCR_ALG_SHA2_256, .kstr = "sha256", .needs_iv = 0, .digest_size = 32 },
 	{ .algo = NCR_ALG_SHA2_384, .kstr = "sha384", .needs_iv = 0, .digest_size = 48 },
 	{ .algo = NCR_ALG_SHA2_512, .kstr = "sha512", .needs_iv = 0, .digest_size = 64 },
