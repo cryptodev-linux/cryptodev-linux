@@ -139,6 +139,11 @@ extern struct key_item_st master_key;
 
 void ncr_master_key_reset(void);
 
+/* storage */
+int key_from_storage_data(struct key_item_st* key, const void* data, size_t data_size);
+int key_to_storage_data( uint8_t** data, size_t * data_size, const struct key_item_st *key);
+
+
 /* misc helper macros */
 inline static unsigned int key_flags_to_data(unsigned int key_flags)
 {

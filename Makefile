@@ -3,7 +3,7 @@ VERSION = 0.1
 
 cryptodev-objs = cryptodev_main.o cryptodev_cipher.o ncr.o \
 	ncr-data.o ncr-key.o ncr-limits.o ncr-sessions.o \
-	ncr-key-wrap.o
+	ncr-key-wrap.o ncr-key-storage.o
 
 obj-m += cryptodev.o
 

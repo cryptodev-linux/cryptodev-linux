@@ -34,13 +34,219 @@ typedef uint8_t val64_t[8];
 
 static const val64_t initA = "\xA6\xA6\xA6\xA6\xA6\xA6\xA6\xA6";
 
-static int key_from_storage_data(struct key_item_st* key, const void* data, size_t data_size);
-static int key_to_storage_data( uint8_t** data, size_t * data_size, const struct key_item_st *key);
 
-static int _wrap_aes_rfc5649(void* kdata, size_t kdata_size, struct key_item_st* key,
-	struct data_item_st* data, const void* iv, size_t iv_size);
-static int _unwrap_aes_rfc5649(void* kdata, size_t *kdata_size, struct key_item_st* key,
-	struct data_item_st *data, const void* iv, size_t iv_size);
+static void val64_xor( val64_t * val, uint32_t x)
+{
+	(*val)[7] ^= x & 0xff;
+	(*val)[6] ^= (x >> 8) & 0xff;
+	(*val)[5] ^= (x >> 16) & 0xff;
+	(*val)[4] ^= (x >> 24) & 0xff;
+}
+
+static int rfc3394_wrap(val64_t R[], unsigned int n, struct cipher_data* ctx,
+	struct data_item_st* output, const uint8_t iv[8])
+{
+val64_t A;
+uint8_t aes_block[16];
+int i,j;
+
+	if (output->max_data_size < (n+1)*8) {
+		err();
+		return -EINVAL;
+	}
+
+	memcpy(A, iv, 8);
+
+	for (i=0;i<6*n;i++) {
+		memcpy(aes_block, A, 8);
+		memcpy(&aes_block[8], R[0], 8);
+
+		_cryptodev_cipher_encrypt(ctx, aes_block, sizeof(aes_block),
+			aes_block, sizeof(aes_block));
+
+		memcpy(A, aes_block, 8); /* A = MSB64(AES(A^{t-1}|R_{1}^{t-1})) */
+		val64_xor(&A, i+1); /* A ^= t */
+
+		for (j=0;j<n-1;j++)
+			memcpy(R[j], R[j+1], sizeof(R[j]));
+		memcpy(R[n-1], &aes_block[8], 8); /* R[n-1] = LSB64(AES(A^{t-1}|R_{1}^{t-1})) */
+	}
+
+	memcpy(output->data, A, sizeof(A));
+	for (j=0;j<n;j++)
+		memcpy(&output->data[(j+1)*8], R[j], 8);
+	output->data_size = (n+1)*8;
+
+	return 0;
+}
+
+static int rfc3394_unwrap(uint8_t *wrapped_key, val64_t R[], unsigned int n, val64_t* A, struct cipher_data *ctx)
+{
+	int i, j;
+	uint8_t aes_block[16];
+
+	memcpy(*A, wrapped_key, 8); /* A = C[0] */
+	for (i=0;i<n;i++)
+		memcpy(R[i], &wrapped_key[(i+1)*8], 8);
+
+	for (i=(6*n)-1;i>=0;i--) {
+		val64_xor(A, i+1);
+
+		memcpy(aes_block, *A, 8);
+		memcpy(&aes_block[8], R[n-1], 8);
+
+		_cryptodev_cipher_decrypt(ctx, aes_block, sizeof(aes_block),
+			aes_block, sizeof(aes_block));
+
+		memcpy(*A, aes_block, 8);
+
+		for (j=n-1;j>=1;j--)
+			memcpy(R[j], R[j-1], sizeof(R[j]));
+
+		memcpy(R[0], &aes_block[8], 8);
+	}
+
+	return 0;
+}
+
+#define RFC5649_IV "\xA6\x59\x59\xA6"
+static int _wrap_aes_rfc5649(void* kdata, size_t kdata_size, struct key_item_st* kek,
+	struct data_item_st* output, const void* _iv, size_t iv_size)
+{
+size_t n;
+int i, j, ret;
+struct cipher_data ctx;
+uint8_t iv[8];
+
+	if (iv_size != 4) {
+		memcpy(iv, RFC5649_IV, 4);
+	} else {
+		memcpy(iv, _iv, 4);
+	}
+	iv_size = 8;
+	iv[4] = (kdata_size >> 24) & 0xff;
+	iv[5] = (kdata_size >> 16) & 0xff;
+	iv[6] = (kdata_size >> 8) & 0xff;
+	iv[7] = (kdata_size) & 0xff;
+
+	ret = cryptodev_cipher_init(&ctx, "ecb(aes)", kek->key.secret.data, kek->key.secret.size);
+	if (ret < 0) {
+		err();
+		return ret;
+	}
+
+	n = (kdata_size+7)/8;
+	if (n==1) { /* unimplemented */
+		err();
+		ret = -EINVAL;
+		goto cleanup;
+	}
+
+	{
+		val64_t R[n];
+
+		/* R = P */
+		for (i=0;i<kdata_size;i++) {
+			j=i/8;
+			R[j][i] = ((uint8_t*)kdata)[i];
+		}
+		for (;i<n*8;i++) {
+			j=i/8;
+			R[j][i] = 0;
+		}
+
+		ret = rfc3394_wrap( R, n, &ctx, output, iv);
+		if (ret < 0) {
+			err();
+			goto cleanup;
+		}
+	}
+
+	ret = 0;
+
+cleanup:
+	cryptodev_cipher_deinit(&ctx);
+
+	return ret;
+}
+
+static int _unwrap_aes_rfc5649(void* kdata, size_t *kdata_size, struct key_item_st* kek,
+	struct data_item_st *wrapped, const void* _iv, size_t iv_size)
+{
+size_t wrapped_key_size, n;
+uint8_t *wrapped_key;
+int i, ret;
+struct cipher_data ctx;
+uint8_t iv[4];
+size_t size;
+
+	if (iv_size != 4) {
+		memcpy(iv, RFC5649_IV, 4);
+	} else {
+		memcpy(iv, _iv, 4);
+	}
+	iv_size = 4;
+
+	ret = cryptodev_cipher_init(&ctx, "ecb(aes)", kek->key.secret.data, kek->key.secret.size);
+	if (ret < 0) {
+		err();
+		return ret;
+	}
+
+	wrapped_key = wrapped->data;
+	wrapped_key_size = wrapped->data_size;
+
+	if (wrapped_key_size % 8 != 0) {
+		err();
+		ret = -EINVAL;
+		goto cleanup;
+	}
+
+	n = wrapped_key_size/8 - 1;
+
+	if (*kdata_size < (n-1)*8) {
+		err();
+		ret = -EINVAL;
+		goto cleanup;
+	}
+
+	{
+		val64_t R[n], A;
+
+		ret = rfc3394_unwrap(wrapped_key, R, n, &A, &ctx);
+		if (ret < 0) {
+			err();
+			return ret;
+		}
+
+		if (memcmp(A, iv, 4)!= 0) {
+			err();
+			ret = -EINVAL;
+			goto cleanup;
+		}
+
+		size = (A[4] << 24) | (A[5] << 16) | (A[6] << 8) | A[7];
+		if (size > n*8 || size < (n-1)*8 || *kdata_size < size) {
+			err();
+			ret = -EINVAL;
+			goto cleanup;
+		}
+
+		memset(kdata, 0, size);
+		*kdata_size = size;
+		for (i=0;i<size;i++) {
+			((uint8_t*)kdata)[i] = R[i/8][i%8];
+		}
+	}
+
+
+	ret = 0;
+
+cleanup:
+	cryptodev_cipher_deinit(&ctx);
+
+	return ret;
+}
 
 
 static int wrap_aes_rfc5649(struct key_item_st* tobewrapped, struct key_item_st *kek,
@@ -65,19 +271,6 @@ static int unwrap_aes_rfc5649(struct key_item_st* output, struct key_item_st *ke
 }
 		
 
-static void val64_zero( val64_t * val)
-{
-	memset(val, 0, sizeof(*val));
-}
-
-static void val64_xor( val64_t * val, uint32_t x)
-{
-	(*val)[7] ^= x & 0xff;
-	(*val)[6] ^= (x >> 8) & 0xff;
-	(*val)[5] ^= (x >> 16) & 0xff;
-	(*val)[4] ^= (x >> 24) & 0xff;
-}
-
 /* Wraps using the RFC3394 way.
  */
 static int wrap_aes(struct key_item_st* tobewrapped, struct key_item_st *kek,
@@ -85,9 +278,7 @@ static int wrap_aes(struct key_item_st* tobewrapped, struct key_item_st *kek,
 {
 size_t key_size, n;
 uint8_t *raw_key;
-val64_t A;
-int i, j, ret;
-uint8_t aes_block[16];
+int i, ret;
 struct cipher_data ctx;
 
 	if (tobewrapped->type != NCR_KEY_TYPE_SECRET) {
@@ -117,12 +308,6 @@ struct cipher_data ctx;
 
 	n = key_size/8;
 
-	if (output->max_data_size < (n+1)*8) {
-		err();
-		ret = -EINVAL;
-		goto cleanup;
-	}
-
 
 	{
 		val64_t R[n];
@@ -132,29 +317,12 @@ struct cipher_data ctx;
 			memcpy(R[i], &raw_key[i*8], 8);
 		}
 
-		memcpy(A, iv, 8);
-
-		for (i=0;i<6*n;i++) {
-			memcpy(aes_block, A, 8);
-			memcpy(&aes_block[8], R[0], 8);
-
-			_cryptodev_cipher_encrypt(&ctx, aes_block, sizeof(aes_block),
-				aes_block, sizeof(aes_block));
-
-			memcpy(A, aes_block, 8); /* A = MSB64(AES(A^{t-1}|R_{1}^{t-1})) */
-			val64_xor(&A, i+1); /* A ^= t */
-
-			for (j=0;j<n-1;j++)
-				memcpy(R[j], R[j+1], sizeof(R[j]));
-			memcpy(R[n-1], &aes_block[8], 8); /* R[n-1] = LSB64(AES(A^{t-1}|R_{1}^{t-1})) */
+		ret = rfc3394_wrap( R, n, &ctx, output, iv);
+		if (ret < 0) {
+			err();
+			goto cleanup;
 		}
-
-		memcpy(output->data, A, sizeof(A));
-		for (j=0;j<n;j++)
-			memcpy(&output->data[(j+1)*8], R[j], 8);
-		output->data_size = (n+1)*8;
 	}
-
 
 	ret = 0;
 
@@ -183,8 +351,7 @@ static int unwrap_aes(struct key_item_st* output, struct key_item_st *kek,
 size_t wrapped_key_size, n;
 uint8_t *wrapped_key;
 val64_t A;
-int i, j, ret;
-uint8_t aes_block[16];
+int i, ret;
 struct cipher_data ctx;
 
 	if (iv_size < sizeof(initA)) {
@@ -220,27 +387,11 @@ struct cipher_data ctx;
 	{
 		val64_t R[n];
 
-		memcpy(A, wrapped_key, 8); /* A = C[0] */
-		for (i=0;i<n;i++)
-			memcpy(R[i], &wrapped_key[(i+1)*8], 8);
-
-		for (i=(6*n)-1;i>=0;i--) {
-			val64_xor(&A, i+1);
-
-			memcpy(aes_block, A, 8);
-			memcpy(&aes_block[8], R[n-1], 8);
-
-			_cryptodev_cipher_decrypt(&ctx, aes_block, sizeof(aes_block),
-				aes_block, sizeof(aes_block));
-
-			memcpy(A, aes_block, 8);
-
-			for (j=n-1;j>=1;j--)
-				memcpy(R[j], R[j-1], sizeof(R[j]));
-
-			memcpy(R[0], &aes_block[8], 8);
+		ret = rfc3394_unwrap(wrapped_key, R, n, &A, &ctx);
+		if (ret < 0) {
+			err();
+			return ret;
 		}
-
 
 		if (memcmp(A, iv, 8)!= 0) {
 			err();
