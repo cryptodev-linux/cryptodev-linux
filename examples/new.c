@@ -599,7 +599,7 @@ struct aes_vectors_st {
 	},
 };
 
-/* Key wrapping */
+/* AES cipher */
 static int
 test_ncr_aes(int cfd)
 {
@@ -799,7 +799,7 @@ test_ncr_aes(int cfd)
 			for(j=0;j<16;j++)
 			  fprintf(stderr, "%.2x:", (int)aes_vectors[i].plaintext[j]);
 			fprintf(stderr, "\n");
-//			return 1;
+			return 1;
 		}
 	}
 
@@ -809,6 +809,175 @@ test_ncr_aes(int cfd)
 	return 0;
 
 }
+
+struct hash_vectors_st {
+	ncr_algorithm_t algorithm;
+	const uint8_t* key; /* if hmac */
+	int key_size;
+	const uint8_t* plaintext;
+	int plaintext_size;
+	const uint8_t* output;
+	int output_size;
+	ncr_crypto_op_t op;
+} hash_vectors[] = {
+	{
+		.algorithm = NCR_ALG_SHA1,
+		.key = NULL,
+		.plaintext = "what do ya want for nothing?",
+		.plaintext_size = sizeof("what do ya want for nothing?")-1,
+		.output = "\x8f\x82\x03\x94\xf9\x53\x35\x18\x20\x45\xda\x24\xf3\x4d\xe5\x2b\xf8\xbc\x34\x32",
+		.output_size = 20,
+		.op = NCR_OP_DIGEST,
+	},
+	{
+		.algorithm = NCR_ALG_HMAC_MD5,
+		.key = "Jefe",
+		.key_size = 4,
+		.plaintext = "what do ya want for nothing?",
+		.plaintext_size = sizeof("what do ya want for nothing?")-1,
+		.output = "\x75\x0c\x78\x3e\x6a\xb0\xb5\x03\xea\xa8\x6e\x31\x0a\x5d\xb7\x38",
+		.output_size = 16,
+		.op = NCR_OP_MAC,
+	},
+};
+
+
+/* SHA1 and other hashes */
+static int
+test_ncr_hash(int cfd)
+{
+	struct ncr_data_init_st dinit;
+	struct ncr_key_generate_st kgen;
+	ncr_key_t key;
+	struct ncr_key_data_st keydata;
+	struct ncr_data_st kdata;
+	ncr_data_t dd, dd2;
+	uint8_t data[KEY_DATA_SIZE];
+	int i, j;
+	struct ncr_session_once_op_st nop;
+
+	dinit.max_object_size = KEY_DATA_SIZE;
+	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
+	dinit.initial_data = NULL;
+	dinit.initial_data_size = 0;
+
+	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_DATA_INIT)");
+		return 1;
+	}
+
+	dd = dinit.desc;
+
+	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_DATA_INIT)");
+		return 1;
+	}
+
+	dd2 = dinit.desc;
+
+	/* convert it to key */
+	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+
+	keydata.key_id[0] = 'a';
+	keydata.key_id[2] = 'b';
+	keydata.key_id_size = 2;
+	keydata.type = NCR_KEY_TYPE_SECRET;
+	keydata.algorithm = NCR_ALG_AES_CBC;
+	keydata.flags = NCR_KEY_FLAG_EXPORTABLE;
+	
+
+	fprintf(stdout, "Tests on AES Encryption\n");
+	for (i=0;i<sizeof(aes_vectors)/sizeof(aes_vectors[0]);i++) {
+
+		/* import key */
+		if (hash_vectors[i].key != NULL) {
+			kdata.data = (void*)hash_vectors[i].key;
+			kdata.data_size = hash_vectors[i].key_size;
+			kdata.desc = dd;
+			kdata.append_flag = 0;
+
+			if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
+				fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+				perror("ioctl(NCRIO_DATA_INIT)");
+				return 1;
+			}
+
+			keydata.key = key;
+			keydata.data = dd;
+			if (ioctl(cfd, NCRIO_KEY_IMPORT, &keydata)) {
+				fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+				perror("ioctl(NCRIO_KEY_IMPORT)");
+				return 1;
+			}
+		}
+		/* import data */
+
+		kdata.data = (void*)hash_vectors[i].plaintext;
+		kdata.data_size = hash_vectors[i].plaintext_size;
+		kdata.desc = dd;
+		kdata.append_flag = 0;
+
+		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_DATA_INIT)");
+			return 1;
+		}
+
+		/* encrypt */
+		memset(&nop, 0, sizeof(nop));
+		nop.init.algorithm = hash_vectors[i].algorithm;
+		if (hash_vectors[i].key != NULL)
+			nop.init.params.key = key;
+		nop.init.op = hash_vectors[i].op;
+		nop.op.data.digest.text = dd;
+		nop.op.data.digest.output = dd2;
+
+		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_SESSION_ONCE)");
+			return 1;
+		}
+
+		/* verify */
+		kdata.desc = dd2;
+		kdata.data = data;
+		kdata.data_size = sizeof(data);
+		kdata.append_flag = 0;
+
+		if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_DATA_GET)");
+			return 1;
+		}
+
+		if (kdata.data_size != hash_vectors[i].output_size ||
+			memcmp(kdata.data, hash_vectors[i].output, hash_vectors[i].output_size) != 0) {
+			fprintf(stderr, "HASH test vector %d failed!\n", i);
+
+			fprintf(stderr, "Output[%d]: ", (int)kdata.data_size);
+			for(j=0;j<kdata.data_size;j++)
+			  fprintf(stderr, "%.2x:", (int)data[j]);
+			fprintf(stderr, "\n");
+
+			fprintf(stderr, "Expected[%d]: ", hash_vectors[i].output_size);
+			for(j=0;j<hash_vectors[i].output_size;j++)
+			  fprintf(stderr, "%.2x:", (int)hash_vectors[i].output[j]);
+			fprintf(stderr, "\n");
+			return 1;
+		}
+	}
+
+	fprintf(stdout, "\n");
+
+	return 0;
+
+}
+
 
 int
 main()
@@ -844,6 +1013,9 @@ main()
 		return 1;
 
 	if (test_ncr_aes(fd))
+		return 1;
+
+	if (test_ncr_hash(fd))
 		return 1;
 
 	if (test_ncr_wrap_key(fd))
