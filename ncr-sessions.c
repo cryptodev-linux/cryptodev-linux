@@ -558,6 +558,7 @@ int ncr_session_once(struct ncr_lists* lists, void __user* arg)
 		err();
 		return ret;
 	}
+	kop.op.ses = kop.init.ses;
 
 	ret = _ncr_session_final(lists, &kop.op);
 	if (ret < 0) {

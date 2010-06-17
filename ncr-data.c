@@ -220,9 +220,16 @@ int ncr_data_get(struct list_sem_st* lst, void __user* arg)
 	get.data_size = len;
 	
 	ret = copy_to_user(arg, &get, sizeof(get));
+	if (unlikely(ret)) {
+		err();
+	}
 
-	if (ret == 0 && len > 0)
+	if (ret == 0 && len > 0) {
 		ret = copy_to_user(get.data, data->data, len);
+		if (unlikely(ret)) {
+			err();
+		}
+	}
 
 cleanup:
 	_ncr_data_item_put( data);

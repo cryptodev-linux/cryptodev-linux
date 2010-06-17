@@ -88,6 +88,7 @@ int key_from_storage_data(struct key_item_st* key, const void* data, size_t data
 
 	key->type = pkey->type;
 	key->flags = pkey->flags;
+
 	key->algorithm = pkey->algorithm;
 	key->key_id_size = pkey->key_id_size;
 	memcpy(key->key_id, pkey->key_id, pkey->key_id_size);

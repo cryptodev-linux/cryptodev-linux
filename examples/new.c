@@ -673,10 +673,6 @@ test_ncr_store_wrap_key(int cfd)
 	}
 
 	/* now export the unwrapped */
-	/* this cannot be performed like that, because unwrap
-	 * always sets keys as unexportable. Maybe we can implement
-	 * a data comparison ioctl().
-	 */
 	memset(&keydata, 0, sizeof(keydata));
 	keydata.key = key2;
 	keydata.data = dd;
@@ -687,6 +683,7 @@ test_ncr_store_wrap_key(int cfd)
 		return 1;
 	}
 
+	kdata.data = data;
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_DATA_GET)");
