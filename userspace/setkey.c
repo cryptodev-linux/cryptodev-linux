@@ -14,20 +14,36 @@
 #include <sys/stat.h>
 #include "../ncr.h"
 #include <stdlib.h>
-
-
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
 
 int main(int argc, char** argv)
 {
 	int fd = -1;
 	FILE* fp;
 	struct ncr_master_key_st key;
-	int size;
+	int size, ret;
+	struct stat st;
 	
 	if (argc != 2) {
 		fprintf(stderr, "Usage: setkey [filename]\n");
 		exit(1);
 	}
+	
+	/* check permissions */
+	ret = stat(argv[1], &st);
+	if (ret < 0) {
+		fprintf(stderr, "Cannot find key: %s\n", argv[1]);
+		exit(1);
+	}
+	
+	if (st.st_mode & S_IROTH || st.st_mode & S_IRGRP || st.st_uid != 0) {
+		fprintf(stderr, "Key file must belong to root and must be readable by him only.\n");
+		exit(1);
+	}
+	
+	/* read key */
 	
 	memset(&key, 0, sizeof(key));
 	fp = fopen(argv[1], "r");

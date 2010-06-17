@@ -91,9 +91,16 @@ struct ncr_master_key_st st;
 		return -EINVAL;
 	}
 
+	if (st.key_size != 16 && st.key_size != 24 && st.key_size != 32) {
+		dprintk(0, KERN_DEBUG, "Master key size must be 16,24 or 32.\n");
+		return -EINVAL;
+	}
+
 	if (master_key.type != NCR_KEY_TYPE_INVALID) {
 		dprintk(0, KERN_DEBUG, "Master key was previously initialized.\n");
 	}
+
+	dprintk(0, KERN_INFO, "Intializing master key.\n");
 
 	master_key.type = NCR_KEY_TYPE_SECRET;
 	
