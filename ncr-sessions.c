@@ -177,17 +177,14 @@ int i = 0;
 	return 0;
 }
 
-int ncr_session_init(struct ncr_lists* lists, void __user* arg)
+static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* session)
 {
-	struct ncr_session_st session;
 	struct session_item_st* ns = NULL;
 	struct key_item_st *key = NULL;
 	int ret;
 	const char* str;
 
-	copy_from_user( &session, arg, sizeof(session));
-
-	str = algo2str(session.algorithm);
+	str = algo2str(session->algorithm);
 	if (str == NULL) {
 		err();
 		return NCR_SESSION_INVALID;
@@ -199,13 +196,13 @@ int ncr_session_init(struct ncr_lists* lists, void __user* arg)
 		return -EINVAL;
 	}
 
-	ns->op = session.op;
-	ns->algo = session.algorithm;
-	switch(session.op) {
+	ns->op = session->op;
+	ns->algo = session->algorithm;
+	switch(session->op) {
 		case NCR_OP_ENCRYPT:
 		case NCR_OP_DECRYPT:
 			/* read key */
-			key = ncr_key_item_get( &lists->key, session.params.key);
+			key = ncr_key_item_get( &lists->key, session->params.key);
 			if (key == NULL) {
 				err();
 				ret = -EINVAL;
@@ -224,19 +221,19 @@ int ncr_session_init(struct ncr_lists* lists, void __user* arg)
 				goto fail;
 			}
 
-			if (algo_needs_iv(session.algorithm)) {
-				if (session.params.params.cipher.iv_size > sizeof(session.params.params.cipher.iv)) {
+			if (algo_needs_iv(session->algorithm)) {
+				if (session->params.params.cipher.iv_size > sizeof(session->params.params.cipher.iv)) {
 					err();
 					ret = -EINVAL;
 					goto fail;
 				}
-				cryptodev_cipher_set_iv(&ns->ctx, session.params.params.cipher.iv, session.params.params.cipher.iv_size);
+				cryptodev_cipher_set_iv(&ns->ctx, session->params.params.cipher.iv, session->params.params.cipher.iv_size);
 			}
 			break;
 
 		case NCR_OP_MAC:
 			/* read key */
-			key = ncr_key_item_get( &lists->key, session.params.key);
+			key = ncr_key_item_get( &lists->key, session->params.key);
 			if (key == NULL) {
 				err();
 				ret = -EINVAL;
@@ -281,11 +278,9 @@ int ncr_session_init(struct ncr_lists* lists, void __user* arg)
 			ret = -EINVAL;
 			goto fail;
 	}
-
+	
 	ret = 0;
-
-	session.ses = ns->desc;
-	copy_to_user( arg, &session, sizeof(session));
+	session->ses = ns->desc;
 
 fail:
 	if (key) _ncr_key_item_put(key);
@@ -300,18 +295,35 @@ fail:
 	return ret;
 }
 
-int ncr_session_update(struct ncr_lists* lists, void __user* arg)
+int ncr_session_init(struct ncr_lists* lists, void __user* arg)
 {
-	struct ncr_session_op_st op;
+	struct ncr_session_st session;
+	int ret;
+
+	ret = copy_from_user( &session, arg, sizeof(session));
+	if (unlikely(ret)) {
+		err();
+		return ret;
+	}
+
+	ret = _ncr_session_init(lists, &session);
+	if (unlikely(ret)) {
+		err();
+		return ret;
+	}
+
+	return copy_to_user( arg, &session, sizeof(session));
+}
+
+static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st* op)
+{
 	struct key_item_st *key = NULL;
 	int ret;
 	struct session_item_st* sess;
 	struct data_item_st* data = NULL;
 	struct data_item_st* odata = NULL;
 
-	copy_from_user( &op, arg, sizeof(op));
-
-	sess = ncr_sessions_item_get( &lists->sessions, op.ses);
+	sess = ncr_sessions_item_get( &lists->sessions, op->ses);
 	if (sess == NULL) {
 		err();
 		return -EINVAL;
@@ -320,14 +332,14 @@ int ncr_session_update(struct ncr_lists* lists, void __user* arg)
 	switch(sess->op) {
 		case NCR_OP_ENCRYPT:
 			/* obtain data item */
-			data = ncr_data_item_get( &lists->data, op.data.cipher.plaintext);
+			data = ncr_data_item_get( &lists->data, op->data.cipher.plaintext);
 			if (data == NULL) {
 				err();
 				ret = -EINVAL;
 				goto fail;
 			}
 
-			odata = ncr_data_item_get( &lists->data, op.data.cipher.ciphertext);
+			odata = ncr_data_item_get( &lists->data, op->data.cipher.ciphertext);
 			if (odata == NULL) {
 				err();
 				ret = -EINVAL;
@@ -352,14 +364,14 @@ int ncr_session_update(struct ncr_lists* lists, void __user* arg)
 			break;
 		case NCR_OP_DECRYPT:
 			/* obtain data item */
-			data = ncr_data_item_get( &lists->data, op.data.cipher.ciphertext);
+			data = ncr_data_item_get( &lists->data, op->data.cipher.ciphertext);
 			if (data == NULL) {
 				err();
 				ret = -EINVAL;
 				goto fail;
 			}
 
-			odata = ncr_data_item_get( &lists->data, op.data.cipher.plaintext);
+			odata = ncr_data_item_get( &lists->data, op->data.cipher.plaintext);
 			if (odata == NULL) {
 				err();
 				ret = -EINVAL;
@@ -386,7 +398,7 @@ int ncr_session_update(struct ncr_lists* lists, void __user* arg)
 		case NCR_OP_MAC:
 		case NCR_OP_DIGEST:
 			/* obtain data item */
-			data = ncr_data_item_get( &lists->data, op.data.digest.text);
+			data = ncr_data_item_get( &lists->data, op->data.digest.text);
 			if (data == NULL) {
 				err();
 				ret = -EINVAL;
@@ -416,6 +428,20 @@ fail:
 	return ret;
 }
 
+int ncr_session_update(struct ncr_lists* lists, void __user* arg)
+{
+	struct ncr_session_op_st op;
+	int ret;
+
+	ret = copy_from_user( &op, arg, sizeof(op));
+	if (unlikely(ret)) {
+		err();
+		return ret;
+	}
+	
+	return _ncr_session_update(lists, &op);
+}
+
 static void _ncr_session_remove(struct list_sem_st* lst, ncr_session_t desc)
 {
 	struct session_item_st * item, *tmp;
@@ -435,9 +461,8 @@ static void _ncr_session_remove(struct list_sem_st* lst, ncr_session_t desc)
 	return;
 }
 
-int ncr_session_final(struct ncr_lists* lists, void __user* arg)
+static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st* op)
 {
-	struct ncr_session_op_st op;
 	struct key_item_st *key = NULL;
 	int ret;
 	struct session_item_st* sess;
@@ -445,9 +470,7 @@ int ncr_session_final(struct ncr_lists* lists, void __user* arg)
 	struct data_item_st* odata = NULL;
 	int digest_size;
 
-	copy_from_user( &op, arg, sizeof(op));
-
-	sess = ncr_sessions_item_get( &lists->sessions, op.ses);
+	sess = ncr_sessions_item_get( &lists->sessions, op->ses);
 	if (sess == NULL) {
 		err();
 		return -EINVAL;
@@ -457,19 +480,19 @@ int ncr_session_final(struct ncr_lists* lists, void __user* arg)
 		case NCR_OP_ENCRYPT:
 		case NCR_OP_DECRYPT:
 			/* obtain data item */
-			if (op.data.cipher.plaintext != NCR_DATA_INVALID &&
-				op.data.cipher.ciphertext != NCR_DATA_INVALID) {
-				ncr_session_update(lists, arg);
+			if (op->data.cipher.plaintext != NCR_DATA_INVALID &&
+				op->data.cipher.ciphertext != NCR_DATA_INVALID) {
+				_ncr_session_update(lists, op);
 			}
 			cryptodev_cipher_deinit(&sess->ctx);
 			break;
 		case NCR_OP_MAC:
 		case NCR_OP_DIGEST:
 			/* obtain data item */
-			if (op.data.digest.text != NCR_DATA_INVALID) {
-				ncr_session_update(lists, arg);
+			if (op->data.digest.text != NCR_DATA_INVALID) {
+				_ncr_session_update(lists, op);
 			}
-			odata = ncr_data_item_get( &lists->data, op.data.digest.output);
+			odata = ncr_data_item_get( &lists->data, op->data.digest.output);
 			if (odata == NULL) {
 				err();
 				ret = -EINVAL;
@@ -500,33 +523,48 @@ fail:
 	if (odata) _ncr_data_item_put(odata);
 	if (data) _ncr_data_item_put(data);
 	_ncr_sessions_item_put(sess);
-	_ncr_session_remove(&lists->sessions, op.ses);
+	_ncr_session_remove(&lists->sessions, op->ses);
 
 	return ret;
 }
 
+int ncr_session_final(struct ncr_lists* lists, void __user* arg)
+{
+	struct ncr_session_op_st op;
+	int ret;
+
+	ret = copy_from_user( &op, arg, sizeof(op));
+	if (unlikely(ret)) {
+		err();
+		return ret;
+	}
+
+	return _ncr_session_final(lists, &op);
+}
+
 int ncr_session_once(struct ncr_lists* lists, void __user* arg)
 {
-	struct __user ncr_session_once_op_st* op = arg;
 	struct ncr_session_once_op_st kop;
 	int ret;
 
-	ret = ncr_session_init(lists, &op->init);
+	ret = copy_from_user(&kop, arg, sizeof(kop));
+	if (unlikely(ret)) {
+		err();
+		return ret;
+	}
+
+	ret = _ncr_session_init(lists, &kop.init);
 	if (ret < 0) {
 		err();
 		return ret;
 	}
 
-	copy_from_user(&kop, arg, sizeof(kop));
-	kop.op.ses = kop.init.ses;
-	copy_to_user(arg, &kop, sizeof(kop));
-
-	ret = ncr_session_final(lists, &op->op);
+	ret = _ncr_session_final(lists, &kop.op);
 	if (ret < 0) {
 		err();
 		return ret;
 	}
 
-	return 0;
+	return copy_to_user(arg, &kop, sizeof(kop));
 }
 

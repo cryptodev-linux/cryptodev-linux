@@ -118,9 +118,7 @@ int ncr_key_init(struct list_sem_st* lst, void __user* arg)
 	up(&lst->sem);
 
 	desc = key->desc;
-	copy_to_user(arg, &desc, sizeof(desc));
-
-	return 0;
+	return copy_to_user(arg, &desc, sizeof(desc));
 }
 
 
@@ -128,8 +126,13 @@ int ncr_key_deinit(struct list_sem_st* lst, void __user* arg)
 {
 	ncr_key_t desc;
 	struct key_item_st * item, *tmp;
+	int ret;
 
-	copy_from_user( &desc, arg, sizeof(desc));
+	ret = copy_from_user( &desc, arg, sizeof(desc));
+	if (unlikely(ret)) {
+		err();
+		return ret;
+	}
 
 	down(&lst->sem);
 	
@@ -157,7 +160,11 @@ struct key_item_st* item = NULL;
 struct data_item_st* ditem = NULL;
 int ret;
 
-	copy_from_user( &data, arg, sizeof(data));
+	ret = copy_from_user( &data, arg, sizeof(data));
+	if (unlikely(ret)) {
+		err();
+		return ret;
+	}
 
 	item = ncr_key_item_get( key_lst, data.key);
 	if (item == NULL) {
@@ -221,7 +228,11 @@ struct key_item_st* item = NULL;
 struct data_item_st* ditem = NULL;
 int ret;
 
-	copy_from_user( &data, arg, sizeof(data));
+	ret = copy_from_user( &data, arg, sizeof(data));
+	if (unlikely(ret)) {
+		err();
+		return ret;
+	}
 
 	item = ncr_key_item_get( key_lst, data.key);
 	if (item == NULL) {
@@ -297,7 +308,11 @@ struct key_item_st* item = NULL;
 int ret;
 size_t size;
 
-	copy_from_user( &gen, arg, sizeof(gen));
+	ret = copy_from_user( &gen, arg, sizeof(gen));
+	if (unlikely(ret)) {
+		err();
+		return ret;
+	}
 
 	item = ncr_key_item_get( lst, gen.desc);
 	if (item == NULL) {
@@ -345,8 +360,13 @@ int ncr_key_info(struct list_sem_st* lst, void __user* arg)
 {
 struct ncr_key_info_st info;
 struct key_item_st* item = NULL;
+int ret;
 
-	copy_from_user( &info, arg, sizeof(info));
+	ret = copy_from_user( &info, arg, sizeof(info));
+	if (unlikely(ret)) {
+		err();
+		return ret;
+	}
 
 	item = ncr_key_item_get( lst, info.key);
 	if (item == NULL) {
