@@ -126,7 +126,7 @@ static const struct algo_properties_st {
 	{ .algo = NCR_ALG_SHA2_512, .kstr = "sha512", .needs_iv = 0, .digest_size = 64 },
 	{ .algo = NCR_ALG_HMAC_SHA1, .kstr = "hmac(sha1)", .needs_iv = 0, .digest_size = 20 },
 	{ .algo = NCR_ALG_HMAC_MD5, .kstr = "hmac(md5)", .needs_iv = 0, .digest_size = 16 },
-	{ .algo = NCR_ALG_HMAC_SHA2_224, .kstr = "hmac(sha224)", .needs_iv = 0, .digest_size = 24 },
+	{ .algo = NCR_ALG_HMAC_SHA2_224, .kstr = "hmac(sha224)", .needs_iv = 0, .digest_size = 28 },
 	{ .algo = NCR_ALG_HMAC_SHA2_256, .kstr = "hmac(sha256)", .needs_iv = 0, .digest_size = 32 },
 	{ .algo = NCR_ALG_HMAC_SHA2_384, .kstr = "hmac(sha384)", .needs_iv = 0, .digest_size = 48 },
 	{ .algo = NCR_ALG_HMAC_SHA2_512, .kstr = "hmac(sha512)", .needs_iv = 0, .digest_size = 64 },
@@ -254,6 +254,12 @@ int ncr_session_init(struct ncr_lists* lists, void __user* arg)
 				err();
 				goto fail;
 			}
+
+			ret = cryptodev_hash_reset(&ns->hctx);
+			if (ret < 0) {
+				err();
+				goto fail;
+			}
 			break;
 
 		case NCR_OP_DIGEST:
@@ -263,6 +269,11 @@ int ncr_session_init(struct ncr_lists* lists, void __user* arg)
 				goto fail;
 			}
 
+			ret = cryptodev_hash_reset(&ns->hctx);
+			if (ret < 0) {
+				err();
+				goto fail;
+			}
 			break;
 
 		default:
@@ -278,8 +289,13 @@ int ncr_session_init(struct ncr_lists* lists, void __user* arg)
 
 fail:
 	if (key) _ncr_key_item_put(key);
-	if (ret < 0)
+	if (ret < 0) {
+		if (ns->ctx.init)
+			cryptodev_cipher_deinit(&ns->ctx);
+		if (ns->hctx.init)
+			cryptodev_hash_deinit(&ns->hctx);
 		_ncr_session_remove(&lists->sessions, ns->desc);
+	}
 
 	return ret;
 }
@@ -376,7 +392,7 @@ int ncr_session_update(struct ncr_lists* lists, void __user* arg)
 				ret = -EINVAL;
 				goto fail;
 			}
-			
+
 			ret = _cryptodev_hash_update(&sess->hctx, data->data, data->data_size);
 			if (ret < 0) {
 				err();
@@ -461,12 +477,15 @@ int ncr_session_final(struct ncr_lists* lists, void __user* arg)
 			}
 
 			digest_size = algo_digest_size(sess->algo);
-			if (digest_size == 0 || odata->data_size < digest_size) {
+			if (digest_size == 0 || odata->max_data_size < digest_size) {
 				err();
 				ret = -EINVAL;
 				goto fail;
 			}
 			ret = cryptodev_hash_final(&sess->hctx, odata->data);
+			odata->data_size = digest_size;
+			
+			cryptodev_hash_deinit(&sess->hctx);
 			break;
 		default:
 			err();
