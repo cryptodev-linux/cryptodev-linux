@@ -63,7 +63,6 @@ int mx = 1;
 struct key_item_st* ncr_key_item_get( struct list_sem_st* lst, ncr_key_t desc)
 {
 struct key_item_st* item;
-
 	down(&lst->sem);
 	list_for_each_entry(item, &lst->list, list) {
 		if (item->desc == desc) {
@@ -97,8 +96,6 @@ int ncr_key_init(struct list_sem_st* lst, void __user* arg)
 		err();
 		return ret;
 	}
-
-	copy_from_user( &desc, arg, sizeof(desc));
 
 	key = kmalloc(sizeof(*key), GFP_KERNEL);
 	if (key == NULL) {

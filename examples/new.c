@@ -563,7 +563,146 @@ test_ncr_wrap_key(int cfd)
 	}
 #endif
 
+	return 0;
 
+}
+
+static int
+test_ncr_store_wrap_key(int cfd)
+{
+	int i;
+	struct ncr_data_init_st dinit;
+	struct ncr_key_generate_st kgen;
+	ncr_key_t key2;
+	struct ncr_key_data_st keydata;
+	struct ncr_data_st kdata;
+	struct ncr_key_storage_wrap_st kwrap;
+	uint8_t data[DATA_SIZE];
+	int dd;
+
+	fprintf(stdout, "Tests on Key storage:\n");
+
+	/* test 1: generate a key in userspace import it
+	 * to kernel via data and export it.
+	 */
+
+	fprintf(stdout, "\tKey Storage wrap test...\n");
+
+	memset(&dinit, 0, sizeof(dinit));
+	dinit.max_object_size = DATA_SIZE;
+	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
+
+	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_DATA_INIT)");
+		return 1;
+	}
+
+	dd = dinit.desc;
+
+#define DKEY "\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF"
+	/* now key data */
+	kdata.data = DKEY;
+	kdata.data_size = 16;
+	kdata.desc = dd;
+	kdata.append_flag = 0;
+
+	if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_DATA_INIT)");
+		return 1;
+	}
+
+	/* convert it to key */
+	if (ioctl(cfd, NCRIO_KEY_INIT, &key2)) {
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+
+	keydata.key_id[0] = 'b';
+	keydata.key_id[2] = 'a';
+	keydata.key_id_size = 2;
+	keydata.type = NCR_KEY_TYPE_SECRET;
+	keydata.algorithm = NCR_ALG_AES_CBC;
+	keydata.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
+	
+	keydata.key = key2;
+	keydata.data = dd;
+
+	if (ioctl(cfd, NCRIO_KEY_IMPORT, &keydata)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_IMPORT)");
+		return 1;
+	}
+
+	/* now try wrapping key2 using key */
+	memset(&kwrap, 0, sizeof(kwrap));
+	kwrap.keytowrap = key2;
+	kwrap.data = dd;
+
+	if (ioctl(cfd, NCRIO_KEY_STORAGE_WRAP, &kwrap)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_STORAGE_WRAP)");
+		return 1;
+	}
+
+	/* test unwrapping */
+	fprintf(stdout, "\tKey Storage Unwrap test...\n");
+
+	/* reset key2 */
+	if (ioctl(cfd, NCRIO_KEY_DEINIT, &key2)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_DEINIT)");
+		return 1;
+	}
+
+	if (ioctl(cfd, NCRIO_KEY_INIT, &key2)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+
+	memset(&kwrap, 0, sizeof(kwrap));
+	kwrap.keytowrap = key2;
+	kwrap.data = dd;
+
+	if (ioctl(cfd, NCRIO_KEY_STORAGE_UNWRAP, &kwrap)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_STORAGE_UNWRAP)");
+		return 1;
+	}
+
+	/* now export the unwrapped */
+	/* this cannot be performed like that, because unwrap
+	 * always sets keys as unexportable. Maybe we can implement
+	 * a data comparison ioctl().
+	 */
+	memset(&keydata, 0, sizeof(keydata));
+	keydata.key = key2;
+	keydata.data = dd;
+
+	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_IMPORT)");
+		return 1;
+	}
+
+	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_DATA_GET)");
+		return 1;
+	}
+
+	if (kdata.data_size != 16 || memcmp(kdata.data, DKEY, 16) != 0) {
+		fprintf(stderr, "Unwrapped data do not match.\n");
+		fprintf(stderr, "Data[%d]: ", (int) kdata.data_size);
+		for(i=0;i<kdata.data_size;i++)
+			fprintf(stderr, "%.2x:", data[i]);
+		fprintf(stderr, "\n");
+		return 1;
+	}
+
+	return 0;
 
 }
 
@@ -811,6 +950,7 @@ test_ncr_aes(int cfd)
 }
 
 struct hash_vectors_st {
+	const char* name;
 	ncr_algorithm_t algorithm;
 	const uint8_t* key; /* if hmac */
 	int key_size;
@@ -821,6 +961,7 @@ struct hash_vectors_st {
 	ncr_crypto_op_t op;
 } hash_vectors[] = {
 	{
+		.name = "SHA1",
 		.algorithm = NCR_ALG_SHA1,
 		.key = NULL,
 		.plaintext = "what do ya want for nothing?",
@@ -830,6 +971,7 @@ struct hash_vectors_st {
 		.op = NCR_OP_DIGEST,
 	},
 	{
+		.name = "HMAC-MD5",
 		.algorithm = NCR_ALG_HMAC_MD5,
 		.key = "Jefe",
 		.key_size = 4,
@@ -841,6 +983,7 @@ struct hash_vectors_st {
 	},
 	/* from rfc4231 */
 	{
+		.name = "HMAC-SHA224",
 		.algorithm = NCR_ALG_HMAC_SHA2_224,
 		.key = "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",
 		.key_size = 20,
@@ -851,6 +994,7 @@ struct hash_vectors_st {
 		.op = NCR_OP_MAC,
 	},
 	{
+		.name = "HMAC-SHA256",
 		.algorithm = NCR_ALG_HMAC_SHA2_256,
 		.key = "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",
 		.key_size = 20,
@@ -861,6 +1005,7 @@ struct hash_vectors_st {
 		.op = NCR_OP_MAC,
 	},
 	{
+		.name = "HMAC-SHA384",
 		.algorithm = NCR_ALG_HMAC_SHA2_384,
 		.key = "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",
 		.key_size = 20,
@@ -871,6 +1016,7 @@ struct hash_vectors_st {
 		.op = NCR_OP_MAC,
 	},
 	{
+		.name = "HMAC-SHA512",
 		.algorithm = NCR_ALG_HMAC_SHA2_512,
 		.key = "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",
 		.key_size = 20,
@@ -882,6 +1028,7 @@ struct hash_vectors_st {
 	},
 };
 
+#define HASH_DATA_SIZE 64
 
 /* SHA1 and other hashes */
 static int
@@ -893,11 +1040,11 @@ test_ncr_hash(int cfd)
 	struct ncr_key_data_st keydata;
 	struct ncr_data_st kdata;
 	ncr_data_t dd, dd2;
-	uint8_t data[KEY_DATA_SIZE];
+	uint8_t data[HASH_DATA_SIZE];
 	int i, j;
 	struct ncr_session_once_op_st nop;
 
-	dinit.max_object_size = KEY_DATA_SIZE;
+	dinit.max_object_size = HASH_DATA_SIZE;
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
 	dinit.initial_data = NULL;
 	dinit.initial_data_size = 0;
@@ -932,9 +1079,10 @@ test_ncr_hash(int cfd)
 	keydata.flags = NCR_KEY_FLAG_EXPORTABLE;
 	
 
-	fprintf(stdout, "Tests on AES Encryption\n");
+	fprintf(stdout, "Tests on Hashes\n");
 	for (i=0;i<sizeof(hash_vectors)/sizeof(hash_vectors[0]);i++) {
 
+		fprintf(stdout, "\t%s:\n", hash_vectors[i].name);
 		/* import key */
 		if (hash_vectors[i].key != NULL) {
 			kdata.data = (void*)hash_vectors[i].key;
@@ -1060,6 +1208,9 @@ main()
 		return 1;
 
 	if (test_ncr_wrap_key(fd))
+		return 1;
+
+	if (test_ncr_store_wrap_key(fd))
 		return 1;
 
 	/* Close the original descriptor */

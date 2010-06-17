@@ -35,12 +35,12 @@ typedef uint8_t val64_t[8];
 static const val64_t initA = "\xA6\xA6\xA6\xA6\xA6\xA6\xA6\xA6";
 
 
-static void val64_xor( val64_t * val, uint32_t x)
+static void val64_xor( val64_t val, uint32_t x)
 {
-	(*val)[7] ^= x & 0xff;
-	(*val)[6] ^= (x >> 8) & 0xff;
-	(*val)[5] ^= (x >> 16) & 0xff;
-	(*val)[4] ^= (x >> 24) & 0xff;
+	val[7] ^= x & 0xff;
+	val[6] ^= (x >> 8) & 0xff;
+	val[5] ^= (x >> 16) & 0xff;
+	val[4] ^= (x >> 24) & 0xff;
 }
 
 static int rfc3394_wrap(val64_t R[], unsigned int n, struct cipher_data* ctx,
@@ -65,7 +65,7 @@ int i,j;
 			aes_block, sizeof(aes_block));
 
 		memcpy(A, aes_block, 8); /* A = MSB64(AES(A^{t-1}|R_{1}^{t-1})) */
-		val64_xor(&A, i+1); /* A ^= t */
+		val64_xor(A, i+1); /* A ^= t */
 
 		for (j=0;j<n-1;j++)
 			memcpy(R[j], R[j+1], sizeof(R[j]));
@@ -80,25 +80,25 @@ int i,j;
 	return 0;
 }
 
-static int rfc3394_unwrap(uint8_t *wrapped_key, val64_t R[], unsigned int n, val64_t* A, struct cipher_data *ctx)
+static int rfc3394_unwrap(uint8_t *wrapped_key, val64_t R[], unsigned int n, val64_t A, struct cipher_data *ctx)
 {
 	int i, j;
 	uint8_t aes_block[16];
 
-	memcpy(*A, wrapped_key, 8); /* A = C[0] */
+	memcpy(A, wrapped_key, 8); /* A = C[0] */
 	for (i=0;i<n;i++)
 		memcpy(R[i], &wrapped_key[(i+1)*8], 8);
 
 	for (i=(6*n)-1;i>=0;i--) {
 		val64_xor(A, i+1);
 
-		memcpy(aes_block, *A, 8);
+		memcpy(aes_block, A, 8);
 		memcpy(&aes_block[8], R[n-1], 8);
 
 		_cryptodev_cipher_decrypt(ctx, aes_block, sizeof(aes_block),
 			aes_block, sizeof(aes_block));
 
-		memcpy(*A, aes_block, 8);
+		memcpy(A, aes_block, 8);
 
 		for (j=n-1;j>=1;j--)
 			memcpy(R[j], R[j-1], sizeof(R[j]));
@@ -114,7 +114,7 @@ static int _wrap_aes_rfc5649(void* kdata, size_t kdata_size, struct key_item_st*
 	struct data_item_st* output, const void* _iv, size_t iv_size)
 {
 size_t n;
-int i, j, ret;
+int i, ret;
 struct cipher_data ctx;
 uint8_t iv[8];
 
@@ -129,17 +129,16 @@ uint8_t iv[8];
 	iv[6] = (kdata_size >> 8) & 0xff;
 	iv[7] = (kdata_size) & 0xff;
 
+	n = (kdata_size+7)/8;
+	if (n==1) { /* unimplemented */
+		err();
+		return -EINVAL;
+	}
+
 	ret = cryptodev_cipher_init(&ctx, "ecb(aes)", kek->key.secret.data, kek->key.secret.size);
 	if (ret < 0) {
 		err();
 		return ret;
-	}
-
-	n = (kdata_size+7)/8;
-	if (n==1) { /* unimplemented */
-		err();
-		ret = -EINVAL;
-		goto cleanup;
 	}
 
 	{
@@ -147,14 +146,11 @@ uint8_t iv[8];
 
 		/* R = P */
 		for (i=0;i<kdata_size;i++) {
-			j=i/8;
-			R[j][i] = ((uint8_t*)kdata)[i];
+			R[i/8][i%8] = ((uint8_t*)kdata)[i];
 		}
 		for (;i<n*8;i++) {
-			j=i/8;
-			R[j][i] = 0;
+			R[i/8][i%8] = 0;
 		}
-
 		ret = rfc3394_wrap( R, n, &ctx, output, iv);
 		if (ret < 0) {
 			err();
@@ -213,7 +209,7 @@ size_t size;
 	{
 		val64_t R[n], A;
 
-		ret = rfc3394_unwrap(wrapped_key, R, n, &A, &ctx);
+		ret = rfc3394_unwrap(wrapped_key, R, n, A, &ctx);
 		if (ret < 0) {
 			err();
 			return ret;
@@ -387,7 +383,7 @@ struct cipher_data ctx;
 	{
 		val64_t R[n];
 
-		ret = rfc3394_unwrap(wrapped_key, R, n, &A, &ctx);
+		ret = rfc3394_unwrap(wrapped_key, R, n, A, &ctx);
 		if (ret < 0) {
 			err();
 			return ret;
@@ -539,6 +535,11 @@ uint8_t * sdata = NULL;
 size_t sdata_size = 0;
 int ret;
 
+	if (master_key.type != NCR_KEY_TYPE_SECRET) {
+		err();
+		return ENOKEY;
+	}
+
 	copy_from_user( &wrap, arg, sizeof(wrap));
 
 	wkey = ncr_key_item_get( key_lst, wrap.keytowrap);
@@ -582,12 +583,17 @@ fail:
  */
 int ncr_key_storage_unwrap(struct list_sem_st* key_lst, struct list_sem_st* data_lst, void __user* arg)
 {
-struct ncr_key_wrap_st wrap;
+struct ncr_key_storage_wrap_st wrap;
 struct key_item_st* wkey = NULL;
 struct data_item_st * data = NULL;
 uint8_t * sdata = NULL;
 size_t sdata_size = 0;
 int ret;
+
+	if (master_key.type != NCR_KEY_TYPE_SECRET) {
+		err();
+		return ENOKEY;
+	}
 
 	copy_from_user( &wrap, arg, sizeof(wrap));
 
