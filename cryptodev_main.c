@@ -202,7 +202,7 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 
 		if (unlikely(sop->keylen > CRYPTO_CIPHER_MAX_KEY_LEN)) {
 			dprintk(1,KERN_DEBUG,"Setting key failed for %s-%zu.\n",
-				alg_name, sop->keylen*8);
+				alg_name, (size_t)sop->keylen*8);
 			ret = -EINVAL;
 			goto error;
 		}
@@ -222,7 +222,7 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 
 		if (unlikely(sop->mackeylen > CRYPTO_HMAC_MAX_KEY_LEN)) {
 			dprintk(1,KERN_DEBUG,"Setting key failed for %s-%zu.\n",
-				alg_name, sop->mackeylen*8);
+				alg_name, (size_t)sop->mackeylen*8);
 			ret = -EINVAL;
 			goto error;
 		}
