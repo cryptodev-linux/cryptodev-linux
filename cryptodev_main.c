@@ -41,6 +41,7 @@
 #include "cryptodev_int.h"
 #include "ncr_int.h"
 #include <linux/version.h>
+#include "version.h"
 
 MODULE_AUTHOR("Nikos Mavrogiannopoulos <nmav@gnutls.org>");
 MODULE_DESCRIPTION("CryptoDev driver");
@@ -204,12 +205,12 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 			dprintk(1,KERN_DEBUG,"Setting key failed for %s-%zu.\n",
 				alg_name, (size_t)sop->keylen*8);
 			ret = -EINVAL;
-			goto error;
+			goto error_cipher;
 		}
 
 		ret = copy_from_user(keyp, sop->key, sop->keylen);
 		if (unlikely(ret)) {
-			goto error;
+			goto error_cipher;
 		}
 
 		ret = cryptodev_cipher_init(&ses_new->cdata, alg_name, keyp, sop->keylen);
@@ -217,7 +218,7 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 			dprintk(1,KERN_DEBUG,"%s: Failed to load cipher for %s\n", __func__,
 				   alg_name);
 			ret = -EINVAL;
-			goto error;
+			goto error_cipher;
 		}
 	}
 
@@ -228,12 +229,12 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 			dprintk(1,KERN_DEBUG,"Setting key failed for %s-%zu.\n",
 				alg_name, (size_t)sop->mackeylen*8);
 			ret = -EINVAL;
-			goto error;
+			goto error_hash;
 		}
 		
 		ret = copy_from_user(keyp, sop->mackey, sop->mackeylen);
 		if (unlikely(ret)) {
-			goto error;
+			goto error_hash;
 		}
 
 		ret = cryptodev_hash_init(&ses_new->hdata, hash_name, hmac_mode, keyp, sop->mackeylen);
@@ -241,7 +242,7 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 			dprintk(1,KERN_DEBUG,"%s: Failed to load hash for %s\n", __func__,
 				   hash_name);
 			ret = -EINVAL;
-			goto error;
+			goto error_hash;
 		}
 	}
 
@@ -269,9 +270,9 @@ restart:
 
 	return 0;
 
-error:
+error_hash:
 	cryptodev_cipher_deinit( &ses_new->cdata);
-	cryptodev_hash_deinit( &ses_new->hdata);
+error_cipher:
 	if (ses_new) kfree(ses_new);
 
 	return ret;
@@ -802,7 +803,7 @@ int __init init_cryptodev(void)
 	if (unlikely(rc))
 		return rc;
 
-	printk(KERN_INFO PFX "driver loaded.\n");
+	printk(KERN_INFO PFX "driver %s loaded.\n", VERSION);
 
 	return 0;
 }

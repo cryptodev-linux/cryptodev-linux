@@ -1,5 +1,5 @@
-KERNEL_DIR ?= /lib/modules/$(shell uname -r)/build
-VERSION = 0.1
+KERNEL_DIR = /lib/modules/$(shell uname -r)/build
+VERSION = 0.3
 
 cryptodev-objs = cryptodev_main.o cryptodev_cipher.o ncr.o \
 	ncr-data.o ncr-key.o ncr-limits.o ncr-sessions.o \
@@ -8,7 +8,8 @@ cryptodev-objs = cryptodev_main.o cryptodev_cipher.o ncr.o \
 obj-m += cryptodev.o
 
 build:
-	make -C $(KERNEL_DIR) SUBDIRS=`pwd` modules
+	@echo "#define VERSION \"$(VERSION)\"" > version.h
+	make -C $(KERNEL_DIR) VERSION="$VERSION" SUBDIRS=`pwd` modules
 
 install:
 	make -C $(KERNEL_DIR) SUBDIRS=`pwd` modules_install
