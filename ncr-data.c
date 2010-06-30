@@ -282,21 +282,24 @@ int ncr_data_set(struct list_sem_st* lst, void __user* arg)
 		}
 		data->data_size = get.data_size;
 	} else {
+		size_t offset;
+
+		offset = data->data_size;
 		/* get.data_size <= data->max_data_size, which is limited in
 		   data_alloc(), so there is no integer overflow. */
-		if (get.data_size+data->data_size > data->max_data_size) {
+		if (get.data_size+offset > data->max_data_size) {
 			err();
 			ret = -EINVAL;
 			goto cleanup;
 		}
 		if (get.data != NULL) {
-			ret = copy_from_user(&data->data[data->data_size], get.data, get.data_size);
+			ret = copy_from_user(&data->data[offset], get.data, get.data_size);
 			if (unlikely(ret)) {
 				err();
 				goto cleanup;
 			}		
 		}
-		data->data_size += get.data_size;
+		data->data_size = offset + get.data_size;
 	}
 	ret = 0;
 
