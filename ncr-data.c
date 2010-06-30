@@ -113,13 +113,14 @@ int ncr_data_init(struct list_sem_st* lst, void __user* arg)
 	ret = copy_from_user( &init, arg, sizeof(init));
 	if (unlikely(ret)) {
 		err();
-		return ret;
+		goto err_limits;
 	}
 
 	data = kmalloc(sizeof(*data), GFP_KERNEL);
 	if (data == NULL) {
 		err();
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto err_limits;
 	}
 
 	memset(data, 0, sizeof(*data));
@@ -132,9 +133,9 @@ int ncr_data_init(struct list_sem_st* lst, void __user* arg)
 
 	data->data = data_alloc(init.max_object_size);
 	if (data->data == NULL) {
-		kfree(data);
 		err();
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto err_data;
 	}
 	data->max_data_size = init.max_object_size;
 
@@ -142,8 +143,7 @@ int ncr_data_init(struct list_sem_st* lst, void __user* arg)
 		ret = copy_from_user(data->data, init.initial_data, init.initial_data_size);
 		if (unlikely(ret)) {
 			err();
-			kfree(data->data);
-			kfree(data);
+			_ncr_data_item_put(data);
 			return ret;
 		}
 		data->data_size = init.initial_data_size;
@@ -159,6 +159,13 @@ int ncr_data_init(struct list_sem_st* lst, void __user* arg)
 
 	init.desc = data->desc;
 	return copy_to_user(arg, &init, sizeof(init));
+
+ err_data:
+	kfree(data);
+ err_limits:
+	ncr_limits_remove(current_euid(), task_pid_nr(current),
+			  LIMIT_TYPE_DATA);
+	return ret;
 }
 
 
