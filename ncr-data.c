@@ -82,6 +82,8 @@ struct data_item_st* item;
 static void* data_alloc(size_t size)
 {
 	/* FIXME: enforce a maximum memory limit per process and per user */
+	/* ncr_data_set() relies this function enforcing a reasonable upper
+	   limit. */
 	if (size > 64*1024) {
 		err();
 		return NULL;
@@ -280,6 +282,8 @@ int ncr_data_set(struct list_sem_st* lst, void __user* arg)
 		}
 		data->data_size = get.data_size;
 	} else {
+		/* get.data_size <= data->max_data_size, which is limited in
+		   data_alloc(), so there is no integer overflow. */
 		if (get.data_size+data->data_size > data->max_data_size) {
 			err();
 			ret = -EINVAL;
