@@ -98,6 +98,7 @@ int ncr_limits_add_and_check(uid_t uid, pid_t pid, limits_type_t type)
 struct limit_process_item_st* pitem;
 struct limit_user_item_st* uitem;
 int add = 1;
+int ret;
 
 	down(&limits.users.sem);
 	list_for_each_entry(uitem, &limits.users.list, list) {
@@ -116,6 +117,7 @@ int add = 1;
 		uitem = kmalloc( sizeof(*uitem), GFP_KERNEL);
 		if (uitem == NULL) {
 			err();
+			up(&limits.users.sem);
 			return -ENOMEM;
 		}
 		uitem->uid = uid;
@@ -135,7 +137,9 @@ int add = 1;
 			if (atomic_add_unless(&pitem->cnt, 1, max_per_process[type])==0) {
 				err();
 				up(&limits.processes.sem);
-				return -EPERM;
+
+				ret = -EPERM;
+				goto restore_user;
 			}
 		}
 	}
@@ -145,7 +149,9 @@ int add = 1;
 		pitem = kmalloc(sizeof(*pitem), GFP_KERNEL);
 		if (uitem == NULL) {
 			err();
-			return -ENOMEM;
+			up(&limits.processes.sem);
+			ret = -ENOMEM;
+			goto restore_user;
 		}
 		pitem->pid = task_pid_nr(current);
 		pitem->type = type;
@@ -156,6 +162,15 @@ int add = 1;
 	up(&limits.processes.sem);
 
 	return 0;
+
+restore_user:
+	down(&limits.users.sem);
+	list_for_each_entry(uitem, &limits.users.list, list) {
+		if (uitem->uid == uid && uitem->type == type)
+			atomic_dec(&uitem->cnt);
+	}
+	up(&limits.users.sem);
+	return ret;
 }
 
 void ncr_limits_remove(uid_t uid, pid_t pid, limits_type_t type)
