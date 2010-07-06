@@ -171,4 +171,7 @@ inline static unsigned int data_flags_to_key(unsigned int data_flags)
 	return flags;
 }
 
+const char* _ncr_algo_to_str(ncr_algorithm_t algo);
+int _ncr_algo_digest_size(ncr_algorithm_t algo);
+
 #endif

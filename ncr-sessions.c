@@ -135,7 +135,7 @@ static const struct algo_properties_st {
 	{ .algo = NCR_ALG_NONE }
 };
 
-static inline const char* algo2str(ncr_algorithm_t algo)
+const char* _ncr_algo_to_str(ncr_algorithm_t algo)
 {
 ncr_algorithm_t a;
 int i = 0;
@@ -163,7 +163,7 @@ int i = 0;
 	return 0;
 }
 
-static int algo_digest_size(ncr_algorithm_t algo)
+int _ncr_algo_digest_size(ncr_algorithm_t algo)
 {
 ncr_algorithm_t a;
 int i = 0;
@@ -184,7 +184,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 	int ret;
 	const char* str;
 
-	str = algo2str(session->algorithm);
+	str = _ncr_algo_to_str(session->algorithm);
 	if (str == NULL) {
 		err();
 		return NCR_SESSION_INVALID;
@@ -499,7 +499,7 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 				goto fail;
 			}
 
-			digest_size = algo_digest_size(sess->algo);
+			digest_size = _ncr_algo_digest_size(sess->algo);
 			if (digest_size == 0 || odata->max_data_size < digest_size) {
 				err();
 				ret = -EINVAL;
