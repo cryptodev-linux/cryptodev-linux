@@ -1,9 +1,9 @@
 KERNEL_DIR = /lib/modules/$(shell uname -r)/build
 VERSION = 0.3
 
-EXTRA_CFLAGS += -I$(SUBDIRS)/libtommath
+EXTRA_CFLAGS += -I$(SUBDIRS)/libtommath -I$(SUBDIRS)/libtomcrypt/headers -DLTC_SOURCE
 
-TOM_OBJECTS = libtommath/bncore.o libtommath/bn_mp_init.o libtommath/bn_mp_clear.o libtommath/bn_mp_exch.o libtommath/bn_mp_grow.o libtommath/bn_mp_shrink.o \
+TOMMATH_OBJECTS = libtommath/bncore.o libtommath/bn_mp_init.o libtommath/bn_mp_clear.o libtommath/bn_mp_exch.o libtommath/bn_mp_grow.o libtommath/bn_mp_shrink.o \
 	libtommath/bn_mp_clamp.o libtommath/bn_mp_zero.o  libtommath/bn_mp_set.o libtommath/bn_mp_set_int.o libtommath/bn_mp_init_size.o libtommath/bn_mp_copy.o \
 	libtommath/bn_mp_init_copy.o libtommath/bn_mp_abs.o libtommath/bn_mp_neg.o libtommath/bn_mp_cmp_mag.o libtommath/bn_mp_cmp.o libtommath/bn_mp_cmp_d.o \
 	libtommath/bn_mp_rshd.o libtommath/bn_mp_lshd.o libtommath/bn_mp_mod_2d.o libtommath/bn_mp_div_2d.o libtommath/bn_mp_mul_2d.o libtommath/bn_mp_div_2.o \
@@ -31,9 +31,14 @@ TOM_OBJECTS = libtommath/bncore.o libtommath/bn_mp_init.o libtommath/bn_mp_clear
 	libtommath/bn_mp_init_set_int.o libtommath/bn_mp_invmod_slow.o libtommath/bn_mp_prime_rabin_miller_trials.o \
 	libtommath/bn_mp_to_signed_bin_n.o libtommath/bn_mp_to_unsigned_bin_n.o
 
+TOMCRYPT_OBJECTS = libtomcrypt/misc/zeromem.o libtomcrypt/misc/crypt/crypt_argchk.o \
+	libtomcrypt/math/ltm_desc.o libtomcrypt/math/multi.o libtomcrypt/math/rand_prime.o  \
+	libtomcrypt/pk/dsa/dsa_make_key.o libtomcrypt/prngs/linux.o
+
 cryptodev-objs = cryptodev_main.o cryptodev_cipher.o ncr.o \
 	ncr-data.o ncr-key.o ncr-limits.o ncr-sessions.o \
-	ncr-key-wrap.o ncr-key-storage.o $(TOM_OBJECTS)
+	ncr-key-wrap.o ncr-key-storage.o $(TOMMATH_OBJECTS) \
+	$(TOMCRYPT_OBJECTS)
 
 
 obj-m += cryptodev.o
