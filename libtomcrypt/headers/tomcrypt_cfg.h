@@ -19,6 +19,8 @@
 #define LTC_EXPORT
 #endif
 
+LTC_EXPORT void LTC_CALL XQSORT(void *base, size_t nmemb, size_t size, int(*compar)(const void *, const void *));
+
 /* certain platforms use macros for these, making the prototypes broken */
 #ifndef LTC_NO_PROTOTYPES
 
@@ -27,9 +29,6 @@ LTC_EXPORT void * LTC_CALL XMALLOC(size_t n);
 LTC_EXPORT void * LTC_CALL XREALLOC(void *p, size_t n);
 LTC_EXPORT void * LTC_CALL XCALLOC(size_t n, size_t s);
 LTC_EXPORT void LTC_CALL XFREE(void *p);
-
-LTC_EXPORT void LTC_CALL XQSORT(void *base, size_t nmemb, size_t size, int(*compar)(const void *, const void *));
-
 
 /* change the clock function too */
 LTC_EXPORT clock_t LTC_CALL XCLOCK(void);

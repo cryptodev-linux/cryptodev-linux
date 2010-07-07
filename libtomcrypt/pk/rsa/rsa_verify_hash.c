@@ -63,10 +63,10 @@ int rsa_verify_hash_ex(const unsigned char *sig,      unsigned long siglen,
   }
 
   /* get modulus len in bits */
-  modulus_bitlen = mp_count_bits( (key->N));
+  modulus_bitlen = mp_count_bits( (&key->N));
 
   /* outlen must be at least the size of the modulus */
-  modulus_bytelen = mp_unsigned_bin_size( (key->N));
+  modulus_bytelen = mp_unsigned_bin_size( (&key->N));
   if (modulus_bytelen != siglen) {
      return CRYPT_INVALID_PACKET;
   }
@@ -79,7 +79,7 @@ int rsa_verify_hash_ex(const unsigned char *sig,      unsigned long siglen,
 
   /* RSA decode it  */
   x = siglen;
-  if ((err = ltc_mp.rsa_me(sig, siglen, tmpbuf, &x, PK_PUBLIC, key)) != CRYPT_OK) {
+  if ((err = rsa_exptmod(sig, siglen, tmpbuf, &x, PK_PUBLIC, key)) != CRYPT_OK) {
      XFREE(tmpbuf);
      return err;
   }
@@ -99,9 +99,10 @@ int rsa_verify_hash_ex(const unsigned char *sig,      unsigned long siglen,
     unsigned long outlen, loid[16];
     int           decoded;
     ltc_asn1_list digestinfo[2], siginfo[2];
+    oid_st st;
 
     /* not all hashes have OIDs... so sad */
-    if (hash_descriptor[hash_idx].OIDlen == 0) {
+    if (hash_get_oid(hash_idx, &st) != CRYPT_OK) {
        err = CRYPT_INVALID_ARG;
        goto bail_2;
     }
@@ -139,8 +140,8 @@ int rsa_verify_hash_ex(const unsigned char *sig,      unsigned long siglen,
     }
 
     /* test OID */
-    if ((digestinfo[0].size == hash_descriptor[hash_idx].OIDlen) &&
-        (XMEMCMP(digestinfo[0].data, hash_descriptor[hash_idx].OID, sizeof(unsigned long) * hash_descriptor[hash_idx].OIDlen) == 0) &&
+    if ((digestinfo[0].size == st.OIDlen) &&
+        (XMEMCMP(digestinfo[0].data, st.OID, sizeof(unsigned long) * st.OIDlen) == 0) &&
         (siginfo[1].size == hashlen) &&
         (XMEMCMP(siginfo[1].data, hash, hashlen) == 0)) {
        *stat = 1;

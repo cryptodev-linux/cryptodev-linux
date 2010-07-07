@@ -9,6 +9,7 @@
  * Tom St Denis, tomstdenis@gmail.com, http://libtom.org
  */
 #include "tomcrypt.h"
+#include <ncr_int.h>
 
 /** 
   @file pkcs_1_mgf1.c
@@ -33,7 +34,6 @@ int pkcs_1_mgf1(int                  hash_idx,
    unsigned long hLen, x;
    ulong32       counter;
    int           err;
-   hash_state    *md;
    unsigned char *buf;
  
    LTC_ARGCHK(seed != NULL);
@@ -45,18 +45,11 @@ int pkcs_1_mgf1(int                  hash_idx,
    }
 
    /* get hash output size */
-   hLen = hash_descriptor[hash_idx].hashsize;
+   hLen = _ncr_algo_digest_size(hash_idx);
 
    /* allocate memory */
-   md  = XMALLOC(sizeof(hash_state));
    buf = XMALLOC(hLen);
-   if (md == NULL || buf == NULL) {
-      if (md != NULL) {
-         XFREE(md);
-      }
-      if (buf != NULL) {
-         XFREE(buf);
-      }
+   if (buf == NULL) {
       return CRYPT_MEM;
    }
 
@@ -68,17 +61,8 @@ int pkcs_1_mgf1(int                  hash_idx,
        STORE32H(counter, buf);
        ++counter;
 
-       /* get hash of seed || counter */
-       if ((err = hash_descriptor[hash_idx].init(md)) != CRYPT_OK) {
-          goto LBL_ERR;
-       }
-       if ((err = hash_descriptor[hash_idx].process(md, seed, seedlen)) != CRYPT_OK) {
-          goto LBL_ERR;
-       }
-       if ((err = hash_descriptor[hash_idx].process(md, buf, 4)) != CRYPT_OK) {
-          goto LBL_ERR;
-       }
-       if ((err = hash_descriptor[hash_idx].done(md, buf)) != CRYPT_OK) {
+       err = hash_memory_multi(hash_idx, buf, &hLen, seed, seedlen, buf, (unsigned long) 4, NULL, 0);
+       if (err != CRYPT_OK) {
           goto LBL_ERR;
        }
 
@@ -92,11 +76,9 @@ int pkcs_1_mgf1(int                  hash_idx,
 LBL_ERR:
 #ifdef LTC_CLEAN_STACK
    zeromem(buf, hLen);
-   zeromem(md,  sizeof(hash_state));
 #endif
 
    XFREE(buf);
-   XFREE(md);
 
    return err;
 }

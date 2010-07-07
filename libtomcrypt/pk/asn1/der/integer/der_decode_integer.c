@@ -25,7 +25,7 @@
   @param num      The first mp_int to decode
   @return CRYPT_OK if successful
 */
-int der_decode_integer(const unsigned char *in, unsigned long inlen, void *num)
+int der_decode_integer(const unsigned char *in, unsigned long inlen, mp_int_t num)
 {
    unsigned long x, y, z;
    int           err;
@@ -87,16 +87,16 @@ int der_decode_integer(const unsigned char *in, unsigned long inlen, void *num)
 
    /* see if it's negative */
    if (in[x] & 0x80) {
-      void *tmp;
+      mp_int tmp;
       if (mp_init(&tmp) != CRYPT_OK) {
          return CRYPT_MEM;
       }
 
-      if (mp_2expt(tmp, mp_count_bits(num)) != CRYPT_OK || mp_sub(num, tmp, num) != CRYPT_OK) {
-         mp_clear(tmp);
+      if (mp_2expt(&tmp, mp_count_bits(num)) != CRYPT_OK || mp_sub(num, &tmp, num) != CRYPT_OK) {
+         mp_clear(&tmp);
          return CRYPT_MEM;
       }
-      mp_clear(tmp);
+      mp_clear(&tmp);
    } 
 
    return CRYPT_OK;

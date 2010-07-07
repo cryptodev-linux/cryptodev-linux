@@ -83,10 +83,12 @@ extern "C" {
 #endif
 
 /* define heap macros */
-#define XMALLOC(x) kmalloc(x, GFP_KERNEL)
-#define XFREE kfree
-#define XREALLOC(x,y) krealloc(x,y, GFP_KERNEL)
-#define XCALLOC(x,y) kzalloc(x*y, GPF_KERNEL)
+#ifndef XMALLOC
+# define XMALLOC(x) kmalloc(x, GFP_KERNEL)
+# define XFREE kfree
+# define XREALLOC(x,y) krealloc(x,y, GFP_KERNEL)
+# define XCALLOC(x,y) kzalloc(x*y, GPF_KERNEL)
+#endif
 
 /* otherwise the bits per digit is calculated automatically from the size of a mp_digit */
 #ifndef DIGIT_BIT

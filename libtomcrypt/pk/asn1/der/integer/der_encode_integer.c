@@ -26,7 +26,7 @@
   @param outlen   [in/out] The max size and resulting size of the DER encoded integers
   @return CRYPT_OK if successful
 */
-int der_encode_integer(void *num, unsigned char *out, unsigned long *outlen)
+int der_encode_integer(mp_int_t num, unsigned char *out, unsigned long *outlen)
 {  
    unsigned long tmplen, y;
    int           err, leading_zero;
@@ -96,7 +96,7 @@ int der_encode_integer(void *num, unsigned char *out, unsigned long *outlen)
           return err;
       }
    } else if (mp_iszero(num) != LTC_MP_YES) {
-      void *tmp;
+      mp_int tmp;
          
       /* negative */
       if (mp_init(&tmp) != CRYPT_OK) {
@@ -107,15 +107,15 @@ int der_encode_integer(void *num, unsigned char *out, unsigned long *outlen)
       y = mp_count_bits(num);
       y = y + (8 - (y & 7));
       if (((mp_cnt_lsb(num)+1)==mp_count_bits(num)) && ((mp_count_bits(num)&7)==0)) y -= 8;
-      if (mp_2expt(tmp, y) != CRYPT_OK || mp_add(tmp, num, tmp) != CRYPT_OK) {
-         mp_clear(tmp);
+      if (mp_2expt(&tmp, y) != CRYPT_OK || mp_add(&tmp, num, &tmp) != CRYPT_OK) {
+         mp_clear(&tmp);
          return CRYPT_MEM;
       }
-      if ((err = mp_to_unsigned_bin(tmp, out)) != CRYPT_OK) {
-         mp_clear(tmp);
+      if ((err = mp_to_unsigned_bin(&tmp, out)) != CRYPT_OK) {
+         mp_clear(&tmp);
          return err;
       }
-      mp_clear(tmp);
+      mp_clear(&tmp);
    }
 
    /* we good */

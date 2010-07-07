@@ -1,7 +1,7 @@
 KERNEL_DIR = /lib/modules/$(shell uname -r)/build
 VERSION = 0.3
 
-EXTRA_CFLAGS += -I$(SUBDIRS)/libtommath -I$(SUBDIRS)/libtomcrypt/headers -DLTC_SOURCE
+EXTRA_CFLAGS += -I$(SUBDIRS)/libtommath -I$(SUBDIRS)/libtomcrypt/headers -I$(SUBDIRS)/ -DLTC_SOURCE
 
 TOMMATH_OBJECTS = libtommath/bncore.o libtommath/bn_mp_init.o libtommath/bn_mp_clear.o libtommath/bn_mp_exch.o libtommath/bn_mp_grow.o libtommath/bn_mp_shrink.o \
 	libtommath/bn_mp_clamp.o libtommath/bn_mp_zero.o  libtommath/bn_mp_set.o libtommath/bn_mp_set_int.o libtommath/bn_mp_init_size.o libtommath/bn_mp_copy.o \
@@ -32,8 +32,37 @@ TOMMATH_OBJECTS = libtommath/bncore.o libtommath/bn_mp_init.o libtommath/bn_mp_c
 	libtommath/bn_mp_to_signed_bin_n.o libtommath/bn_mp_to_unsigned_bin_n.o
 
 TOMCRYPT_OBJECTS = libtomcrypt/misc/zeromem.o libtomcrypt/misc/crypt/crypt_argchk.o \
-	libtomcrypt/math/ltm_desc.o libtomcrypt/math/multi.o libtomcrypt/math/rand_prime.o  \
-	libtomcrypt/pk/dsa/dsa_make_key.o libtomcrypt/prngs/linux.o
+	libtomcrypt/math/rand_prime.o  libtomcrypt/misc/qsort.o libtomcrypt/hashes/hash_get_oid.o \
+	libtomcrypt/hashes/crypt_hash_is_valid.o libtomcrypt/hashes/hash_memory.o libtomcrypt/hashes/hash_memory_multi.o \
+	libtomcrypt/pk/dsa/dsa_make_key.o libtomcrypt/pk/dsa/dsa_export.o libtomcrypt/pk/dsa/dsa_import.o \
+	libtomcrypt/pk/dsa/dsa_free.o libtomcrypt/pk/dsa/dsa_sign_hash.o libtomcrypt/pk/dsa/dsa_verify_hash.o \
+	libtomcrypt/pk/dsa/dsa_verify_key.o \
+	libtomcrypt/pk/asn1/der/bit/der_decode_bit_string.o libtomcrypt/pk/asn1/der/bit/der_encode_bit_string.o \
+	libtomcrypt/pk/asn1/der/bit/der_length_bit_string.o libtomcrypt/pk/asn1/der/boolean/der_decode_boolean.o \
+	libtomcrypt/pk/asn1/der/boolean/der_encode_boolean.o libtomcrypt/pk/asn1/der/boolean/der_length_boolean.o \
+	libtomcrypt/pk/asn1/der/choice/der_decode_choice.o libtomcrypt/pk/asn1/der/ia5/der_decode_ia5_string.o \
+	libtomcrypt/pk/asn1/der/ia5/der_encode_ia5_string.o libtomcrypt/pk/asn1/der/ia5/der_length_ia5_string.o \
+	libtomcrypt/pk/asn1/der/integer/der_decode_integer.o libtomcrypt/pk/asn1/der/integer/der_encode_integer.o \
+	libtomcrypt/pk/asn1/der/integer/der_length_integer.o libtomcrypt/pk/asn1/der/object_identifier/der_decode_object_identifier.o \
+	libtomcrypt/pk/asn1/der/object_identifier/der_encode_object_identifier.o libtomcrypt/pk/asn1/der/object_identifier/der_length_object_identifier.o \
+	libtomcrypt/pk/asn1/der/octet/der_decode_octet_string.o libtomcrypt/pk/asn1/der/octet/der_encode_octet_string.o \
+	libtomcrypt/pk/asn1/der/octet/der_length_octet_string.o libtomcrypt/pk/asn1/der/printable_string/der_decode_printable_string.o \
+	libtomcrypt/pk/asn1/der/printable_string/der_encode_printable_string.o libtomcrypt/pk/asn1/der/printable_string/der_length_printable_string.o \
+	libtomcrypt/pk/asn1/der/sequence/der_decode_sequence_ex.o libtomcrypt/pk/asn1/der/sequence/der_decode_sequence_flexi.o \
+	libtomcrypt/pk/asn1/der/sequence/der_decode_sequence_multi.o libtomcrypt/pk/asn1/der/sequence/der_encode_sequence_ex.o \
+	libtomcrypt/pk/asn1/der/sequence/der_encode_sequence_multi.o libtomcrypt/pk/asn1/der/sequence/der_length_sequence.o \
+	libtomcrypt/pk/asn1/der/sequence/der_sequence_free.o libtomcrypt/pk/asn1/der/short_integer/der_decode_short_integer.o \
+	libtomcrypt/pk/asn1/der/short_integer/der_encode_short_integer.o libtomcrypt/pk/asn1/der/short_integer/der_length_short_integer.o \
+	libtomcrypt/pk/asn1/der/utctime/der_decode_utctime.o libtomcrypt/pk/asn1/der/utctime/der_encode_utctime.o \
+	libtomcrypt/pk/asn1/der/utctime/der_length_utctime.o libtomcrypt/pk/asn1/der/utf8/der_decode_utf8_string.o \
+	libtomcrypt/pk/asn1/der/utf8/der_encode_utf8_string.o libtomcrypt/pk/asn1/der/utf8/der_length_utf8_string.o \
+	libtomcrypt/pk/asn1/der/set/der_encode_set.o  libtomcrypt/pk/asn1/der/set/der_encode_setof.o \
+	libtomcrypt/pk/rsa/rsa_decrypt_key.o libtomcrypt/pk/rsa/rsa_encrypt_key.o libtomcrypt/pk/rsa/rsa_export.o \
+	libtomcrypt/pk/rsa/rsa_exptmod.o libtomcrypt/pk/rsa/rsa_free.o libtomcrypt/pk/rsa/rsa_import.o \
+	libtomcrypt/pk/rsa/rsa_make_key.o libtomcrypt/pk/rsa/rsa_sign_hash.o libtomcrypt/pk/rsa/rsa_verify_hash.o \
+	libtomcrypt/pk/pkcs1/pkcs_1_i2osp.o libtomcrypt/pk/pkcs1/pkcs_1_mgf1.o 	libtomcrypt/pk/pkcs1/pkcs_1_oaep_decode.o \
+	libtomcrypt/pk/pkcs1/pkcs_1_oaep_encode.o libtomcrypt/pk/pkcs1/pkcs_1_os2ip.o libtomcrypt/pk/pkcs1/pkcs_1_pss_decode.o \
+	libtomcrypt/pk/pkcs1/pkcs_1_pss_encode.o libtomcrypt/pk/pkcs1/pkcs_1_v1_5_decode.o libtomcrypt/pk/pkcs1/pkcs_1_v1_5_encode.o
 
 cryptodev-objs = cryptodev_main.o cryptodev_cipher.o ncr.o \
 	ncr-data.o ncr-key.o ncr-limits.o ncr-sessions.o \

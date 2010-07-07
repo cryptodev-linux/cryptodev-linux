@@ -26,12 +26,11 @@
 */
 int dsa_make_key(int group_size, int modulus_size, dsa_key *key)
 {
-   void           *tmp, *tmp2;
+   mp_int         tmp, tmp2;
    int            err, res;
    unsigned char *buf;
 
    LTC_ARGCHK(key  != NULL);
-   LTC_ARGCHK(ltc_mp.name != NULL);
 
    /* check size */
    if (group_size >= LTC_MDSA_MAX_GROUP || group_size <= 15 || 
@@ -52,10 +51,10 @@ int dsa_make_key(int group_size, int modulus_size, dsa_key *key)
    }
 
    /* make our prime q */
-   if ((err = rand_prime(key->q, group_size)) != CRYPT_OK)                { goto error; }
+   if ((err = rand_prime(&key->q, group_size)) != CRYPT_OK)                { goto error; }
 
    /* double q  */
-   if ((err = mp_add(key->q, key->q, tmp)) != CRYPT_OK)                                { goto error; }
+   if ((err = mp_add(&key->q, &key->q, &tmp)) != CRYPT_OK)                                { goto error; }
 
    /* now make a random string and multply it against q */
    get_random_bytes(buf+1, modulus_size - group_size);
@@ -66,30 +65,30 @@ int dsa_make_key(int group_size, int modulus_size, dsa_key *key)
    /* force even */
    buf[modulus_size - group_size - 1] &= ~1;
 
-   if ((err = mp_read_unsigned_bin(tmp2, buf, modulus_size - group_size)) != CRYPT_OK) { goto error; }
-   if ((err = mp_mul(key->q, tmp2, key->p)) != CRYPT_OK)                               { goto error; }
-   if ((err = mp_add_d(key->p, 1, key->p)) != CRYPT_OK)                                { goto error; }
+   if ((err = mp_read_unsigned_bin(&tmp2, buf, modulus_size - group_size)) != CRYPT_OK) { goto error; }
+   if ((err = mp_mul(&key->q, &tmp2, &key->p)) != CRYPT_OK)                               { goto error; }
+   if ((err = mp_add_d(&key->p, 1, &key->p)) != CRYPT_OK)                                { goto error; }
 
    /* now loop until p is prime */
    for (;;) {
-       if ((err = mp_prime_is_prime(key->p, 8, &res)) != CRYPT_OK)                     { goto error; }
+       if ((err = mp_prime_is_prime(&key->p, 8, &res)) != CRYPT_OK)                     { goto error; }
        if (res == LTC_MP_YES) break;
 
        /* add 2q to p and 2 to tmp2 */
-       if ((err = mp_add(tmp, key->p, key->p)) != CRYPT_OK)                            { goto error; }
-       if ((err = mp_add_d(tmp2, 2, tmp2)) != CRYPT_OK)                                { goto error; }
+       if ((err = mp_add(&tmp, &key->p, &key->p)) != CRYPT_OK)                            { goto error; }
+       if ((err = mp_add_d(&tmp2, 2, &tmp2)) != CRYPT_OK)                                { goto error; }
    }
 
    /* now p = (q * tmp2) + 1 is prime, find a value g for which g^tmp2 != 1 */
-   mp_set(key->g, 1);
+   mp_set(&key->g, 1);
 
    do {
-      if ((err = mp_add_d(key->g, 1, key->g)) != CRYPT_OK)                             { goto error; }
-      if ((err = mp_exptmod(key->g, tmp2, key->p, tmp)) != CRYPT_OK)                   { goto error; }
-   } while (mp_cmp_d(tmp, 1) == LTC_MP_EQ);
+      if ((err = mp_add_d(&key->g, 1, &key->g)) != CRYPT_OK)                             { goto error; }
+      if ((err = mp_exptmod(&key->g, &tmp2, &key->p, &tmp)) != CRYPT_OK)                   { goto error; }
+   } while (mp_cmp_d(&tmp, 1) == LTC_MP_EQ);
 
    /* at this point tmp generates a group of order q mod p */
-   mp_exch(tmp, key->g);
+   mp_exch(&tmp, &key->g);
 
    /* so now we have our DH structure, generator g, order q, modulus p 
       Now we need a random exponent [mod q] and it's power g^x mod p 
@@ -97,9 +96,9 @@ int dsa_make_key(int group_size, int modulus_size, dsa_key *key)
    do {
       get_random_bytes(buf, group_size);
 
-      if ((err = mp_read_unsigned_bin(key->x, buf, group_size)) != CRYPT_OK)           { goto error; }
-   } while (mp_cmp_d(key->x, 1) != LTC_MP_GT);
-   if ((err = mp_exptmod(key->g, key->x, key->p, key->y)) != CRYPT_OK)                 { goto error; }
+      if ((err = mp_read_unsigned_bin(&key->x, buf, group_size)) != CRYPT_OK)           { goto error; }
+   } while (mp_cmp_d(&key->x, 1) != LTC_MP_GT);
+   if ((err = mp_exptmod(&key->g, &key->x, &key->p, &key->y)) != CRYPT_OK)                 { goto error; }
   
    key->type = PK_PRIVATE;
    key->qord = group_size;
@@ -111,9 +110,9 @@ int dsa_make_key(int group_size, int modulus_size, dsa_key *key)
    err = CRYPT_OK;
    goto done;
 error: 
-    mp_clear_multi(key->g, key->q, key->p, key->x, key->y, NULL);
+    mp_clear_multi(&key->g, &key->q, &key->p, &key->x, &key->y, NULL);
 done: 
-    mp_clear_multi(tmp, tmp2, NULL);
+    mp_clear_multi(&tmp, &tmp2, NULL);
     XFREE(buf);
     return err;
 }

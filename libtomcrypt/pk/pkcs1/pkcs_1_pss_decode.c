@@ -9,6 +9,7 @@
  * Tom St Denis, tomstdenis@gmail.com, http://libtom.org
  */
 #include "tomcrypt.h"
+#include <ncr_int.h>
 
 /** 
   @file pkcs_1_pss_decode.c
@@ -37,7 +38,6 @@ int pkcs_1_pss_decode(const unsigned char *msghash, unsigned long msghashlen,
    unsigned char *DB, *mask, *salt, *hash;
    unsigned long x, y, hLen, modulus_len;
    int           err;
-   hash_state    md;
 
    LTC_ARGCHK(msghash != NULL);
    LTC_ARGCHK(res     != NULL);
@@ -50,7 +50,7 @@ int pkcs_1_pss_decode(const unsigned char *msghash, unsigned long msghashlen,
       return err;
    }
 
-   hLen        = hash_descriptor[hash_idx].hashsize;
+   hLen = _ncr_algo_digest_size(hash_idx);
    modulus_len = (modulus_bitlen>>3) + (modulus_bitlen & 7 ? 1 : 0);
 
    /* check sizes */
@@ -131,20 +131,8 @@ int pkcs_1_pss_decode(const unsigned char *msghash, unsigned long msghashlen,
    }
 
    /* M = (eight) 0x00 || msghash || salt, mask = H(M) */
-   if ((err = hash_descriptor[hash_idx].init(&md)) != CRYPT_OK) {
-      goto LBL_ERR;
-   }
-   zeromem(mask, 8);
-   if ((err = hash_descriptor[hash_idx].process(&md, mask, 8)) != CRYPT_OK) {
-      goto LBL_ERR;
-   }
-   if ((err = hash_descriptor[hash_idx].process(&md, msghash, msghashlen)) != CRYPT_OK) {
-      goto LBL_ERR;
-   }
-   if ((err = hash_descriptor[hash_idx].process(&md, DB+x, saltlen)) != CRYPT_OK) {
-      goto LBL_ERR;
-   }
-   if ((err = hash_descriptor[hash_idx].done(&md, mask)) != CRYPT_OK) {
+   err = hash_memory_multi(hash_idx, mask, &hLen, mask, 8, msghash, (unsigned long)msghashlen, DB+x, (unsigned long)saltlen, NULL, 0);
+   if (err != CRYPT_OK) {
       goto LBL_ERR;
    }
 

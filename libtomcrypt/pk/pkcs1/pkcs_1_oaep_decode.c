@@ -9,6 +9,7 @@
  * Tom St Denis, tomstdenis@gmail.com, http://libtom.org
  */
 #include "tomcrypt.h"
+#include <ncr_int.h>
 
 /** 
   @file pkcs_1_oaep_decode.c
@@ -52,7 +53,8 @@ int pkcs_1_oaep_decode(const unsigned char *msg,    unsigned long msglen,
    if ((err = hash_is_valid(hash_idx)) != CRYPT_OK) { 
       return err;
    }
-   hLen        = hash_descriptor[hash_idx].hashsize;
+
+   hLen = _ncr_algo_digest_size(hash_idx);
    modulus_len = (modulus_bitlen >> 3) + (modulus_bitlen & 7 ? 1 : 0);
 
    /* test hash/message size */

@@ -63,6 +63,7 @@ enum {
 
 #include <tomcrypt_cfg.h>
 #include <tomcrypt_macros.h>
+#include <tomcrypt_math.h>
 #include <tomcrypt_pk.h>
 #include <tomcrypt_hash.h>
 #include <tomcrypt_misc.h>

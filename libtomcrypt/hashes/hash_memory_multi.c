@@ -10,6 +10,9 @@
  */
 #include "tomcrypt.h"
 #include <stdarg.h>
+#include <ncr_int.h>
+#include <cryptodev_int.h>
+
 /**
   @file hash_memory_multi.c
   Hash (multiple buffers) memory helper, Tom St Denis
@@ -49,7 +52,7 @@ int hash_memory_multi(int hash, unsigned char *out, unsigned long *outlen,
        return CRYPT_BUFFER_OVERFLOW;
     }
 
-    err = cryptodev_hash_init( &data, _ncr_algo_to_str(hash), 0, NULL, 0);
+    err = cryptodev_hash_init( &hdata, _ncr_algo_to_str(hash), 0, NULL, 0);
     if (err < 0) {
        err = CRYPT_INVALID_HASH;
        goto LBL_ERR;
@@ -76,9 +79,6 @@ int hash_memory_multi(int hash, unsigned char *out, unsigned long *outlen,
     
     *outlen = digest_size;
 LBL_ERR:
-#ifdef LTC_CLEAN_STACK
-    zeromem(md, sizeof(hash_state));
-#endif
     cryptodev_hash_deinit(&hdata);
     va_end(args);
     return err;

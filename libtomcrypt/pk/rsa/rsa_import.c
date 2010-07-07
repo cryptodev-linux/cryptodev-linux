@@ -27,7 +27,7 @@
 int rsa_import(const unsigned char *in, unsigned long inlen, rsa_key *key)
 {
    int           err;
-   void         *zero;
+   mp_int        zero;
    unsigned char *tmpbuf;
    unsigned long  t, x, y, z, tmpoid[16];
    ltc_asn1_list ssl_pubkey_hashoid[2];
@@ -35,7 +35,6 @@ int rsa_import(const unsigned char *in, unsigned long inlen, rsa_key *key)
 
    LTC_ARGCHK(in          != NULL);
    LTC_ARGCHK(key         != NULL);
-   LTC_ARGCHK(ltc_mp.name != NULL);
 
    /* init key */
    if ((err = mp_init_multi(&key->e, &key->d, &key->N, &key->dQ, 
@@ -94,7 +93,7 @@ int rsa_import(const unsigned char *in, unsigned long inlen, rsa_key *key)
       goto LBL_ERR;
    }
 
-   if (mp_cmp_d(key->N, 0) == LTC_MP_EQ) {
+   if (mp_cmp_d(&key->N, 0) == LTC_MP_EQ) {
       if ((err = mp_init(&zero)) != CRYPT_OK) { 
          goto LBL_ERR;
       }
@@ -110,12 +109,12 @@ int rsa_import(const unsigned char *in, unsigned long inlen, rsa_key *key)
                           LTC_ASN1_INTEGER, 1UL, key->dQ, 
                           LTC_ASN1_INTEGER, 1UL, key->qP, 
                           LTC_ASN1_EOL,     0UL, NULL)) != CRYPT_OK) {
-         mp_clear(zero);
+         mp_clear(&zero);
          goto LBL_ERR;
       }
-      mp_clear(zero);
+      mp_clear(&zero);
       key->type = PK_PRIVATE;
-   } else if (mp_cmp_d(key->N, 1) == LTC_MP_EQ) {
+   } else if (mp_cmp_d(&key->N, 1) == LTC_MP_EQ) {
       /* we don't support multi-prime RSA */
       err = CRYPT_PK_INVALID_TYPE;
       goto LBL_ERR;
@@ -131,7 +130,7 @@ int rsa_import(const unsigned char *in, unsigned long inlen, rsa_key *key)
    }
    return CRYPT_OK;
 LBL_ERR:
-   mp_clear_multi(key->d,  key->e, key->N, key->dQ, key->dP, key->qP, key->p, key->q, NULL);
+   mp_clear_multi(&key->d,  &key->e, &key->N, &key->dQ, &key->dP, &key->qP, &key->p, &key->q, NULL);
    return err;
 }
 

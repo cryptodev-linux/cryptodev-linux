@@ -19,21 +19,21 @@ typedef struct Rsa_key {
     /** Type of key, PK_PRIVATE or PK_PUBLIC */
     int type;
     /** The public exponent */
-    void *e; 
+    mp_int e; 
     /** The private exponent */
-    void *d; 
+    mp_int d; 
     /** The modulus */
-    void *N; 
+    mp_int N; 
     /** The p factor of N */
-    void *p; 
+    mp_int p; 
     /** The q factor of N */
-    void *q; 
+    mp_int q; 
     /** The 1/q mod p CRT param */
-    void *qP; 
+    mp_int qP; 
     /** The d mod (p - 1) CRT param */
-    void *dP; 
+    mp_int dP; 
     /** The d mod (q - 1) CRT param */
-    void *dQ;
+    mp_int dQ;
 } rsa_key;
 
 int rsa_make_key(int size, long e, rsa_key *key);
@@ -87,159 +87,6 @@ int rsa_import(const unsigned char *in, unsigned long inlen, rsa_key *key);
                         
 #endif
 
-/* ---- ECC Routines ---- */
-#ifdef LTC_MECC
-
-/* size of our temp buffers for exported keys */
-#define ECC_BUF_SIZE 256
-
-/* max private key size */
-#define ECC_MAXSIZE  66
-
-/** Structure defines a NIST GF(p) curve */
-typedef struct {
-   /** The size of the curve in octets */
-   int size;
-
-   /** name of curve */
-   char *name; 
-
-   /** The prime that defines the field the curve is in (encoded in hex) */
-   char *prime;
-
-   /** The fields B param (hex) */
-   char *B;
-
-   /** The order of the curve (hex) */
-   char *order;
-  
-   /** The x co-ordinate of the base point on the curve (hex) */
-   char *Gx;
- 
-   /** The y co-ordinate of the base point on the curve (hex) */
-   char *Gy;
-} ltc_ecc_set_type;
-
-/** A point on a ECC curve, stored in Jacbobian format such that (x,y,z) => (x/z^2, y/z^3, 1) when interpretted as affine */
-typedef struct {
-    /** The x co-ordinate */
-    void *x;
-
-    /** The y co-ordinate */
-    void *y;
-
-    /** The z co-ordinate */
-    void *z;
-} ecc_point;
-
-/** An ECC key */
-typedef struct {
-    /** Type of key, PK_PRIVATE or PK_PUBLIC */
-    int type;
-
-    /** Index into the ltc_ecc_sets[] for the parameters of this curve; if -1, then this key is using user supplied curve in dp */
-    int idx;
-
-	/** pointer to domain parameters; either points to NIST curves (identified by idx >= 0) or user supplied curve */
-	const ltc_ecc_set_type *dp;
-
-    /** The public key */
-    ecc_point pubkey;
-
-    /** The private key */
-    void *k;
-} ecc_key;
-
-/** the ECC params provided */
-extern const ltc_ecc_set_type ltc_ecc_sets[];
-
-int  ecc_test(void);
-void ecc_sizes(int *low, int *high);
-int  ecc_get_size(ecc_key *key);
-
-int  ecc_make_key(int keysize, ecc_key *key);
-int  ecc_make_key_ex(ecc_key *key, const ltc_ecc_set_type *dp);
-void ecc_free(ecc_key *key);
-
-int  ecc_export(unsigned char *out, unsigned long *outlen, int type, ecc_key *key);
-int  ecc_import(const unsigned char *in, unsigned long inlen, ecc_key *key);
-int  ecc_import_ex(const unsigned char *in, unsigned long inlen, ecc_key *key, const ltc_ecc_set_type *dp);
-
-int ecc_ansi_x963_export(ecc_key *key, unsigned char *out, unsigned long *outlen);
-int ecc_ansi_x963_import(const unsigned char *in, unsigned long inlen, ecc_key *key);
-int ecc_ansi_x963_import_ex(const unsigned char *in, unsigned long inlen, ecc_key *key, ltc_ecc_set_type *dp);
-
-int  ecc_shared_secret(ecc_key *private_key, ecc_key *public_key, 
-                       unsigned char *out, unsigned long *outlen);
-
-int  ecc_encrypt_key(const unsigned char *in,   unsigned long inlen,
-                           unsigned char *out,  unsigned long *outlen, 
-                           int hash, ecc_key *key);
-
-int  ecc_decrypt_key(const unsigned char *in,  unsigned long  inlen,
-                           unsigned char *out, unsigned long *outlen, 
-                           ecc_key *key);
-
-int  ecc_sign_hash(const unsigned char *in,  unsigned long inlen, 
-                         unsigned char *out, unsigned long *outlen, 
-                         ecc_key *key);
-
-int  ecc_verify_hash(const unsigned char *sig,  unsigned long siglen,
-                     const unsigned char *hash, unsigned long hashlen, 
-                     int *stat, ecc_key *key);
-
-/* low level functions */
-ecc_point *ltc_ecc_new_point(void);
-void       ltc_ecc_del_point(ecc_point *p);
-int        ltc_ecc_is_valid_idx(int n);
-
-/* point ops (mp == montgomery digit) */
-#if !defined(LTC_MECC_ACCEL) || defined(LTM_LTC_DESC) || defined(GMP_LTC_DESC)
-/* R = 2P */
-int ltc_ecc_projective_dbl_point(ecc_point *P, ecc_point *R, void *modulus, void *mp);
-
-/* R = P + Q */
-int ltc_ecc_projective_add_point(ecc_point *P, ecc_point *Q, ecc_point *R, void *modulus, void *mp);
-#endif
-
-#if defined(LTC_MECC_FP)
-/* optimized point multiplication using fixed point cache (HAC algorithm 14.117) */
-int ltc_ecc_fp_mulmod(void *k, ecc_point *G, ecc_point *R, void *modulus, int map);
-
-/* functions for saving/loading/freeing/adding to fixed point cache */
-int ltc_ecc_fp_save_state(unsigned char **out, unsigned long *outlen);
-int ltc_ecc_fp_restore_state(unsigned char *in, unsigned long inlen);
-void ltc_ecc_fp_free(void);
-int ltc_ecc_fp_add_point(ecc_point *g, void *modulus, int lock);
-
-/* lock/unlock all points currently in fixed point cache */
-void ltc_ecc_fp_tablelock(int lock);
-#endif
-
-/* R = kG */
-int ltc_ecc_mulmod(void *k, ecc_point *G, ecc_point *R, void *modulus, int map);
-
-#ifdef LTC_ECC_SHAMIR
-/* kA*A + kB*B = C */
-int ltc_ecc_mul2add(ecc_point *A, void *kA,
-                    ecc_point *B, void *kB,
-                    ecc_point *C,
-                         void *modulus);
-
-#ifdef LTC_MECC_FP
-/* Shamir's trick with optimized point multiplication using fixed point cache */
-int ltc_ecc_fp_mul2add(ecc_point *A, void *kA,
-                       ecc_point *B, void *kB,
-                       ecc_point *C, void *modulus);
-#endif
-
-#endif
-
-
-/* map P to affine from projective */
-int ltc_ecc_map(ecc_point *P, void *modulus, void *mp);
-
-#endif
 
 #ifdef LTC_MDSA
 
@@ -258,33 +105,33 @@ typedef struct {
    int qord;
 
    /** The generator  */
-   void *g;
+   mp_int g;
 
    /** The prime used to generate the sub-group */
-   void *q;
+   mp_int q;
 
    /** The large prime that generats the field the contains the sub-group */
-   void *p;
+   mp_int p;
 
    /** The private key */
-   void *x;
+   mp_int x;
 
    /** The public key */
-   void *y;
+   mp_int y;
 } dsa_key;
 
 int dsa_make_key(int group_size, int modulus_size, dsa_key *key);
 void dsa_free(dsa_key *key);
 
 int dsa_sign_hash_raw(const unsigned char *in,  unsigned long inlen,
-                                   void *r,   void *s,
+                                   mp_int_t r,   mp_int_t s,
                                dsa_key *key);
 
 int dsa_sign_hash(const unsigned char *in,  unsigned long inlen,
                         unsigned char *out, unsigned long *outlen,
                         dsa_key *key);
 
-int dsa_verify_hash_raw(         void *r,          void *s,
+int dsa_verify_hash_raw(         mp_int_t r,          mp_int_t s,
                     const unsigned char *hash, unsigned long hashlen, 
                                     int *stat,      dsa_key *key);
 
@@ -304,7 +151,7 @@ int dsa_import(const unsigned char *in, unsigned long inlen, dsa_key *key);
 int dsa_export(unsigned char *out, unsigned long *outlen, int type, dsa_key *key);
 int dsa_verify_key(dsa_key *key, int *stat);
 
-int dsa_shared_secret(void          *private_key, void *base,
+int dsa_shared_secret(void          *private_key, mp_int_t base,
                       dsa_key       *public_key,
                       unsigned char *out,         unsigned long *outlen);
 #endif
@@ -394,9 +241,9 @@ int der_encode_boolean(int in,
 int der_decode_boolean(const unsigned char *in, unsigned long inlen,
                                        int *out);		       
 /* INTEGER */
-int der_encode_integer(void *num, unsigned char *out, unsigned long *outlen);
-int der_decode_integer(const unsigned char *in, unsigned long inlen, void *num);
-int der_length_integer(void *num, unsigned long *len);
+int der_encode_integer(mp_int_t num, unsigned char *out, unsigned long *outlen);
+int der_decode_integer(const unsigned char *in, unsigned long inlen, mp_int_t num);
+int der_length_integer(mp_int_t num, unsigned long *len);
 
 /* INTEGER -- handy for 0..2^32-1 values */
 int der_decode_short_integer(const unsigned char *in, unsigned long inlen, unsigned long *num);

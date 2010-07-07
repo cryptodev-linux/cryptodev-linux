@@ -8,6 +8,11 @@ int hash_memory(int hash,
 int hash_memory_multi(int hash, unsigned char *out, unsigned long *outlen,
                       const unsigned char *in, unsigned long inlen, ...);
 
-/* $Source: /cvs/libtom/libtomcrypt/src/headers/tomcrypt_hash.h,v $ */
-/* $Revision: 1.22 $ */
-/* $Date: 2007/05/12 14:32:35 $ */
+typedef struct Oid {
+    unsigned long OID[16];
+    /** Length of DER encoding */
+    unsigned long OIDlen;
+} oid_st;
+
+int hash_get_oid(int hash, oid_st* st);
+

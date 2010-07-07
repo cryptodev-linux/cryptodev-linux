@@ -122,17 +122,24 @@ int der_decode_sequence_flexi(const unsigned char *in, unsigned long *inlen, ltc
              /* init field */
              l->type = LTC_ASN1_INTEGER;
              l->size = 1;
-             if ((err = mp_init(&l->data)) != CRYPT_OK) {
+
+             l->data = XMALLOC(sizeof(mp_int));
+             if (l->data == NULL) {
+                 err = CRYPT_MEM;
+                 goto error;
+             }
+
+             if ((err = mp_init((mp_int_t)l->data)) != CRYPT_OK) {
                  goto error;
              }
              
              /* decode field */
-             if ((err = der_decode_integer(in, *inlen, l->data)) != CRYPT_OK) {
+             if ((err = der_decode_integer(in, *inlen, (mp_int_t)l->data)) != CRYPT_OK) {
                  goto error;
              }
              
              /* calc length of object */
-             if ((err = der_length_integer(l->data, &len)) != CRYPT_OK) {
+             if ((err = der_length_integer((mp_int_t)l->data, &len)) != CRYPT_OK) {
                  goto error;
              }
              break;

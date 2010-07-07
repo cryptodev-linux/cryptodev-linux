@@ -29,7 +29,6 @@
 int hash_memory(int hash, const unsigned char *in, unsigned long inlen, unsigned char *out, unsigned long *outlen)
 {
     int err;
-    const char* str;
     struct hash_data hdata;
     int digest_size;
 
@@ -47,7 +46,7 @@ int hash_memory(int hash, const unsigned char *in, unsigned long inlen, unsigned
        return CRYPT_BUFFER_OVERFLOW;
     }
 
-    err = cryptodev_hash_init( &data, _ncr_algo_to_str(hash), 0, NULL, 0);
+    err = cryptodev_hash_init( &hdata, _ncr_algo_to_str(hash), 0, NULL, 0);
     if (err < 0) {
        err = CRYPT_INVALID_HASH;
        goto LBL_ERR;
@@ -63,9 +62,6 @@ int hash_memory(int hash, const unsigned char *in, unsigned long inlen, unsigned
     *outlen = digest_size;
 LBL_ERR:
     cryptodev_hash_deinit(&hdata);
-#ifdef LTC_CLEAN_STACK
-    zeromem(md, sizeof(hash_state));
-#endif
 
     return err;
 }

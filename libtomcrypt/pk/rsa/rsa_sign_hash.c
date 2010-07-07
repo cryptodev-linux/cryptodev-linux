@@ -55,10 +55,10 @@ int rsa_sign_hash_ex(const unsigned char *in,       unsigned long  inlen,
    }
 
    /* get modulus len in bits */
-   modulus_bitlen = mp_count_bits((key->N));
+   modulus_bitlen = mp_count_bits((&key->N));
 
   /* outlen must be at least the size of the modulus */
-  modulus_bytelen = mp_unsigned_bin_size((key->N));
+  modulus_bytelen = mp_unsigned_bin_size((&key->N));
   if (modulus_bytelen > *outlen) {
      *outlen = modulus_bytelen;
      return CRYPT_BUFFER_OVERFLOW;
@@ -75,9 +75,10 @@ int rsa_sign_hash_ex(const unsigned char *in,       unsigned long  inlen,
     /* LTC_PKCS #1 v1.5 pad the hash */
     unsigned char *tmpin;
     ltc_asn1_list digestinfo[2], siginfo[2];
+    oid_st st;
 
     /* not all hashes have OIDs... so sad */
-    if (hash_descriptor[hash_idx].OIDlen == 0) {
+    if (hash_get_oid(hash_idx, &st) != CRYPT_OK) {
        return CRYPT_INVALID_ARG;
     }
 
@@ -89,13 +90,13 @@ int rsa_sign_hash_ex(const unsigned char *in,       unsigned long  inlen,
          hash    OCTET STRING 
       }
    */
-    LTC_SET_ASN1(digestinfo, 0, LTC_ASN1_OBJECT_IDENTIFIER, hash_descriptor[hash_idx].OID, hash_descriptor[hash_idx].OIDlen);
+    LTC_SET_ASN1(digestinfo, 0, LTC_ASN1_OBJECT_IDENTIFIER, st.OID, st.OIDlen);
     LTC_SET_ASN1(digestinfo, 1, LTC_ASN1_NULL,              NULL,                          0);
     LTC_SET_ASN1(siginfo,    0, LTC_ASN1_SEQUENCE,          digestinfo,                    2);
     LTC_SET_ASN1(siginfo,    1, LTC_ASN1_OCTET_STRING,      in,                            inlen);
 
     /* allocate memory for the encoding */
-    y = mp_unsigned_bin_size(key->N);
+    y = mp_unsigned_bin_size(&key->N);
     tmpin = XMALLOC(y);
     if (tmpin == NULL) {
        return CRYPT_MEM;
@@ -108,7 +109,7 @@ int rsa_sign_hash_ex(const unsigned char *in,       unsigned long  inlen,
 
     x = *outlen;
     if ((err = pkcs_1_v1_5_encode(tmpin, y, LTC_LTC_PKCS_1_EMSA,
-                                  modulus_bitlen, NULL, 0,
+                                  modulus_bitlen,
                                   out, &x)) != CRYPT_OK) {
       XFREE(tmpin);
       return err;
@@ -117,7 +118,7 @@ int rsa_sign_hash_ex(const unsigned char *in,       unsigned long  inlen,
   }
 
   /* RSA encode it */
-  return ltc_mp.rsa_me(out, x, out, outlen, PK_PRIVATE, key);
+  return rsa_exptmod(out, x, out, outlen, PK_PRIVATE, key);
 }
 
 #endif /* LTC_MRSA */
