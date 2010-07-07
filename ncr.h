@@ -106,11 +106,11 @@ struct ncr_key_generate_params_st {
 		} secret;
 		struct {
 			unsigned int bits;
-			void* e;
-			size_t e_size;
+			unsigned long e;
 		} rsa;		
 		struct {
-			unsigned int bits;
+			unsigned int q_bits;
+			unsigned int p_bits;
 		} dsa;
 		struct {
 			unsigned int bits;
@@ -122,7 +122,7 @@ struct ncr_key_generate_params_st {
  */
 struct ncr_key_generate_st {
 	ncr_key_t desc;
-	ncr_key_t desc2; /* when called with GENERATE_PAIR */
+	ncr_key_t desc2; /* public key when called with GENERATE_PAIR */
 	struct ncr_key_generate_params_st params;
 };
 

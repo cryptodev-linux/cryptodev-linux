@@ -20,7 +20,6 @@
  */
 
 #include <linux/mm.h>
-#include <linux/highmem.h>
 #include <linux/random.h>
 #include "cryptodev.h"
 #include <asm/uaccess.h>
@@ -28,6 +27,8 @@
 #include <linux/scatterlist.h>
 #include "ncr.h"
 #include "ncr_int.h"
+
+static void ncr_key_clear(struct key_item_st* item);
 
 void ncr_key_list_deinit(struct list_sem_st* lst)
 {
@@ -81,6 +82,7 @@ void _ncr_key_item_put( struct key_item_st* item)
 {
 	if (atomic_dec_and_test(&item->refcnt)) {
 			ncr_limits_remove(item->uid, item->pid, LIMIT_TYPE_KEY);
+			ncr_key_clear(item);
 			kfree(item);
 	}
 }
@@ -299,6 +301,17 @@ fail:
 	return ret;
 }
 
+static void ncr_key_clear(struct key_item_st* item)
+{
+	/* clears any previously allocated parameters */
+	if (item->type == NCR_KEY_TYPE_PRIVATE ||
+		item->type == NCR_KEY_TYPE_PUBLIC) {
+		
+		ncr_pk_clear(item);
+	}
+	memset(&item->key, 0, sizeof(item->key));
+}
+
 /* Generate a secret key
  */
 int ncr_key_generate(struct list_sem_st* lst, void __user* arg)
@@ -320,31 +333,33 @@ size_t size;
 		return -EINVAL;
 	}
 
+	ncr_key_clear(item);
+
 	/* we generate only secret keys */
-	item->type = ncr_algorithm_to_key_type(gen.params.algorithm);
-	if (item->type != NCR_KEY_TYPE_SECRET) {
-		err();
-		ret = -EINVAL;
-		goto fail;
-	}
-
 	item->flags = gen.params.keyflags;
-	item->algorithm = /* arbitrary */ NCR_ALG_AES_CBC;
+	item->type = ncr_algorithm_to_key_type(gen.params.algorithm);
+	if (item->type == NCR_KEY_TYPE_SECRET) {
+		item->algorithm = /* arbitrary */ NCR_ALG_AES_CBC;
 
-	size = gen.params.params.secret.bits/8;
-	if ((gen.params.params.secret.bits % 8 != 0) ||
-			(size > NCR_CIPHER_MAX_KEY_LEN)) {
+		size = gen.params.params.secret.bits/8;
+		if ((gen.params.params.secret.bits % 8 != 0) ||
+				(size > NCR_CIPHER_MAX_KEY_LEN)) {
+			err();
+			ret = -EINVAL;
+			goto fail;
+		}
+
+		get_random_bytes(item->key.secret.data, size);
+		item->key.secret.size = size;
+
+		/* generate random key id */
+		item->key_id_size = 5;
+		get_random_bytes(item->key_id, item->key_id_size);
+	} else {
 		err();
 		ret = -EINVAL;
 		goto fail;
 	}
-
-	get_random_bytes(item->key.secret.data, size);
-	item->key.secret.size = size;
-
-	/* generate random key id */
-	item->key_id_size = 5;
-	get_random_bytes(item->key_id, item->key_id_size);
 	
 	_ncr_key_item_put( item);
 
@@ -386,7 +401,60 @@ int ret;
 /* FIXME those require public key subsystem */
 int ncr_key_generate_pair(struct list_sem_st* lst, void __user* arg)
 {
-	return -EINVAL;
+struct ncr_key_generate_st gen;
+struct key_item_st* private = NULL;
+struct key_item_st* public = NULL;
+int ret;
+
+	ret = copy_from_user( &gen, arg, sizeof(gen));
+	if (unlikely(ret)) {
+		err();
+		return ret;
+	}
+
+	private = ncr_key_item_get( lst, gen.desc);
+	if (private == NULL) {
+		err();
+		return -EINVAL;
+	}
+
+	public = ncr_key_item_get( lst, gen.desc2);
+	if (public == NULL) {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	ncr_key_clear(public);
+	ncr_key_clear(private);
+
+	/* we generate only secret keys */
+	private->flags = public->flags = gen.params.keyflags;
+	public->type = ncr_algorithm_to_key_type(gen.params.algorithm);
+	private->type = NCR_KEY_TYPE_PRIVATE;
+	private->algorithm = public->algorithm = gen.params.algorithm;
+	public->flags |= (NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE);
+	
+	if (public->type == NCR_KEY_TYPE_PUBLIC) {
+		ret = ncr_pk_generate(gen.params.algorithm, &gen.params, private, public);
+
+		if (ret < 0) {
+			err();
+			goto fail;
+		}
+	} else {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}
+	
+	ret = 0;
+fail:
+	if (public)
+		_ncr_key_item_put(public);
+	if (private)
+		_ncr_key_item_put(private);
+	return ret;
 }
 
 int ncr_key_derive(struct list_sem_st* lst, void __user* arg)

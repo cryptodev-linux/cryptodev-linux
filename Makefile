@@ -65,7 +65,7 @@ TOMCRYPT_OBJECTS = libtomcrypt/misc/zeromem.o libtomcrypt/misc/crypt/crypt_argch
 	libtomcrypt/pk/pkcs1/pkcs_1_pss_encode.o libtomcrypt/pk/pkcs1/pkcs_1_v1_5_decode.o libtomcrypt/pk/pkcs1/pkcs_1_v1_5_encode.o
 
 cryptodev-objs = cryptodev_main.o cryptodev_cipher.o ncr.o \
-	ncr-data.o ncr-key.o ncr-limits.o ncr-sessions.o \
+	ncr-data.o ncr-key.o ncr-limits.o ncr-sessions.o ncr-pk.o \
 	ncr-key-wrap.o ncr-key-storage.o $(TOMMATH_OBJECTS) \
 	$(TOMCRYPT_OBJECTS)
 

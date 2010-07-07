@@ -4,6 +4,9 @@
 #include "ncr.h"
 #include <asm/atomic.h>
 #include "cryptodev_int.h"
+#include <tomcrypt.h>
+
+#define KEY_DATA_MAX_SIZE 3*1024
 
 #define err() printk(KERN_DEBUG"ncr: %s: %s: %d\n", __FILE__, __func__, __LINE__)
 
@@ -54,6 +57,10 @@ struct key_item_st {
 			uint8_t data[NCR_CIPHER_MAX_KEY_LEN];
 			size_t size;
 		} secret;
+		union {
+			rsa_key rsa;
+			dsa_key dsa;
+		} pk;
 	} key;
 
 	atomic_t refcnt;
@@ -173,5 +180,13 @@ inline static unsigned int data_flags_to_key(unsigned int data_flags)
 
 const char* _ncr_algo_to_str(ncr_algorithm_t algo);
 int _ncr_algo_digest_size(ncr_algorithm_t algo);
+
+/* PK */
+void ncr_pk_clear(struct key_item_st* key);
+int ncr_pk_generate(ncr_algorithm_t algo,
+	struct ncr_key_generate_params_st * params,
+	struct key_item_st* private, struct key_item_st* public);
+int ncr_pk_pack( const struct key_item_st * key, uint8_t * packed, uint32_t * packed_size);
+
 
 #endif

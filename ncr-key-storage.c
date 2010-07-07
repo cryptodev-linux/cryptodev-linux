@@ -28,8 +28,6 @@
 #include "ncr_int.h"
 #include "cryptodev_int.h"
 
-#define KEY_DATA_MAX_SIZE 2048
-
 struct packed_key {
 	uint8_t type;
 	uint32_t flags;
@@ -61,6 +59,13 @@ int key_to_storage_data( uint8_t** sdata, size_t * sdata_size, const struct key_
 	if (key->type == NCR_KEY_TYPE_SECRET) {
 		pkey->raw_size = key->key.secret.size;
 		memcpy(pkey->raw, key->key.secret.data, pkey->raw_size);
+	} else if (key->type == NCR_KEY_TYPE_PRIVATE || key->type == NCR_KEY_TYPE_PUBLIC) {
+		pkey->raw_size = sizeof(pkey->raw);
+		ret = ncr_pk_pack( key, pkey->raw, &pkey->raw_size);
+		if (ret < 0) {
+			err();
+			goto fail;
+		}
 	} else {
 		err();
 		ret = -EINVAL;
