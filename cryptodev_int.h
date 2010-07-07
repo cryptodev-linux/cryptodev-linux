@@ -41,7 +41,7 @@ void cryptodev_cipher_deinit(struct cipher_data* cdata);
 ssize_t cryptodev_cipher_decrypt( struct cipher_data* cdata, struct scatterlist *sg1, struct scatterlist *sg2, size_t len);
 ssize_t cryptodev_cipher_encrypt( struct cipher_data* cdata, struct scatterlist *sg1, struct scatterlist *sg2, size_t len);
 
-int cryptodev_cipher_set_iv(struct cipher_data* cdata, void* iv, size_t iv_size);
+void cryptodev_cipher_set_iv(struct cipher_data* cdata, void* iv, size_t iv_size);
 int _cryptodev_cipher_decrypt(struct cipher_data* cdata, const void* ciphertext,
 	size_t ciphertext_size, void* plaintext, size_t plaintext_size);
 int _cryptodev_cipher_encrypt(struct cipher_data* cdata, const void* plaintext,

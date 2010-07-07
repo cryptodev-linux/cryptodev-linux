@@ -426,10 +426,15 @@ crypto_run(struct fcrypt *fcr, struct crypt_op *cop)
 			goto out_unlock;
 		}
 
-		ivsize = ses_ptr->cdata.ivsize;
-
 		if (cop->iv) {
-			cryptodev_cipher_set_iv(&ses_ptr->cdata, cop->iv, ivsize);
+			uint8_t iv[EALG_MAX_BLOCK_LEN];
+
+			ivsize = min((int)sizeof(iv), ses_ptr->cdata.ivsize);
+			ret = copy_from_user(iv, cop->iv, ivsize);
+			if (unlikely(ret))
+				goto out_unlock;
+
+			cryptodev_cipher_set_iv(&ses_ptr->cdata, iv, ivsize);
 		}
 	}
 
