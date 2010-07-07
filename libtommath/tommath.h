@@ -63,8 +63,13 @@ extern "C" {
  * At the very least a mp_digit must be able to hold 7 bits
  * [any size beyond that is ok provided it doesn't overflow the data type]
  */
-#if BITS_PER_LONG <= 64
-   /* this is the default case, 28-bit digits */
+#if BITS_PER_LONG <= 32
+
+   typedef uint16_t      mp_digit;
+   typedef uint32_t      mp_word;
+# define DIGIT_BIT          15
+
+#elif BITS_PER_LONG == 64
    
    typedef uint32_t      mp_digit;
    typedef uint64_t      mp_word;
