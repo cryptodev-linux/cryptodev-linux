@@ -74,8 +74,8 @@ int rsa_import(const unsigned char *in, unsigned long inlen, rsa_key *key)
 
       /* now it should be SEQUENCE { INTEGER, INTEGER } */
       if ((err = der_decode_sequence_multi(tmpbuf, t,
-                                           LTC_ASN1_INTEGER, 1UL, key->N, 
-                                           LTC_ASN1_INTEGER, 1UL, key->e, 
+                                           LTC_ASN1_INTEGER, 1UL, &key->N, 
+                                           LTC_ASN1_INTEGER, 1UL, &key->e, 
                                            LTC_ASN1_EOL,     0UL, NULL)) != CRYPT_OK) {
          XFREE(tmpbuf);
          goto LBL_ERR;
@@ -88,7 +88,7 @@ int rsa_import(const unsigned char *in, unsigned long inlen, rsa_key *key)
 
    /* not SSL public key, try to match against LTC_PKCS #1 standards */
    if ((err = der_decode_sequence_multi(in, inlen, 
-                                  LTC_ASN1_INTEGER, 1UL, key->N, 
+                                  LTC_ASN1_INTEGER, 1UL, &key->N, 
                                   LTC_ASN1_EOL,     0UL, NULL)) != CRYPT_OK) {
       goto LBL_ERR;
    }
@@ -100,14 +100,14 @@ int rsa_import(const unsigned char *in, unsigned long inlen, rsa_key *key)
       /* it's a private key */
       if ((err = der_decode_sequence_multi(in, inlen, 
                           LTC_ASN1_INTEGER, 1UL, zero, 
-                          LTC_ASN1_INTEGER, 1UL, key->N, 
-                          LTC_ASN1_INTEGER, 1UL, key->e,
-                          LTC_ASN1_INTEGER, 1UL, key->d, 
-                          LTC_ASN1_INTEGER, 1UL, key->p, 
-                          LTC_ASN1_INTEGER, 1UL, key->q, 
-                          LTC_ASN1_INTEGER, 1UL, key->dP,
-                          LTC_ASN1_INTEGER, 1UL, key->dQ, 
-                          LTC_ASN1_INTEGER, 1UL, key->qP, 
+                          LTC_ASN1_INTEGER, 1UL, &key->N, 
+                          LTC_ASN1_INTEGER, 1UL, &key->e,
+                          LTC_ASN1_INTEGER, 1UL, &key->d, 
+                          LTC_ASN1_INTEGER, 1UL, &key->p, 
+                          LTC_ASN1_INTEGER, 1UL, &key->q, 
+                          LTC_ASN1_INTEGER, 1UL, &key->dP,
+                          LTC_ASN1_INTEGER, 1UL, &key->dQ, 
+                          LTC_ASN1_INTEGER, 1UL, &key->qP, 
                           LTC_ASN1_EOL,     0UL, NULL)) != CRYPT_OK) {
          mp_clear(&zero);
          goto LBL_ERR;
@@ -121,8 +121,8 @@ int rsa_import(const unsigned char *in, unsigned long inlen, rsa_key *key)
    } else {
       /* it's a public key and we lack e */
       if ((err = der_decode_sequence_multi(in, inlen, 
-                                     LTC_ASN1_INTEGER, 1UL, key->N, 
-                                     LTC_ASN1_INTEGER, 1UL, key->e, 
+                                     LTC_ASN1_INTEGER, 1UL, &key->N, 
+                                     LTC_ASN1_INTEGER, 1UL, &key->e, 
                                      LTC_ASN1_EOL,     0UL, NULL)) != CRYPT_OK) {
          goto LBL_ERR;
       }

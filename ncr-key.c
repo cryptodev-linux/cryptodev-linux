@@ -160,6 +160,7 @@ int ncr_key_export(struct list_sem_st* data_lst,
 struct ncr_key_data_st data;
 struct key_item_st* item = NULL;
 struct data_item_st* ditem = NULL;
+uint32_t size;
 int ret;
 
 	ret = copy_from_user( &data, arg, sizeof(data));
@@ -181,6 +182,8 @@ int ret;
 		goto fail;
 	}
 
+	ditem->flags = key_flags_to_data(item->flags);
+
 	switch (item->type) {
 		case NCR_KEY_TYPE_SECRET:
 			if (item->key.secret.size > ditem->max_data_size) {
@@ -190,15 +193,26 @@ int ret;
 			}
 
 			/* found */
-			ditem->flags = key_flags_to_data(item->flags);
-
 			if (item->key.secret.size > 0) {
 				memcpy(ditem->data, item->key.secret.data, item->key.secret.size);
 			}
 			ditem->data_size = item->key.secret.size;
 			break;
-		case NCR_KEY_TYPE_PUBLIC: /* FIXME: export in a blob -ASN.1? */
-		case NCR_KEY_TYPE_PRIVATE: /* FIXME export in a blob -ASN.1? */
+		case NCR_KEY_TYPE_PUBLIC:
+		case NCR_KEY_TYPE_PRIVATE:
+			size = ditem->max_data_size;
+			ret = ncr_pk_pack(item, ditem->data, &size);
+			
+			ditem->data_size = size;
+			
+			if (ret < 0) {
+				err();
+				goto fail;
+			}
+			
+			break;
+
+			
 		default:
 			err();
 			ret = -EINVAL;

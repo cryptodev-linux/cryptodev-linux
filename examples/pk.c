@@ -108,18 +108,23 @@ int privkey_info (void* data, int data_size)
 	size_t size;
 	int ret;
 	gnutls_datum_t pem;
-	unsigned char buffer[256];
+	unsigned char buffer[5*1024];
 	const char *cprint;
 
-	gnutls_x509_privkey_init (&key);
+	ret = gnutls_x509_privkey_init (&key);
+	if (ret < 0) {
+		fprintf(stderr, "error in privkey_init\n");
+		return 1;
+	}
 
 	pem.data = data;
 	pem.size = data_size;
 
 	ret = gnutls_x509_privkey_import (key, &pem, GNUTLS_X509_FMT_DER);
-
-	if (ret < 0)
-	return 1;
+	if (ret < 0) {
+		fprintf(stderr, "unable to import privkey\n");
+		return 1;
+	}
 
 	/* Public key algorithm
 	*/
@@ -133,9 +138,10 @@ int privkey_info (void* data, int data_size)
 	/* Print the raw public and private keys
 	*/
 	if (ret == GNUTLS_PK_RSA) {
-		gnutls_datum_t m, e, d, p, q, u, exp1, exp2;
+		gnutls_datum_t m, e, d, p, q, u, exp1={NULL,0}, exp2={NULL,0};
 
-		ret = gnutls_x509_privkey_export_rsa_raw2 (key, &m, &e, &d, &p, &q, &u, &exp1, &exp2);
+		//ret = gnutls_x509_privkey_export_rsa_raw2 (key, &m, &e, &d, &p, &q, &u, &exp1, &exp2);
+		ret = gnutls_x509_privkey_export_rsa_raw (key, &m, &e, &d, &p, &q, &u);
 		if (ret < 0)
 			fprintf (stderr, "Error in key RSA data export: %s\n",
 				gnutls_strerror (ret));
@@ -255,7 +261,7 @@ test_ncr_rsa(int cfd)
 
 	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_IMPORT)");
+		perror("ioctl(NCRIO_KEY_EXPORT)");
 		return 1;
 	}
 
@@ -272,9 +278,9 @@ test_ncr_rsa(int cfd)
 		perror("ioctl(NCRIO_DATA_GET)");
 		return 1;
 	}
-	
+
 	ret = privkey_info(kdata.data, kdata.data_size);
-	if (ret < 0) {
+	if (ret != 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		return 1;
 	}
@@ -322,6 +328,8 @@ int
 main()
 {
 	int fd = -1;
+
+	gnutls_global_init();
 
 	/* actually test if the initial close
 	 * will really delete all used lists */

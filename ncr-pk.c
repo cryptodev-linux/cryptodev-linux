@@ -62,7 +62,7 @@ static int ncr_pk_make_public_and_id( struct key_item_st * private, struct key_i
 	uint8_t * tmp;
 	long max_size;
 	int ret, cret;
-	unsigned long key_id_size = MAX_KEY_ID_SIZE;
+	unsigned long key_id_size;
 
 	max_size = KEY_DATA_MAX_SIZE;
 	tmp = kmalloc(max_size, GFP_KERNEL);
@@ -108,6 +108,7 @@ static int ncr_pk_make_public_and_id( struct key_item_st * private, struct key_i
 			goto fail;
 	}
 
+	key_id_size = MAX_KEY_ID_SIZE;
 	cret = hash_memory(NCR_ALG_SHA1, tmp, max_size, private->key_id, &key_id_size);
 	if (cret != CRYPT_OK) {
 		err();
@@ -126,8 +127,13 @@ fail:
 
 int ncr_pk_pack( const struct key_item_st * key, uint8_t * packed, uint32_t * packed_size)
 {
-	long max_size = *packed_size;
+	unsigned long max_size = *packed_size;
 	int cret;
+
+	if (packed == NULL || packed_size == NULL) {
+		err();
+		return -EINVAL;
+	}
 
 	switch(key->algorithm) {
 		case NCR_ALG_RSA:
@@ -177,10 +183,9 @@ static void keygen_handler(struct work_struct *instance)
 			e = st->params->params.rsa.e;
 			
 			if (e == 0)
-				e =  65537;
+				e = 65537;
 			cret = rsa_make_key(st->params->params.rsa.bits/8, e, &st->private->key.pk.rsa);
 			if (cret != CRYPT_OK) {
-				printk("ret: %d/%d\n", cret, st->params->params.rsa.bits);
 				err();
 				st->ret = tomerr(cret);
 			}
@@ -229,7 +234,7 @@ struct keygen_st st;
 		err();
 		return ret;
 	}
-	
+
 	wait_for_completion(&st.completed);
 	
 	if (st.ret < 0) {
@@ -237,7 +242,7 @@ struct keygen_st st;
 		return ret;
 	}
 
-//	ret = ncr_pk_make_public_and_id(private, public);
+	ret = ncr_pk_make_public_and_id(private, public);
 	if (ret < 0) {
 		err();
 		return ret;
