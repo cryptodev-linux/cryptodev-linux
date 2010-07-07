@@ -1,14 +1,27 @@
-KERNEL_DIR ?= /lib/modules/$(shell uname -r)/build
+CC = gcc
+CFLAGS = -Wall -g -O2
 
-hostprogs := cipher hmac new
-example-cipher-objs := cipher.o
-example-hmac-objs := hmac.o
-new-objs := new.o
+progs := cipher hmac ncr pk
 
-check: $(hostprogs)
-	./new
+all: $(progs)
+
+cipher: cipher.c
+	$(CC) $(CFLAGS) $< -o $@
+
+hmac: hmac.c
+	$(CC) $(CFLAGS) $< -o $@
+
+ncr: ncr.c
+	$(CC) $(CFLAGS) $< -o $@
+
+pk: pk.c
+	$(CC) $(CFLAGS) $< -o $@ -L/usr/local/lib -lgnutls
+
+check: $(progs)
+	./ncr
+	./pk
 	./cipher
 	./hmac
 
 clean:
-	rm -f *.o *~ hmac cipher new
+	rm -f *.o *~ hmac cipher ncr pk

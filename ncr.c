@@ -31,6 +31,7 @@
 #include <linux/capability.h>
 #include "ncr.h"
 #include "ncr_int.h"
+#include <linux/workqueue.h>
 
 /* This is the master wrapping key for storage of keys
  */
@@ -163,9 +164,9 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 			return ncr_session_once(lst, (void*)arg);
 		case NCRIO_MASTER_KEY_SET:
 			return ncr_master_key_set((void*)arg);
-#if 0
 		case NCRIO_KEY_GENERATE_PAIR:
 			return ncr_key_generate_pair(&lst->key, (void*)arg);
+#if 0
 		case NCRIO_KEY_DERIVE:
 			return ncr_key_derive(&lst->key, (void*)arg);
 		case NCRIO_KEY_GET_PUBLIC:

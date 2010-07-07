@@ -29,6 +29,8 @@
 #include "ncr_int.h"
 #include <tomcrypt.h>
 
+static struct workqueue_struct * pk_wq = NULL;
+
 static int tomerr(int err)
 {
 	switch (err) {
@@ -153,43 +155,112 @@ int ncr_pk_pack( const struct key_item_st * key, uint8_t * packed, uint32_t * pa
 	return 0;
 }
 
+struct keygen_st {
+	struct work_struct pk_gen;
+	struct completion completed;
+	int ret;
+	ncr_algorithm_t algo;
+	struct key_item_st* private;
+	struct key_item_st* public;
+	struct ncr_key_generate_params_st * params;
+};
+
+static void keygen_handler(struct work_struct *instance)
+{
+	unsigned long e;
+	int cret;
+	struct keygen_st *st =
+	    container_of(instance, struct keygen_st, pk_gen);
+
+	switch(st->algo) {
+		case NCR_ALG_RSA:
+			e = st->params->params.rsa.e;
+			
+			if (e == 0)
+				e =  65537;
+			cret = rsa_make_key(st->params->params.rsa.bits/8, e, &st->private->key.pk.rsa);
+			if (cret != CRYPT_OK) {
+				printk("ret: %d/%d\n", cret, st->params->params.rsa.bits);
+				err();
+				st->ret = tomerr(cret);
+			}
+			
+			st->ret = 0;
+			break;
+		case NCR_ALG_DSA:
+			cret = dsa_make_key(st->params->params.dsa.q_bits/8, 
+				st->params->params.dsa.p_bits/8, &st->private->key.pk.dsa);
+			if (cret != CRYPT_OK) {
+				err();
+				st->ret = tomerr(cret);
+			}
+			
+			st->ret = 0;
+			break;
+		default:
+			err();
+			st->ret = -EINVAL;
+	}
+
+	complete(&st->completed);
+}
+
+
 int ncr_pk_generate(ncr_algorithm_t algo,
 	struct ncr_key_generate_params_st * params,
 	struct key_item_st* private, struct key_item_st* public) 
 {
-int cret, ret;
-unsigned long e;
+int ret;
+struct keygen_st st;
+
 	private->algorithm = public->algorithm = algo;
 
-	switch(algo) {
-		case NCR_ALG_RSA:
-			e = params->params.rsa.e;
-			
-			if (e == 0)
-				e =  65537;
-			cret = rsa_make_key(params->params.rsa.bits, e, &private->key.pk.rsa);
-			if (cret != CRYPT_OK) {
-				err();
-				return tomerr(cret);
-			}
-			
-			break;
-		case NCR_ALG_DSA:
-			cret = dsa_make_key(params->params.dsa.q_bits, params->params.dsa.p_bits, &private->key.pk.dsa);
-			if (cret != CRYPT_OK) {
-				err();
-				return tomerr(cret);
-			}
-			break;
-		default:
-			return -EINVAL;
+	st.algo = algo;
+	st.private = private;
+	st.public = public;
+	st.params = params;
+	st.ret = 0;
+	
+	init_completion(&st.completed);
+	INIT_WORK(&st.pk_gen, keygen_handler);
+	
+	ret = queue_work(pk_wq, &st.pk_gen);
+	if (ret < 0) {
+		err();
+		return ret;
 	}
 	
-	ret = ncr_pk_make_public_and_id(private, public);
+	wait_for_completion(&st.completed);
+	
+	if (st.ret < 0) {
+		err();
+		return ret;
+	}
+
+//	ret = ncr_pk_make_public_and_id(private, public);
 	if (ret < 0) {
 		err();
 		return ret;
 	}
 	
 	return 0;
+}
+
+
+int ncr_pk_queue_init(void)
+{
+	pk_wq =
+	    create_singlethread_workqueue("ncr-pk");
+	if (pk_wq == NULL) {
+		err();
+		return -ENOMEM;
+	}
+	
+	return 0;
+}
+
+void ncr_pk_queue_deinit(void)
+{
+	flush_workqueue(pk_wq);
+	destroy_workqueue(pk_wq);
 }

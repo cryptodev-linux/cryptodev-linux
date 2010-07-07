@@ -1,7 +1,7 @@
 KERNEL_DIR = /lib/modules/$(shell uname -r)/build
-VERSION = 0.3
+VERSION = 0.99
 
-EXTRA_CFLAGS += -I$(SUBDIRS)/libtommath -I$(SUBDIRS)/libtomcrypt/headers -I$(SUBDIRS)/ -DLTC_SOURCE
+EXTRA_CFLAGS += -I$(SUBDIRS)/libtommath -I$(SUBDIRS)/libtomcrypt/headers -I$(SUBDIRS)/ -DLTC_SOURCE -Wall
 
 TOMMATH_OBJECTS = libtommath/bncore.o libtommath/bn_mp_init.o libtommath/bn_mp_clear.o libtommath/bn_mp_exch.o libtommath/bn_mp_grow.o libtommath/bn_mp_shrink.o \
 	libtommath/bn_mp_clamp.o libtommath/bn_mp_zero.o  libtommath/bn_mp_set.o libtommath/bn_mp_set_int.o libtommath/bn_mp_init_size.o libtommath/bn_mp_copy.o \

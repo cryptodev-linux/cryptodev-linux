@@ -398,7 +398,6 @@ int ret;
 	return 0;
 }
 
-/* FIXME those require public key subsystem */
 int ncr_key_generate_pair(struct list_sem_st* lst, void __user* arg)
 {
 struct ncr_key_generate_st gen;
