@@ -142,8 +142,14 @@ uint8_t iv[8];
 	}
 
 	{
-		val64_t R[n];
+		val64_t *R;
 
+		R = kmalloc(n * sizeof (*R), GFP_KERNEL);
+		if (R == NULL) {
+			err();
+			ret = -ENOMEM;
+			goto cleanup;
+		}
 		/* R = P */
 		for (i=0;i<kdata_size;i++) {
 			R[i/8][i%8] = ((uint8_t*)kdata)[i];
@@ -152,6 +158,7 @@ uint8_t iv[8];
 			R[i/8][i%8] = 0;
 		}
 		ret = rfc3394_wrap( R, n, &ctx, output, iv);
+		kfree(R);
 		if (ret < 0) {
 			err();
 			goto cleanup;
@@ -207,16 +214,24 @@ size_t size;
 	}
 
 	{
-		val64_t R[n], A;
+		val64_t *R, A;
 
+		R = kmalloc(n * sizeof (*R), GFP_KERNEL);
+		if (R == NULL) {
+			err();
+			ret = -ENOMEM;
+			goto cleanup;
+		}
 		ret = rfc3394_unwrap(wrapped_key, R, n, A, &ctx);
 		if (ret < 0) {
 			err();
+			kfree(R);
 			return ret;
 		}
 
 		if (memcmp(A, iv, 4)!= 0) {
 			err();
+			kfree(R);
 			ret = -EINVAL;
 			goto cleanup;
 		}
@@ -224,6 +239,7 @@ size_t size;
 		size = (A[4] << 24) | (A[5] << 16) | (A[6] << 8) | A[7];
 		if (size > n*8 || size < (n-1)*8 || *kdata_size < size) {
 			err();
+			kfree(R);
 			ret = -EINVAL;
 			goto cleanup;
 		}
@@ -233,6 +249,7 @@ size_t size;
 		for (i=0;i<size;i++) {
 			((uint8_t*)kdata)[i] = R[i/8][i%8];
 		}
+		kfree(R);
 	}
 
 
@@ -306,7 +323,7 @@ struct cipher_data ctx;
 
 
 	{
-		val64_t R[n];
+		val64_t R[(NCR_CIPHER_MAX_KEY_LEN + 7) / 8];
 
 		/* R = P */
 		for (i=0;i<n;i++) {
@@ -381,7 +398,7 @@ struct cipher_data ctx;
 	}
 
 	{
-		val64_t R[n];
+		val64_t R[sizeof(output->key.secret.data)/8 + 1];
 
 		ret = rfc3394_unwrap(wrapped_key, R, n, A, &ctx);
 		if (ret < 0) {
