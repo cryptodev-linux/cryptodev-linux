@@ -76,7 +76,7 @@ void ncr_master_key_reset(void)
 	memset(&master_key, 0, sizeof(master_key));
 }
 
-static int ncr_master_key_set(void* __user arg)
+static int ncr_master_key_set(void __user *arg)
 {
 struct ncr_master_key_st st;
 
@@ -116,57 +116,58 @@ struct ncr_master_key_st st;
 
 int
 ncr_ioctl(struct ncr_lists* lst, struct file *filp,
-		unsigned int cmd, unsigned long arg)
+		unsigned int cmd, unsigned long arg_)
 {
+	void __user *arg = (void __user *)arg_;
 
 	if (unlikely(!lst))
 		BUG();
 
 	switch (cmd) {
 		case NCRIO_DATA_INIT:
-			return ncr_data_init(&lst->data, (void*)arg);
+			return ncr_data_init(&lst->data, arg);
 		case NCRIO_DATA_GET:
-			return ncr_data_get(&lst->data, (void*)arg);
+			return ncr_data_get(&lst->data, arg);
 		case NCRIO_DATA_SET:
-			return ncr_data_set(&lst->data, (void*)arg);
+			return ncr_data_set(&lst->data, arg);
 		case NCRIO_DATA_DEINIT:
-			return ncr_data_deinit(&lst->data, (void*)arg);
+			return ncr_data_deinit(&lst->data, arg);
 
 		case NCRIO_KEY_INIT:
-			return ncr_key_init(&lst->key, (void*)arg);
+			return ncr_key_init(&lst->key, arg);
 		case NCRIO_KEY_DEINIT:
-			return ncr_key_deinit(&lst->key, (void*)arg);
+			return ncr_key_deinit(&lst->key, arg);
 		case NCRIO_KEY_GENERATE:
-			return ncr_key_generate(&lst->key, (void*)arg);
+			return ncr_key_generate(&lst->key, arg);
 		case NCRIO_KEY_EXPORT:
-			return ncr_key_export(&lst->data, &lst->key, (void*)arg);
+			return ncr_key_export(&lst->data, &lst->key, arg);
 		case NCRIO_KEY_IMPORT:
-			return ncr_key_import(&lst->data, &lst->key, (void*)arg);
+			return ncr_key_import(&lst->data, &lst->key, arg);
 		case NCRIO_KEY_GET_INFO:
-			return ncr_key_info(&lst->key, (void*)arg);
+			return ncr_key_info(&lst->key, arg);
 		case NCRIO_KEY_WRAP:
-			return ncr_key_wrap(&lst->key, &lst->data, (void*)arg);
+			return ncr_key_wrap(&lst->key, &lst->data, arg);
 		case NCRIO_KEY_UNWRAP:
-			return ncr_key_unwrap(&lst->key, &lst->data, (void*)arg);
+			return ncr_key_unwrap(&lst->key, &lst->data, arg);
 		case NCRIO_KEY_STORAGE_WRAP:
-			return ncr_key_storage_wrap(&lst->key, &lst->data, (void*)arg);
+			return ncr_key_storage_wrap(&lst->key, &lst->data, arg);
 		case NCRIO_KEY_STORAGE_UNWRAP:
-			return ncr_key_storage_unwrap(&lst->key, &lst->data, (void*)arg);
+			return ncr_key_storage_unwrap(&lst->key, &lst->data, arg);
 		case NCRIO_SESSION_INIT:
-			return ncr_session_init(lst, (void*)arg); 
+			return ncr_session_init(lst, arg);
 		case NCRIO_SESSION_UPDATE:
-			return ncr_session_update(lst, (void*)arg); 
+			return ncr_session_update(lst, arg);
 		case NCRIO_SESSION_FINAL:
-			return ncr_session_final(lst, (void*)arg); 
+			return ncr_session_final(lst, arg);
 		case NCRIO_SESSION_ONCE:
-			return ncr_session_once(lst, (void*)arg);
+			return ncr_session_once(lst, arg);
 		case NCRIO_MASTER_KEY_SET:
-			return ncr_master_key_set((void*)arg);
+			return ncr_master_key_set(arg);
 		case NCRIO_KEY_GENERATE_PAIR:
-			return ncr_key_generate_pair(&lst->key, (void*)arg);
+			return ncr_key_generate_pair(&lst->key, arg);
 #if 0
 		case NCRIO_KEY_DERIVE:
-			return ncr_key_derive(&lst->key, (void*)arg);
+			return ncr_key_derive(&lst->key, arg);
 #endif
 		default:
 			return -EINVAL;

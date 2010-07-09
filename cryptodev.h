@@ -7,6 +7,8 @@
 
 #ifndef __KERNEL__
 #include <inttypes.h>
+#define __user
+#else
 #endif
 
 /* API extensions for linux */
@@ -73,9 +75,9 @@ struct session_op {
 	uint32_t	mac;		/* cryptodev_crypto_op_t */
 
 	uint32_t	keylen;
-	uint8_t	*	key;
+	uint8_t	__user *key;
 	uint32_t	mackeylen;
-	uint8_t	*	mackey;
+	uint8_t	__user *mackey;
 
 	uint32_t	ses;		/* session identifier */
 };
@@ -89,10 +91,10 @@ struct session_op {
 	uint16_t	op;		/* COP_ENCRYPT or COP_DECRYPT */
 	uint16_t	flags;		/* no usage so far, use 0 */
 	uint32_t	len;		/* length of source data */
-	uint8_t *	src;		/* source data */
-	uint8_t *	dst;		/* pointer to output data */
-	uint8_t	*	mac;		/* pointer to output data for hash/MAC operations */
-	uint8_t	*	iv;		/* initialization vector for encryption operations */
+	uint8_t __user *src;		/* source data */
+	uint8_t __user *dst;		/* pointer to output data */
+	uint8_t	__user *mac;		/* pointer to output data for hash/MAC operations */
+	uint8_t	__user *iv;		/* initialization vector for encryption operations */
 };
 
 /* Stuff for bignum arithmetic and public key

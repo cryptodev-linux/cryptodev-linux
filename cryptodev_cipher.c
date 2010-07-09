@@ -133,7 +133,7 @@ void cryptodev_cipher_deinit(struct cipher_data* cdata)
 	}
 }
 
-void cryptodev_cipher_set_iv(struct cipher_data* cdata, void __user* iv, size_t iv_size)
+void cryptodev_cipher_set_iv(struct cipher_data* cdata, void *iv, size_t iv_size)
 {
 	memcpy(cdata->async.iv, iv, min(iv_size,sizeof(cdata->async.iv)));
 }
