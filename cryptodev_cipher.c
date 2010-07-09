@@ -153,7 +153,7 @@ static inline int waitfor (struct cryptodev_result* cr, ssize_t ret)
 		 * another request. */
 
 		if (unlikely(cr->err)) {
-			dprintk(0,KERN_ERR,"error from async request: %zd \n", ret);
+			dprintk(0,KERN_ERR,"error from async request: %d \n", cr->err);
                         return cr->err; 
 		}
 
