@@ -436,7 +436,8 @@ int ret;
 
 	if (!(wkey->flags & NCR_KEY_FLAG_WRAPPABLE)) {
 		err();
-		return -EPERM;
+		ret = -EPERM;
+		goto fail;
 	}
 
 	ret = ncr_key_item_get_read( &key, key_lst, wrap.key.key);
