@@ -795,7 +795,7 @@ struct miscdevice cryptodev = {
 	.fops = &cryptodev_fops,
 };
 
-static int
+static int __init
 cryptodev_register(void)
 {
 	int rc;
@@ -821,7 +821,7 @@ cryptodev_register(void)
 	return 0;
 }
 
-static void
+static void __exit
 cryptodev_deregister(void)
 {
 	misc_deregister(&cryptodev);
