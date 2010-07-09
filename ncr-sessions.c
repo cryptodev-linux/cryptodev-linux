@@ -449,10 +449,9 @@ int ncr_session_init(struct ncr_lists* lists, void __user* arg)
 	struct ncr_session_st session;
 	int ret;
 
-	ret = copy_from_user( &session, arg, sizeof(session));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&session, arg, sizeof(session)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 
 	ret = _ncr_session_init(lists, &session);
@@ -618,12 +617,10 @@ fail:
 int ncr_session_update(struct ncr_lists* lists, void __user* arg)
 {
 	struct ncr_session_op_st op;
-	int ret;
 
-	ret = copy_from_user( &op, arg, sizeof(op));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user( &op, arg, sizeof(op)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 	
 	return _ncr_session_update(lists, &op);
@@ -784,10 +781,9 @@ int ncr_session_final(struct ncr_lists* lists, void __user* arg)
 	struct ncr_session_op_st op;
 	int ret;
 
-	ret = copy_from_user( &op, arg, sizeof(op));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&op, arg, sizeof(op)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 
 	ret = _ncr_session_final(lists, &op);
@@ -795,8 +791,12 @@ int ncr_session_final(struct ncr_lists* lists, void __user* arg)
 		err();
 		return ret;
 	}
-	
-	return copy_to_user(arg, &op, sizeof(op));
+
+	if (unlikely(copy_to_user(arg, &op, sizeof(op)))) {
+		err();
+		return -EFAULT;
+	}
+	return 0;
 }
 
 int ncr_session_once(struct ncr_lists* lists, void __user* arg)
@@ -804,10 +804,9 @@ int ncr_session_once(struct ncr_lists* lists, void __user* arg)
 	struct ncr_session_once_op_st kop;
 	int ret;
 
-	ret = copy_from_user(&kop, arg, sizeof(kop));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&kop, arg, sizeof(kop)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 
 	ret = _ncr_session_init(lists, &kop.init);
@@ -823,6 +822,8 @@ int ncr_session_once(struct ncr_lists* lists, void __user* arg)
 		return ret;
 	}
 
-	return copy_to_user(arg, &kop, sizeof(kop));
+	if (unlikely(copy_to_user(arg, &kop, sizeof(kop))))
+		return -EFAULT;
+	return 0;
 }
 

@@ -79,17 +79,15 @@ void ncr_master_key_reset(void)
 static int ncr_master_key_set(void* __user arg)
 {
 struct ncr_master_key_st st;
-int ret;
 
 	if (current_euid() != 0 && !capable(CAP_SYS_ADMIN)) {
 		err();
 		return -EPERM;
 	}
 
-	ret = copy_from_user(&st, arg, sizeof(st));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&st, arg, sizeof(st)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 
 	if (st.key_size > sizeof(master_key.key.secret.data)) {

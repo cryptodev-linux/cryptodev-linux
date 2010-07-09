@@ -208,12 +208,10 @@ int ncr_key_deinit(struct list_sem_st* lst, void __user* arg)
 {
 	ncr_key_t desc;
 	struct key_item_st * item, *tmp;
-	int ret;
 
-	ret = copy_from_user( &desc, arg, sizeof(desc));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&desc, arg, sizeof(desc)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 
 	down(&lst->sem);
@@ -242,10 +240,9 @@ struct data_item_st* ditem = NULL;
 uint32_t size;
 int ret;
 
-	ret = copy_from_user( &data, arg, sizeof(data));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&data, arg, sizeof(data)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 
 	ret = ncr_key_item_get_read( &item, key_lst, data.key);
@@ -321,10 +318,9 @@ struct key_item_st* item = NULL;
 struct data_item_st* ditem = NULL;
 int ret;
 
-	ret = copy_from_user( &data, arg, sizeof(data));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&data, arg, sizeof(data)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 
 	ret = ncr_key_item_get_write( &item, key_lst, data.key);
@@ -421,10 +417,9 @@ struct key_item_st* item = NULL;
 int ret;
 size_t size;
 
-	ret = copy_from_user( &gen, arg, sizeof(gen));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&gen, arg, sizeof(gen)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 
 	ret = ncr_key_item_get_write( &item, lst, gen.desc);
@@ -477,10 +472,9 @@ struct ncr_key_info_st info;
 struct key_item_st* item = NULL;
 int ret;
 
-	ret = copy_from_user( &info, arg, sizeof(info));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&info, arg, sizeof(info)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 
 	ret = ncr_key_item_get_read(&item, lst, info.key);
@@ -505,10 +499,9 @@ struct key_item_st* private = NULL;
 struct key_item_st* public = NULL;
 int ret;
 
-	ret = copy_from_user( &gen, arg, sizeof(gen));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&gen, arg, sizeof(gen)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 
 	ret = ncr_key_item_get_write( &private, lst, gen.desc);

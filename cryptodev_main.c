@@ -209,8 +209,8 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 			goto error_cipher;
 		}
 
-		ret = copy_from_user(keyp, sop->key, sop->keylen);
-		if (unlikely(ret)) {
+		if (unlikely(copy_from_user(keyp, sop->key, sop->keylen))) {
+			ret = -EFAULT;
 			goto error_cipher;
 		}
 
@@ -233,8 +233,9 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 			goto error_hash;
 		}
 		
-		ret = copy_from_user(keyp, sop->mackey, sop->mackeylen);
-		if (unlikely(ret)) {
+		if (unlikely(copy_from_user(keyp, sop->mackey,
+					    sop->mackeylen))) {
+			ret = -EFAULT;
 			goto error_hash;
 		}
 
@@ -429,9 +430,10 @@ crypto_run(struct fcrypt *fcr, struct crypt_op *cop)
 			uint8_t iv[EALG_MAX_BLOCK_LEN];
 
 			ivsize = min((int)sizeof(iv), ses_ptr->cdata.ivsize);
-			ret = copy_from_user(iv, cop->iv, ivsize);
-			if (unlikely(ret))
+			if (unlikely(copy_from_user(iv, cop->iv, ivsize))) {
+				ret = -EFAULT;
 				goto out;
+			}
 
 			cryptodev_cipher_set_iv(&ses_ptr->cdata, iv, ivsize);
 		}
@@ -444,9 +446,10 @@ crypto_run(struct fcrypt *fcr, struct crypt_op *cop)
 	while(nbytes > 0) {
 		size_t current_len = nbytes > bufsize ? bufsize : nbytes;
 
-		ret = copy_from_user(data, src, current_len);
-		if (unlikely(ret))
+		if (unlikely(copy_from_user(data, src, current_len))) {
+			ret = -EFAULT;
 			goto out;
+		}
 
 		sg_init_one(&sg, data, current_len);
 
@@ -470,8 +473,10 @@ crypto_run(struct fcrypt *fcr, struct crypt_op *cop)
 				}
 
 				ret = copy_to_user(dst, data, current_len);
-				if (unlikely(ret))
+				if (unlikely(ret)) {
+					ret = -EFAULT;
 					goto out;
+				}
 				dst += current_len;
 			}
 		} else {
@@ -484,8 +489,10 @@ crypto_run(struct fcrypt *fcr, struct crypt_op *cop)
 				}
 			
 				ret = copy_to_user(dst, data, current_len);
-				if (unlikely(ret))
+				if (unlikely(ret)) {
+					ret = -EFAULT;
 					goto out;
+				}
 				dst += current_len;
 
 			}
@@ -511,8 +518,10 @@ crypto_run(struct fcrypt *fcr, struct crypt_op *cop)
 		}
 
 		ret = copy_to_user(cop->mac, hash_output, ses_ptr->hdata.digestsize);
-		if (unlikely(ret))
+		if (unlikely(ret)) {
+			ret = -EFAULT;
 			goto out;
+		}
 	}
 
 #if defined(CRYPTODEV_STATS)
@@ -616,9 +625,9 @@ cryptodev_ioctl(struct inode *inode, struct file *filp,
 			}
 			return ret;
 		case CIOCGSESSION:
-			ret = copy_from_user(&sop, (void*)arg, sizeof(sop));
-			if (unlikely(ret))
-				return ret;
+			if (unlikely(copy_from_user(&sop, (void*)arg,
+						    sizeof(sop))))
+				return -EFAULT;
 
 			ret = crypto_create_session(fcr, &sop);
 			if (unlikely(ret))
@@ -636,14 +645,17 @@ cryptodev_ioctl(struct inode *inode, struct file *filp,
 			ret = crypto_finish_session(fcr, ses);
 			return ret;
 		case CIOCCRYPT:
-			ret = copy_from_user(&cop, (void*)arg, sizeof(cop));
-			if (unlikely(ret))
-				return ret;
+			if (unlikely(copy_from_user(&cop, (void*)arg,
+						    sizeof(cop))))
+				return -EFAULT;
 
 			ret = crypto_run(fcr, &cop);
 			if (unlikely(ret))
 				return ret;
-			return copy_to_user((void*)arg, &cop, sizeof(cop));
+			if (unlikely(copy_to_user((void*)arg, &cop,
+						  sizeof(cop))))
+				return -EFAULT;
+			return 0;
 
 		default:
 			return ncr_ioctl(pcr->ncr, filp, cmd, arg);
@@ -727,11 +739,10 @@ cryptodev_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		return cryptodev_ioctl(NULL, file, cmd, arg);
 
 	case COMPAT_CIOCGSESSION:
-		ret = copy_from_user(&compat_sop,
-				(void *)arg, sizeof(compat_sop));
+		if (unlikely(copy_from_user(&compat_sop, (void *)arg,
+					    sizeof(compat_sop))))
+			return -EFAULT;
 		compat_to_session_op(&compat_sop, &sop);
-		if (unlikely(ret))
-			return ret;
 
 		ret = crypto_create_session(fcr, &sop);
 		if (unlikely(ret))
@@ -747,20 +758,21 @@ cryptodev_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		return ret;
 
 	case COMPAT_CIOCCRYPT:
-		ret = copy_from_user(&compat_cop,
-				(void*)arg, sizeof(compat_cop));
+		if (unlikely(copy_from_user(&compat_cop, (void*)arg,
+					    sizeof(compat_cop))))
+			return -EFAULT;
 
 		compat_to_crypt_op(&compat_cop, &cop);
-		if (unlikely(ret))
-			return ret;
 
 		ret = crypto_run(fcr, &cop);
 		if (unlikely(ret))
 			return ret;
 
 		crypt_op_to_compat(&cop, &compat_cop);
-		return copy_to_user((void*)arg,
-				&compat_cop, sizeof(compat_cop));
+		if (unlikely(copy_to_user((void*)arg, &compat_cop,
+					  sizeof(compat_cop))))
+			return -EFAULT;
+		return 0;
 
 	default:
 		return -EINVAL;

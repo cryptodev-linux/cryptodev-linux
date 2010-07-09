@@ -422,10 +422,9 @@ struct key_item_st* key = NULL;
 struct data_item_st * data = NULL;
 int ret;
 
-	ret = copy_from_user( &wrap, arg, sizeof(wrap));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&wrap, arg, sizeof(wrap)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 
 	ret = ncr_key_item_get_read( &wkey, key_lst, wrap.keytowrap);
@@ -486,10 +485,9 @@ struct key_item_st* key = NULL;
 struct data_item_st * data = NULL;
 int ret;
 
-	ret = copy_from_user( &wrap, arg, sizeof(wrap));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&wrap, arg, sizeof(wrap)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 
 	ret = ncr_key_item_get_write( &wkey, key_lst, wrap.keytowrap);
@@ -547,10 +545,9 @@ int ret;
 		return ENOKEY;
 	}
 
-	ret = copy_from_user( &wrap, arg, sizeof(wrap));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&wrap, arg, sizeof(wrap)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 
 	ret = ncr_key_item_get_read( &wkey, key_lst, wrap.keytowrap);
@@ -607,10 +604,9 @@ int ret;
 		return ENOKEY;
 	}
 
-	ret = copy_from_user( &wrap, arg, sizeof(wrap));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&wrap, arg, sizeof(wrap)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 
 	ret = ncr_key_item_get_write( &wkey, key_lst, wrap.keytowrap);

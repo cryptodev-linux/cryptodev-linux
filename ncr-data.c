@@ -118,9 +118,9 @@ int ncr_data_init(struct list_sem_st* lst, void __user* arg)
 		return ret;
 	}
 
-	ret = copy_from_user( &init, arg, sizeof(init));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&init, arg, sizeof(init)))) {
 		err();
+		ret = -EFAULT;
 		goto err_limits;
 	}
 
@@ -148,11 +148,11 @@ int ncr_data_init(struct list_sem_st* lst, void __user* arg)
 	data->max_data_size = init.max_object_size;
 
 	if (init.initial_data != NULL) {
-		ret = copy_from_user(data->data, init.initial_data, init.initial_data_size);
-		if (unlikely(ret)) {
+		if (unlikely(copy_from_user(data->data, init.initial_data,
+					    init.initial_data_size))) {
 			err();
 			_ncr_data_item_put(data);
-			return ret;
+			return -EFAULT;
 		}
 		data->data_size = init.initial_data_size;
 	}
@@ -188,12 +188,10 @@ int ncr_data_deinit(struct list_sem_st* lst, void __user* arg)
 {
 	ncr_data_t desc;
 	struct data_item_st * item, *tmp;
-	int ret;
 
-	ret = copy_from_user( &desc, arg, sizeof(desc));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&desc, arg, sizeof(desc)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 	down(&lst->sem);
 	
@@ -216,10 +214,9 @@ int ncr_data_get(struct list_sem_st* lst, void __user* arg)
 	size_t len;
 	int ret;
 	
-	ret = copy_from_user( &get, arg, sizeof(get));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&get, arg, sizeof(get)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 
 	data = ncr_data_item_get( lst, get.desc);
@@ -243,12 +240,14 @@ int ncr_data_get(struct list_sem_st* lst, void __user* arg)
 	ret = copy_to_user(arg, &get, sizeof(get));
 	if (unlikely(ret)) {
 		err();
+		ret = -EFAULT;
 	}
 
 	if (ret == 0 && len > 0) {
 		ret = copy_to_user(get.data, data->data, len);
 		if (unlikely(ret)) {
 			err();
+			ret = -EFAULT;
 		}
 	}
 
@@ -264,10 +263,9 @@ int ncr_data_set(struct list_sem_st* lst, void __user* arg)
 	struct data_item_st * data;
 	int ret;
 	
-	ret = copy_from_user( &get, arg, sizeof(get));
-	if (unlikely(ret)) {
+	if (unlikely(copy_from_user(&get, arg, sizeof(get)))) {
 		err();
-		return ret;
+		return -EFAULT;
 	}
 
 	data = ncr_data_item_get( lst, get.desc);
@@ -286,9 +284,10 @@ int ncr_data_set(struct list_sem_st* lst, void __user* arg)
 
 	if (!get.append_flag) {
 		if (get.data != NULL) {
-			ret = copy_from_user(data->data, get.data, get.data_size);
-			if (unlikely(ret)) {
+			if (unlikely(copy_from_user(data->data, get.data,
+						    get.data_size))) {
 				err();
+				ret = -EFAULT;
 				goto cleanup;
 			}
 		}
@@ -305,9 +304,10 @@ int ncr_data_set(struct list_sem_st* lst, void __user* arg)
 			goto cleanup;
 		}
 		if (get.data != NULL) {
-			ret = copy_from_user(&data->data[offset], get.data, get.data_size);
-			if (unlikely(ret)) {
+			if (unlikely(copy_from_user(&data->data[offset],
+						    get.data, get.data_size))) {
 				err();
+				ret = -EFAULT;
 				goto cleanup;
 			}		
 		}
