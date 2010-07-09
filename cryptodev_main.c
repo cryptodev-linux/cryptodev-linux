@@ -404,8 +404,6 @@ crypto_run(struct fcrypt *fcr, struct crypt_op *cop)
 	}
 	bufsize = PAGE_SIZE < nbytes ? PAGE_SIZE : nbytes;
 
-	nbytes = cop->len;
-
 	if (ses_ptr->hdata.init != 0) {
 		ret = cryptodev_hash_reset(&ses_ptr->hdata);
 		if (unlikely(ret)) {
