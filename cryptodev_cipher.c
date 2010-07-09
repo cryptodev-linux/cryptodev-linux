@@ -111,9 +111,11 @@ int cryptodev_cipher_init(struct cipher_data* out, const char* alg_name, uint8_t
 
 	return 0;
 error:
-	crypto_free_ablkcipher(out->async.s);
+	if (out->async.request)
+		ablkcipher_request_free(out->async.request);
 	kfree(out->async.result);
-	ablkcipher_request_free(out->async.request);
+	if (out->async.s)
+		crypto_free_ablkcipher(out->async.s);
 
 	return ret;
 }
@@ -121,9 +123,11 @@ error:
 void cryptodev_cipher_deinit(struct cipher_data* cdata)
 {
 	if (cdata->init) {
-		crypto_free_ablkcipher(cdata->async.s);
+		if (cdata->async.request)
+			ablkcipher_request_free(cdata->async.request);
 		kfree(cdata->async.result);
-		ablkcipher_request_free(cdata->async.request);
+		if (cdata->async.s)
+			crypto_free_ablkcipher(cdata->async.s);
 
 		cdata->init = 0;
 	}
