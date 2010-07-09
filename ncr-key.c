@@ -30,6 +30,13 @@
 
 static void ncr_key_clear(struct key_item_st* item);
 
+/* must be called with data semaphore down */
+static void _ncr_key_unlink_item(struct key_item_st *item)
+{
+	list_del(&item->list);
+	_ncr_key_item_put( item); /* decrement ref count */
+}
+
 void ncr_key_list_deinit(struct list_sem_st* lst)
 {
 	if(lst) {
@@ -38,8 +45,7 @@ void ncr_key_list_deinit(struct list_sem_st* lst)
 		down(&lst->sem);
 
 		list_for_each_entry_safe(item, tmp, &lst->list, list) {
-			list_del(&item->list);
-			_ncr_key_item_put( item); /* decrement ref count */
+			_ncr_key_unlink_item(item);
 		}
 		up(&lst->sem);
 	}
@@ -183,7 +189,14 @@ int ncr_key_init(struct list_sem_st* lst, void __user* arg)
 	up(&lst->sem);
 
 	desc = key->desc;
-	return copy_to_user(arg, &desc, sizeof(desc));
+	ret = copy_to_user(arg, &desc, sizeof(desc));
+	if (unlikely(ret)) {
+		down(&lst->sem);
+		_ncr_key_unlink_item(key);
+		up(&lst->sem);
+		return -EFAULT;
+	}
+	return ret;
 
 err_limits:
 	ncr_limits_remove(current_euid(), task_pid_nr(current), LIMIT_TYPE_KEY);
@@ -207,8 +220,7 @@ int ncr_key_deinit(struct list_sem_st* lst, void __user* arg)
 	
 	list_for_each_entry_safe(item, tmp, &lst->list, list) {
 		if(item->desc == desc) {
-			list_del(&item->list);
-			_ncr_key_item_put( item); /* decrement ref count */
+			_ncr_key_unlink_item(item);
 			break;
 		}
 	}

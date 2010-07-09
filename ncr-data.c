@@ -29,6 +29,13 @@
 #include "ncr.h"
 #include "ncr_int.h"
 
+/* must be called with data semaphore down */
+static void _ncr_data_unlink_item(struct data_item_st *item)
+{
+	list_del(&item->list);
+	_ncr_data_item_put( item); /* decrement ref count */
+}
+
 void ncr_data_list_deinit(struct list_sem_st* lst)
 {
 	if(lst) {
@@ -37,8 +44,7 @@ void ncr_data_list_deinit(struct list_sem_st* lst)
 		down(&lst->sem);
 		
 		list_for_each_entry_safe(item, tmp, &lst->list, list) {
-			list_del(&item->list);
-			_ncr_data_item_put( item); /* decrement ref count */
+			_ncr_data_unlink_item(item);
 		}
 		up(&lst->sem);
 
@@ -160,7 +166,14 @@ int ncr_data_init(struct list_sem_st* lst, void __user* arg)
 	up(&lst->sem);
 
 	init.desc = data->desc;
-	return copy_to_user(arg, &init, sizeof(init));
+	ret = copy_to_user(arg, &init, sizeof(init));
+	if (unlikely(ret)) {
+		down(&lst->sem);
+		_ncr_data_unlink_item(data);
+		up(&lst->sem);
+		return -EFAULT;
+	}
+	return ret;
 
  err_data:
 	kfree(data);
@@ -186,8 +199,7 @@ int ncr_data_deinit(struct list_sem_st* lst, void __user* arg)
 	
 	list_for_each_entry_safe(item, tmp, &lst->list, list) {
 		if(item->desc == desc) {
-			list_del(&item->list);
-			_ncr_data_item_put( item); /* decrement ref count */
+			_ncr_data_unlink_item(item);
 			break;
 		}
 	}

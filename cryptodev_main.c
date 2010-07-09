@@ -619,7 +619,12 @@ cryptodev_ioctl(struct inode *inode, struct file *filp,
 			ret = crypto_create_session(fcr, &sop);
 			if (unlikely(ret))
 				return ret;
-			return copy_to_user((void*)arg, &sop, sizeof(sop));
+			ret = copy_to_user((void*)arg, &sop, sizeof(sop));
+			if (unlikely(ret)) {
+				crypto_finish_session(fcr, sop.ses);
+				return -EFAULT;
+			}
+			return ret;
 		case CIOCFSESSION:
 			get_user(ses, (uint32_t*)arg);
 			ret = crypto_finish_session(fcr, ses);
@@ -727,8 +732,13 @@ cryptodev_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			return ret;
 
 		session_op_to_compat(&sop, &compat_sop);
-		return copy_to_user((void*)arg,
+		ret = copy_to_user((void*)arg,
 				&compat_sop, sizeof(compat_sop));
+		if (unlikely(ret)) {
+			crypto_finish_session(fcr, sop.ses);
+			return -EFAULT;
+		}
+		return ret;
 
 	case COMPAT_CIOCCRYPT:
 		ret = copy_from_user(&compat_cop,

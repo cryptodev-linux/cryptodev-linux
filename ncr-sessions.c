@@ -461,7 +461,13 @@ int ncr_session_init(struct ncr_lists* lists, void __user* arg)
 		return ret;
 	}
 
-	return copy_to_user( arg, &session, sizeof(session));
+	ret = copy_to_user( arg, &session, sizeof(session));
+	if (unlikely(ret)) {
+		err();
+		_ncr_session_remove(&lists->sessions, session.ses);
+		return -EFAULT;
+	}
+	return ret;
 }
 
 /* Main update function
