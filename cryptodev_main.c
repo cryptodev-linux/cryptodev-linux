@@ -576,12 +576,10 @@ cryptodev_release(struct inode *inode, struct file *filp)
 static int
 clonefd(struct file *filp)
 {
-	struct fdtable *fdt = files_fdtable(current->files);
 	int ret;
 	ret = get_unused_fd();
 	if (ret >= 0) {
 			get_file(filp);
-			FD_SET(ret, fdt->open_fds);
 			fd_install(ret, filp);
 	}
 
