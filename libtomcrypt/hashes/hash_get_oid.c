@@ -16,32 +16,32 @@
    @return CRYPT_OK if valid
 */
 
-const oid_st sha1_oid = {
+static const oid_st sha1_oid = {
    .OIDlen = 6,
    .OID = { 1, 3, 14, 3, 2, 26  },
 };
 
-const oid_st md5_oid = {
+static const oid_st md5_oid = {
    .OIDlen = 6,
    .OID = { 1, 2, 840, 113549, 2, 5,  },
 };
 
-const oid_st sha224_oid = {
+static const oid_st sha224_oid = {
    .OIDlen = 9,
    .OID = { 2, 16, 840, 1, 101, 3, 4, 2, 4,  },
 };
 
-const oid_st sha256_oid = {
+static const oid_st sha256_oid = {
    .OIDlen = 9,
    .OID = { 2, 16, 840, 1, 101, 3, 4, 2, 1,  },
 };
 
-const oid_st sha384_oid = {
+static const oid_st sha384_oid = {
    .OIDlen = 9,
    .OID = { 2, 16, 840, 1, 101, 3, 4, 2, 2,  },
 };
 
-const oid_st sha512_oid = {
+static const oid_st sha512_oid = {
    .OIDlen = 9,
    .OID = { 2, 16, 840, 1, 101, 3, 4, 2, 3,  },
 };

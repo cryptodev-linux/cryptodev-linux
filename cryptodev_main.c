@@ -779,7 +779,7 @@ cryptodev_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg_)
 
 #endif /* CONFIG_COMPAT */
 
-struct file_operations cryptodev_fops = {
+static struct file_operations cryptodev_fops = {
 	.owner = THIS_MODULE,
 	.open = cryptodev_open,
 	.release = cryptodev_release,
@@ -789,7 +789,7 @@ struct file_operations cryptodev_fops = {
 #endif /* CONFIG_COMPAT */
 };
 
-struct miscdevice cryptodev = {
+static struct miscdevice cryptodev = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name = "crypto",
 	.fops = &cryptodev_fops,
@@ -830,7 +830,7 @@ cryptodev_deregister(void)
 }
 
 /* ====== Module init/exit ====== */
-int __init init_cryptodev(void)
+static int __init init_cryptodev(void)
 {
 	int rc;
 
@@ -843,7 +843,7 @@ int __init init_cryptodev(void)
 	return 0;
 }
 
-void __exit exit_cryptodev(void)
+static void __exit exit_cryptodev(void)
 {
 	cryptodev_deregister();
 	printk(KERN_INFO PFX "driver unloaded.\n");

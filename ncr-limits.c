@@ -32,12 +32,12 @@
 #include "ncr_int.h"
 
 /* arbitrary now */
-unsigned int max_per_user[] = {
+static unsigned int max_per_user[] = {
 	[LIMIT_TYPE_KEY] = 128,
 	[LIMIT_TYPE_DATA] = 128,
 };
 
-unsigned int max_per_process[] = {
+static unsigned int max_per_process[] = {
 	[LIMIT_TYPE_KEY] = 64,
 	[LIMIT_TYPE_DATA] = 64,
 };
