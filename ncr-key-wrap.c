@@ -561,7 +561,8 @@ int ret;
 
 	if (!(wkey->flags & NCR_KEY_FLAG_WRAPPABLE)) {
 		err();
-		return -EPERM;
+		ret = -EPERM;
+		goto fail;
 	}
 
 	data = ncr_data_item_get(data_lst, wrap.data);
