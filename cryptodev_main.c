@@ -34,6 +34,7 @@
 #include <linux/mm.h>
 #include <linux/highmem.h>
 #include <linux/random.h>
+#include <linux/syscalls.h>
 #include "cryptodev.h"
 #include <asm/uaccess.h>
 #include <asm/ioctl.h>
@@ -605,12 +606,15 @@ cryptodev_ioctl(struct inode *inode, struct file *filp,
 
 	switch (cmd) {
 		case CIOCASYMFEAT:
-			put_user(0, p);
-			return 0;
+			return put_user(0, p);
 		case CRIOGET:
 			fd = clonefd(filp);
-			put_user(fd, p);
-			return 0;
+			ret = put_user(fd, p);
+			if (unlikely(ret)) {
+				sys_close(fd);
+				return ret;
+			}
+			return ret;
 		case CIOCGSESSION:
 			ret = copy_from_user(&sop, (void*)arg, sizeof(sop));
 			if (unlikely(ret))
@@ -626,7 +630,9 @@ cryptodev_ioctl(struct inode *inode, struct file *filp,
 			}
 			return ret;
 		case CIOCFSESSION:
-			get_user(ses, (uint32_t*)arg);
+			ret = get_user(ses, (uint32_t*)arg);
+			if (unlikely(ret))
+				return ret;
 			ret = crypto_finish_session(fcr, ses);
 			return ret;
 		case CIOCCRYPT:
