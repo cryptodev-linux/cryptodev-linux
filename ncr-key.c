@@ -163,7 +163,8 @@ int ncr_key_init(struct list_sem_st* lst, void __user* arg)
 	key = kmalloc(sizeof(*key), GFP_KERNEL);
 	if (key == NULL) {
 		err();
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto err_limits;
 	}
 
 	memset(key, 0, sizeof(*key));
@@ -183,6 +184,10 @@ int ncr_key_init(struct list_sem_st* lst, void __user* arg)
 
 	desc = key->desc;
 	return copy_to_user(arg, &desc, sizeof(desc));
+
+err_limits:
+	ncr_limits_remove(current_euid(), task_pid_nr(current), LIMIT_TYPE_KEY);
+	return ret;
 }
 
 
