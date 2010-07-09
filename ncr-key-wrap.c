@@ -559,7 +559,7 @@ int ret;
 
 	if (master_key.type != NCR_KEY_TYPE_SECRET) {
 		err();
-		return ENOKEY;
+		return -ENOKEY;
 	}
 
 	if (unlikely(copy_from_user(&wrap, arg, sizeof(wrap)))) {
@@ -618,7 +618,7 @@ int ret;
 
 	if (master_key.type != NCR_KEY_TYPE_SECRET) {
 		err();
-		return ENOKEY;
+		return -ENOKEY;
 	}
 
 	if (unlikely(copy_from_user(&wrap, arg, sizeof(wrap)))) {
