@@ -153,7 +153,7 @@ int ret;
 			ret = -ENOMEM;
 			goto restore_user;
 		}
-		pitem->pid = task_pid_nr(current);
+		pitem->pid = pid;
 		pitem->type = type;
 		atomic_set(&pitem->cnt, 1);
 
