@@ -87,7 +87,7 @@ int key_from_storage_data(struct key_item_st* key, const void* data, size_t data
 	const struct packed_key * pkey = data;
 	int ret;
 
-	if (data_size != sizeof(*pkey)) {
+	if (data_size != sizeof(*pkey) || pkey->key_id_size > MAX_KEY_ID_SIZE) {
 		err();
 		return -EINVAL;
 	}
@@ -100,6 +100,10 @@ int key_from_storage_data(struct key_item_st* key, const void* data, size_t data
 	memcpy(key->key_id, pkey->key_id, pkey->key_id_size);
 
 	if (key->type == NCR_KEY_TYPE_SECRET) {
+		if (pkey->raw_size > NCR_CIPHER_MAX_KEY_LEN) {
+			err();
+			return -EINVAL;
+		}
 		key->key.secret.size = pkey->raw_size;
 		memcpy(key->key.secret.data, pkey->raw, pkey->raw_size);
 	} else if (key->type == NCR_KEY_TYPE_PUBLIC 
