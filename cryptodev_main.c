@@ -409,7 +409,7 @@ crypto_run(struct fcrypt *fcr, struct crypt_op *cop)
 		if (unlikely(ret)) {
 			dprintk(1, KERN_ERR,
 				"error in cryptodev_hash_reset()\n");
-			goto out_unlock;
+			goto out;
 		}
 	}
 
@@ -421,7 +421,7 @@ crypto_run(struct fcrypt *fcr, struct crypt_op *cop)
 				"data size (%zu) isn't a multiple of block size (%u)\n",
 				nbytes, blocksize);
 			ret = -EINVAL;
-			goto out_unlock;
+			goto out;
 		}
 
 		if (cop->iv) {
@@ -430,7 +430,7 @@ crypto_run(struct fcrypt *fcr, struct crypt_op *cop)
 			ivsize = min((int)sizeof(iv), ses_ptr->cdata.ivsize);
 			ret = copy_from_user(iv, cop->iv, ivsize);
 			if (unlikely(ret))
-				goto out_unlock;
+				goto out;
 
 			cryptodev_cipher_set_iv(&ses_ptr->cdata, iv, ivsize);
 		}
