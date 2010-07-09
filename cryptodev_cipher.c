@@ -265,6 +265,7 @@ int ret;
 	return 0;
 
 error:
+	kfree(hdata->async.result);
 	crypto_free_ahash(hdata->async.s);
 	return ret;
 }
