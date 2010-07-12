@@ -187,6 +187,7 @@ int ncr_pk_generate(ncr_algorithm_t algo,
 	struct ncr_key_generate_params_st * params,
 	struct key_item_st* private, struct key_item_st* public);
 int ncr_pk_pack( const struct key_item_st * key, uint8_t * packed, uint32_t * packed_size);
+int ncr_pk_unpack( struct key_item_st * key, const void * packed, size_t packed_size);
 
 
 int ncr_pk_queue_init(void);

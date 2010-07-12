@@ -272,18 +272,18 @@ int ret;
 		item->flags &= ~NCR_KEY_FLAG_EXPORTABLE;
 	}
 
+	if (data.key_id_size > MAX_KEY_ID_SIZE) {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	item->key_id_size = data.key_id_size;
+	if (data.key_id_size > 0)
+		memcpy(item->key_id, data.key_id, data.key_id_size);
+
 	switch(item->type) {
 		case NCR_KEY_TYPE_SECRET:
-
-			if (data.key_id_size > MAX_KEY_ID_SIZE) {
-				err();
-				ret = -EINVAL;
-				goto fail;
-			}
-			item->key_id_size = data.key_id_size;
-			if (data.key_id_size > 0)
-				memcpy(item->key_id, data.key_id, data.key_id_size);
-
 
 			if (ditem->data_size > NCR_CIPHER_MAX_KEY_LEN) {
 				err();
@@ -294,8 +294,15 @@ int ret;
 			memcpy(item->key.secret.data, ditem->data, ditem->data_size);
 			item->key.secret.size = ditem->data_size;
 			break;
-		case NCR_KEY_TYPE_PRIVATE: /* FIXME */
-		case NCR_KEY_TYPE_PUBLIC: /* FIXME */
+		case NCR_KEY_TYPE_PRIVATE:
+		case NCR_KEY_TYPE_PUBLIC:
+			ret = ncr_pk_unpack( item, ditem->data, ditem->data_size);
+			if (ret < 0) {
+				err();
+				goto fail;
+			}
+			break;
+
 		default:
 			err();
 			ret = -EINVAL;

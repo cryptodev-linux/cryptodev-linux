@@ -85,6 +85,7 @@ fail:
 int key_from_storage_data(struct key_item_st* key, const void* data, size_t data_size)
 {
 	const struct packed_key * pkey = data;
+	int ret;
 
 	if (data_size != sizeof(*pkey)) {
 		err();
@@ -101,6 +102,13 @@ int key_from_storage_data(struct key_item_st* key, const void* data, size_t data
 	if (key->type == NCR_KEY_TYPE_SECRET) {
 		key->key.secret.size = pkey->raw_size;
 		memcpy(key->key.secret.data, pkey->raw, pkey->raw_size);
+	} else if (key->type == NCR_KEY_TYPE_PUBLIC 
+		|| key->type == NCR_KEY_TYPE_PRIVATE) {
+		ret = ncr_pk_unpack( key, pkey->raw, pkey->raw_size);
+		if (ret < 0) {
+			err();
+			return ret;
+		}
 	} else {
 		err();
 		return -EINVAL;

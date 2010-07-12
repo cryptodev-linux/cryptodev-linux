@@ -161,6 +161,38 @@ int ncr_pk_pack( const struct key_item_st * key, uint8_t * packed, uint32_t * pa
 	return 0;
 }
 
+int ncr_pk_unpack( struct key_item_st * key, const void * packed, size_t packed_size)
+{
+	int cret;
+
+	if (key == NULL || packed == NULL || packed_size == NULL) {
+		err();
+		return -EINVAL;
+	}
+
+	switch(key->algorithm) {
+		case NCR_ALG_RSA:
+			cret = rsa_import(packed, packed_size, (void*)&key->key.pk.rsa);
+			if (cret != CRYPT_OK) {
+				err();
+				return tomerr(cret);
+			}
+			break;
+		case NCR_ALG_DSA:
+			cret = dsa_import(packed, packed_size, (void*)&key->key.pk.dsa);
+			if (cret != CRYPT_OK) {
+				err();
+				return tomerr(cret);
+			}
+			break;
+		default:
+			err();
+			return -EINVAL;
+	}
+
+	return 0;
+}
+
 struct keygen_st {
 	struct work_struct pk_gen;
 	struct completion completed;
