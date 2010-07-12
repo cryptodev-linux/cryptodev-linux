@@ -165,7 +165,7 @@ int ncr_pk_unpack( struct key_item_st * key, const void * packed, size_t packed_
 {
 	int cret;
 
-	if (key == NULL || packed == NULL || packed_size == NULL) {
+	if (key == NULL || packed == NULL) {
 		err();
 		return -EINVAL;
 	}
