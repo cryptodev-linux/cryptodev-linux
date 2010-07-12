@@ -174,82 +174,6 @@ struct ncr_key_data_st {
 	ncr_algorithm_t algorithm; /* valid for public/private keys */
 };
 
-struct ncr_public_key_params_st
-{
-	ncr_key_t key;
-	ncr_algorithm_t algorithm;
-	union {
-		struct {
-			void* m;
-			size_t m_size;
-			void* e;
-			size_t e_size;
-			void* p;
-			size_t p_size;
-			void* q;
-			size_t q_size;
-			void* c;
-			size_t c_size;
-		} rsa;		
-		struct {
-			void* y;
-			size_t y_size;
-			void* p;
-			size_t p_size;
-			void* q;
-			size_t q_size;
-			void* g;
-			size_t g_size;
-		} dsa;
-		struct {
-			void* public;
-			size_t public_size;
-		} dh;
-	} params;
-};
-
-struct ncr_private_key_params_st
-{
-	ncr_key_t key;
-	ncr_algorithm_t algorithm;
-	union {
-		struct {
-			void* m;
-			size_t m_size;
-			void* e;
-			size_t e_size;
-			void* d;
-			size_t d_size;
-			void* p;
-			size_t p_size;
-			void* q;
-			size_t q_size;
-			void* c;
-			size_t c_size;
-			void* exp1;
-			size_t exp1_size;
-			void* exp2;
-			size_t exp2_size;
-		} rsa;		
-		struct {
-			void* y;
-			size_t y_size;
-			void* x;
-			size_t x_size;
-			void* p;
-			size_t p_size;
-			void* q;
-			size_t q_size;
-			void* g;
-			size_t g_size;
-		} dsa;
-		struct {
-			void* private;
-			size_t private_size;
-		} dh;
-	} params;
-};
-
 #define NCRIO_KEY_INIT			_IOW ('c', 204, ncr_key_t)
 /* generate a secret key */
 #define NCRIO_KEY_GENERATE     	_IOR ('c', 205, struct ncr_key_generate_st)
@@ -263,11 +187,6 @@ struct ncr_private_key_params_st
 #define NCRIO_KEY_EXPORT       	_IOWR('c', 209, struct ncr_key_data_st)
 /* import a secret key */
 #define NCRIO_KEY_IMPORT       	_IOWR('c', 210, struct ncr_key_data_st)
-/* return/set public /private paramters */
-#define NCRIO_KEY_GET_PUBLIC   	_IOWR('c', 211, struct ncr_public_key_params_st)
-#define NCRIO_KEY_SET_PUBLIC   	_IOWR('c', 212, struct ncr_public_key_params_st)
-#define NCRIO_KEY_GET_PRIVATE   	_IOWR('c', 213, struct ncr_private_key_params_st)
-#define NCRIO_KEY_SET_PRIVATE   	_IOWR('c', 214, struct ncr_private_key_params_st)
 
 #define NCRIO_KEY_DEINIT       _IOR ('c', 215, ncr_key_t)
 

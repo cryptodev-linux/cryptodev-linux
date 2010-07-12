@@ -169,14 +169,6 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 #if 0
 		case NCRIO_KEY_DERIVE:
 			return ncr_key_derive(&lst->key, (void*)arg);
-		case NCRIO_KEY_GET_PUBLIC:
-			return ncr_key_get_public(&lst->key, (void*)arg);
-		case NCRIO_KEY_SET_PUBLIC:
-			return ncr_key_set_public(&lst->key, (void*)arg);
-		case NCRIO_KEY_GET_PRIVATE:
-			return ncr_key_get_private(&lst->key, (void*)arg);
-		case NCRIO_KEY_SET_PRIVATE:
-			return ncr_key_set_private(&lst->key, (void*)arg);
 #endif
 		default:
 			return -EINVAL;
