@@ -9,6 +9,10 @@ Module.symvers
 modules.order
 examples/cipher
 examples/hmac
-examples/new
+examples/ncr
+examples/pk
 releases
 scripts
+userspace/ncr-setkey
+version.h
+tags

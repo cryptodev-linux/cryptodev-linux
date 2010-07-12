@@ -120,11 +120,13 @@ error:
 
 void cryptodev_cipher_deinit(struct cipher_data* cdata)
 {
-	crypto_free_ablkcipher(cdata->async.s);
-	kfree(cdata->async.result);
-	ablkcipher_request_free(cdata->async.request);
+	if (cdata->init) {
+		crypto_free_ablkcipher(cdata->async.s);
+		kfree(cdata->async.result);
+		ablkcipher_request_free(cdata->async.request);
 
-	cdata->init = 0;
+		cdata->init = 0;
+	}
 }
 
 void cryptodev_cipher_set_iv(struct cipher_data* cdata, void __user* iv, size_t iv_size)
@@ -265,8 +267,10 @@ error:
 
 void cryptodev_hash_deinit(struct hash_data* hdata)
 {
-	crypto_free_ahash(hdata->async.s);
-	hdata->init = 0;
+	if (hdata->init) {
+		crypto_free_ahash(hdata->async.s);
+		hdata->init = 0;
+	}
 }
 
 int cryptodev_hash_reset( struct hash_data* hdata)

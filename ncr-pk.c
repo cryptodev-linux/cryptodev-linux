@@ -306,7 +306,10 @@ void ncr_pk_queue_deinit(void)
 
 void ncr_pk_cipher_deinit(struct ncr_pk_ctx* ctx)
 {
-	ctx->key = NULL;
+	if (ctx->init) {
+		ctx->init = 0;
+		ctx->key = NULL;
+	}
 }
 
 int ncr_pk_cipher_init(ncr_algorithm_t algo, 
@@ -322,15 +325,19 @@ int ncr_pk_cipher_init(ncr_algorithm_t algo,
 
 	ctx->algorithm = algo;
 	ctx->key = key;
+	ctx->sign_hash = params->params.pk.sign_hash;
 
 	switch(algo) {
 		case NCR_ALG_RSA:
-			if (params->params.rsa.type == RSA_PKCS1_V1_5)
+			if (params->params.pk.type == RSA_PKCS1_V1_5)
 				ctx->type = LTC_LTC_PKCS_1_V1_5;
-			else
+			else if (params->params.pk.type == RSA_PKCS1_OAEP)
 				ctx->type = LTC_LTC_PKCS_1_OAEP;
+			else if (params->params.pk.type == RSA_PKCS1_PSS)
+				ctx->type = LTC_LTC_PKCS_1_PSS;
 			
-			ctx->hash = params->params.rsa.hash;
+			ctx->oaep_hash = params->params.pk.oaep_hash;
+			ctx->salt_len = params->params.pk.pss_salt;
 			break;
 		case NCR_ALG_DSA:
 			break;
@@ -339,6 +346,8 @@ int ncr_pk_cipher_init(ncr_algorithm_t algo,
 			return -EINVAL;
 	}
 	
+	ctx->init = 1;
+
 	return 0;
 }
 
@@ -352,7 +361,7 @@ unsigned long osize = *output_size;
 	switch(ctx->algorithm) {
 		case NCR_ALG_RSA:
 			cret = rsa_encrypt_key_ex( input, input_size, output, &osize, 
-				NULL, 0, ctx->hash, ctx->type, &ctx->key->key.pk.rsa);
+				NULL, 0, ctx->oaep_hash, ctx->type, &ctx->key->key.pk.rsa);
 
 			if (cret != CRYPT_OK) {
 				err();
@@ -381,7 +390,7 @@ int stat;
 	switch(ctx->algorithm) {
 		case NCR_ALG_RSA:
 			cret = rsa_decrypt_key_ex( input, input_size, output, &osize, 
-				NULL, 0, ctx->hash, ctx->type, &stat, &ctx->key->key.pk.rsa);
+				NULL, 0, ctx->oaep_hash, ctx->type, &stat, &ctx->key->key.pk.rsa);
 
 			if (cret != CRYPT_OK) {
 				err();
@@ -396,6 +405,88 @@ int stat;
 			break;
 		case NCR_ALG_DSA:
 			return -EINVAL;
+			break;
+		default:
+			err();
+			return -EINVAL;
+	}
+	
+	return 0;
+}
+
+int ncr_pk_cipher_sign(const struct ncr_pk_ctx* ctx, 
+	const void* input, size_t input_size,
+	void* output, size_t *output_size)
+{
+int cret;
+unsigned long osize = *output_size;
+
+	switch(ctx->algorithm) {
+		case NCR_ALG_RSA:
+			cret = rsa_sign_hash_ex( input, input_size, output, &osize, 
+				ctx->type, ctx->sign_hash, ctx->salt_len, &ctx->key->key.pk.rsa);
+
+			if (cret != CRYPT_OK) {
+				err();
+				return tomerr(cret);
+			}
+			*output_size = osize;
+			break;
+		case NCR_ALG_DSA:
+			cret = dsa_sign_hash( input, input_size, output, &osize, 
+				&ctx->key->key.pk.dsa);
+
+			if (cret != CRYPT_OK) {
+				err();
+				return tomerr(cret);
+			}
+			*output_size = osize;
+			break;
+		default:
+			err();
+			return -EINVAL;
+	}
+	
+	return 0;
+}
+
+int ncr_pk_cipher_verify(const struct ncr_pk_ctx* ctx, 
+	const void* signature, size_t signature_size, 
+	const void* hash, size_t hash_size, ncr_error_t*  err)
+{
+int cret;
+int stat;
+
+	switch(ctx->algorithm) {
+		case NCR_ALG_RSA:
+			cret = rsa_verify_hash_ex( signature, signature_size, 
+				hash, hash_size, ctx->type, ctx->sign_hash,
+				ctx->salt_len, &stat, &ctx->key->key.pk.rsa);
+
+			if (cret != CRYPT_OK) {
+				err();
+				return tomerr(cret);
+			}
+			
+			if (stat == 1)
+				*err = 0;
+			else
+				*err = NCR_VERIFICATION_FAILED;
+			
+			break;
+		case NCR_ALG_DSA:
+			cret = dsa_verify_hash( signature, signature_size,
+				hash, hash_size, &stat, &ctx->key->key.pk.dsa);
+			if (cret != CRYPT_OK) {
+				err();
+				return tomerr(cret);
+			}
+
+			if (stat == 1)
+				*err = 0;
+			else
+				*err = NCR_VERIFICATION_FAILED;
+
 			break;
 		default:
 			err();

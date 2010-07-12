@@ -110,29 +110,54 @@ struct session_item_st* ncr_session_new(struct list_sem_st* lst)
 static const struct algo_properties_st {
 	ncr_algorithm_t algo;
 	const char* kstr;
-	int needs_iv;
+	int needs_iv:1;
+	int hmac:1;
+	int can_sign:1;
+	int can_digest:1;
+	int can_encrypt:1;
+	int symmetric:1;
 	int digest_size;
 } algo_properties[] = {
-	{ .algo = NCR_ALG_3DES_CBC, .kstr = "cbc(des3_ede)", .needs_iv = 1 },
-	{ .algo = NCR_ALG_AES_CBC, .kstr = "cbc(aes)", .needs_iv = 1 },
-	{ .algo = NCR_ALG_CAMELLIA_CBC, .kstr = "ecb(camelia)", .needs_iv = 1 },
-	{ .algo = NCR_ALG_ARCFOUR, .kstr = NULL, .needs_iv = 0 },
-	{ .algo = NCR_ALG_AES_ECB, .kstr = "ecb(aes)", .needs_iv = 0 },
-	{ .algo = NCR_ALG_SHA1, .kstr = "sha1", .needs_iv = 0, .digest_size = 20 },
-	{ .algo = NCR_ALG_MD5, .kstr = "md5", .needs_iv = 0, .digest_size = 16 },
-	{ .algo = NCR_ALG_SHA2_224, .kstr = "sha224", .needs_iv = 0, .digest_size = 28 },
-	{ .algo = NCR_ALG_SHA2_256, .kstr = "sha256", .needs_iv = 0, .digest_size = 32 },
-	{ .algo = NCR_ALG_SHA2_384, .kstr = "sha384", .needs_iv = 0, .digest_size = 48 },
-	{ .algo = NCR_ALG_SHA2_512, .kstr = "sha512", .needs_iv = 0, .digest_size = 64 },
-	{ .algo = NCR_ALG_HMAC_SHA1, .kstr = "hmac(sha1)", .needs_iv = 0, .digest_size = 20 },
-	{ .algo = NCR_ALG_HMAC_MD5, .kstr = "hmac(md5)", .needs_iv = 0, .digest_size = 16 },
-	{ .algo = NCR_ALG_HMAC_SHA2_224, .kstr = "hmac(sha224)", .needs_iv = 0, .digest_size = 28 },
-	{ .algo = NCR_ALG_HMAC_SHA2_256, .kstr = "hmac(sha256)", .needs_iv = 0, .digest_size = 32 },
-	{ .algo = NCR_ALG_HMAC_SHA2_384, .kstr = "hmac(sha384)", .needs_iv = 0, .digest_size = 48 },
-	{ .algo = NCR_ALG_HMAC_SHA2_512, .kstr = "hmac(sha512)", .needs_iv = 0, .digest_size = 64 },
-	{ .algo = NCR_ALG_RSA, .kstr = NULL, .needs_iv = 0 },
-	{ .algo = NCR_ALG_DSA, .kstr = NULL, .needs_iv = 0 },
+	{ .algo = NCR_ALG_3DES_CBC, .kstr = "cbc(des3_ede)", 
+		.needs_iv = 1, .symmetric=1, .can_encrypt=1 },
+	{ .algo = NCR_ALG_AES_CBC, .kstr = "cbc(aes)", 
+		.needs_iv = 1, .symmetric=1, .can_encrypt=1 },
+	{ .algo = NCR_ALG_CAMELLIA_CBC, .kstr = "ecb(camelia)", 
+		.needs_iv = 1, .symmetric=1, .can_encrypt=1 },
+	{ .algo = NCR_ALG_ARCFOUR, .kstr = NULL, 
+		.needs_iv = 0, .symmetric=1, .can_encrypt=1 },
+	{ .algo = NCR_ALG_AES_ECB, .kstr = "ecb(aes)", 
+		.needs_iv = 0, .symmetric=1, .can_encrypt=1 },
+	{ .algo = NCR_ALG_SHA1, .kstr = "sha1", 
+		.digest_size = 20, .can_digest=1 },
+	{ .algo = NCR_ALG_MD5, .kstr = "md5", 
+		.digest_size = 16, .can_digest=1 },
+	{ .algo = NCR_ALG_SHA2_224, .kstr = "sha224", 
+		.digest_size = 28, .can_digest=1 },
+	{ .algo = NCR_ALG_SHA2_256, .kstr = "sha256", 
+		.digest_size = 32, .can_digest=1 },
+	{ .algo = NCR_ALG_SHA2_384, .kstr = "sha384", 
+		.digest_size = 48, .can_digest=1 },
+	{ .algo = NCR_ALG_SHA2_512, .kstr = "sha512", 
+		.digest_size = 64, .can_digest=1 },
+	{ .algo = NCR_ALG_HMAC_SHA1, .hmac = 1, .kstr = "hmac(sha1)", 
+		.digest_size = 20, .can_sign=1 },
+	{ .algo = NCR_ALG_HMAC_MD5, .hmac = 1, .kstr = "hmac(md5)", 
+		.digest_size = 16, .can_sign=1 },
+	{ .algo = NCR_ALG_HMAC_SHA2_224, .hmac = 1, .kstr = "hmac(sha224)", 
+		.digest_size = 28, .can_sign=1 },
+	{ .algo = NCR_ALG_HMAC_SHA2_256, .hmac = 1, .kstr = "hmac(sha256)", 
+		.digest_size = 32, .can_sign=1 },
+	{ .algo = NCR_ALG_HMAC_SHA2_384, .hmac = 1, .kstr = "hmac(sha384)", 
+		.digest_size = 48, .can_sign=1 },
+	{ .algo = NCR_ALG_HMAC_SHA2_512, .hmac = 1, .kstr = "hmac(sha512)", 
+		.digest_size = 64, .can_sign=1 },
+	{ .algo = NCR_ALG_RSA, .kstr = NULL, 
+		.can_encrypt=1, .can_sign=1},
+	{ .algo = NCR_ALG_DSA, .kstr = NULL, 
+		.can_sign=1 },
 	{ .algo = NCR_ALG_NONE }
+
 };
 
 const char* _ncr_algo_to_str(ncr_algorithm_t algo)
@@ -163,6 +188,77 @@ int i = 0;
 	return 0;
 }
 
+static int algo_can_sign(ncr_algorithm_t algo)
+{
+ncr_algorithm_t a;
+int i = 0;
+
+	while((a=algo_properties[i].algo)!=NCR_ALG_NONE) {
+		if (a == algo)
+			return algo_properties[i].can_sign;
+		i++;
+	}
+
+	return 0;
+}
+
+static int algo_can_encrypt(ncr_algorithm_t algo)
+{
+ncr_algorithm_t a;
+int i = 0;
+
+	while((a=algo_properties[i].algo)!=NCR_ALG_NONE) {
+		if (a == algo)
+			return algo_properties[i].can_encrypt;
+		i++;
+	}
+
+	return 0;
+}
+
+static int algo_can_digest(ncr_algorithm_t algo)
+{
+ncr_algorithm_t a;
+int i = 0;
+
+	while((a=algo_properties[i].algo)!=NCR_ALG_NONE) {
+		if (a == algo)
+			return algo_properties[i].can_digest;
+		i++;
+	}
+
+	return 0;
+}
+
+
+static int algo_is_hmac(ncr_algorithm_t algo)
+{
+ncr_algorithm_t a;
+int i = 0;
+
+	while((a=algo_properties[i].algo)!=NCR_ALG_NONE) {
+		if (a == algo)
+			return algo_properties[i].hmac;
+		i++;
+	}
+
+	return 0;
+}
+
+static int algo_is_symmetric(ncr_algorithm_t algo)
+{
+ncr_algorithm_t a;
+int i = 0;
+
+	while((a=algo_properties[i].algo)!=NCR_ALG_NONE) {
+		if (a == algo)
+			return algo_properties[i].symmetric;
+		i++;
+	}
+
+	return 0;
+}
+
 int _ncr_algo_digest_size(ncr_algorithm_t algo)
 {
 ncr_algorithm_t a;
@@ -186,7 +282,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 	str = _ncr_algo_to_str(session->algorithm);
 	if (str == NULL) {
 		err();
-		return NCR_SESSION_INVALID;
+		return -EINVAL;
 	}
 
 	ns = ncr_session_new(&lists->sessions);
@@ -196,10 +292,16 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 	}
 
 	ns->op = session->op;
-	ns->algo = session->algorithm;
+	ns->algorithm = session->algorithm;
 	switch(session->op) {
 		case NCR_OP_ENCRYPT:
 		case NCR_OP_DECRYPT:
+			if (algo_can_encrypt(session->algorithm)==0) {
+				err();
+				ret = -EINVAL;
+				goto fail;
+			}
+
 			/* read key */
 			ret = ncr_key_item_get_read( &ns->key, &lists->key, session->params.key);
 			if (ret < 0) {
@@ -208,7 +310,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 			}
 
 			if (ns->key->type == NCR_KEY_TYPE_SECRET) {
-				ret = cryptodev_cipher_init(&ns->ctx.cipher, str, 
+				ret = cryptodev_cipher_init(&ns->cipher, str, 
 					ns->key->key.secret.data, ns->key->key.secret.size);
 				if (ret < 0) {
 					err();
@@ -221,10 +323,10 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 						ret = -EINVAL;
 						goto fail;
 					}
-					cryptodev_cipher_set_iv(&ns->ctx.cipher, session->params.params.cipher.iv, session->params.params.cipher.iv_size);
+					cryptodev_cipher_set_iv(&ns->cipher, session->params.params.cipher.iv, session->params.params.cipher.iv_size);
 				}
 			} else if (ns->key->type == NCR_KEY_TYPE_PRIVATE || ns->key->type == NCR_KEY_TYPE_PUBLIC) {
-				ret = ncr_pk_cipher_init(ns->algo, &ns->ctx.pk, 
+				ret = ncr_pk_cipher_init(ns->algorithm, &ns->pk, 
 					&session->params, ns->key);
 				if (ret < 0) {
 					err();
@@ -237,7 +339,14 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 			}
 			break;
 
-		case NCR_OP_MAC:
+		case NCR_OP_SIGN:
+		case NCR_OP_VERIFY:
+			if (algo_can_sign(session->algorithm)==0) {
+				err();
+				ret = -EINVAL;
+				goto fail;
+			}
+
 			/* read key */
 			ret = ncr_key_item_get_read( &ns->key, &lists->key, session->params.key);
 			if (ret < 0) {
@@ -245,33 +354,61 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				goto fail;
 			}
 
-			if (ns->key->type != NCR_KEY_TYPE_SECRET) {
+			if (ns->key->type == NCR_KEY_TYPE_SECRET) {
+				ret = cryptodev_hash_init(&ns->hash, str, 1, 
+					ns->key->key.secret.data, ns->key->key.secret.size);
+				if (ret < 0) {
+					err();
+					goto fail;
+				}
+
+			} else if (ns->key->type == NCR_KEY_TYPE_PRIVATE || ns->key->type == NCR_KEY_TYPE_PUBLIC) {
+				str = _ncr_algo_to_str(session->params.params.pk.sign_hash);
+				if (str == NULL) {
+					err();
+					ret = -EINVAL;
+					goto fail;
+				}
+
+				ret = ncr_pk_cipher_init(ns->algorithm, &ns->pk, 
+					&session->params, ns->key);
+				if (ret < 0) {
+					err();
+					goto fail;
+				}
+
+				ret = cryptodev_hash_init(&ns->hash, str, 0, NULL, 0);
+				if (ret < 0) {
+					err();
+					goto fail;
+				}
+			} else {
 				err();
 				ret = -EINVAL;
 				goto fail;
 			}
 
-			ret = cryptodev_hash_init(&ns->ctx.hash, str, 1, ns->key->key.secret.data, ns->key->key.secret.size);
+			ret = cryptodev_hash_reset(&ns->hash);
 			if (ret < 0) {
 				err();
 				goto fail;
 			}
 
-			ret = cryptodev_hash_reset(&ns->ctx.hash);
-			if (ret < 0) {
-				err();
-				goto fail;
-			}
 			break;
-
 		case NCR_OP_DIGEST:
-			ret = cryptodev_hash_init(&ns->ctx.hash, str, 0, NULL, 0);
+			if (algo_can_digest(session->algorithm)==0) {
+				err();
+				ret = -EINVAL;
+				goto fail;
+			}
+
+			ret = cryptodev_hash_init(&ns->hash, str, 0, NULL, 0);
 			if (ret < 0) {
 				err();
 				goto fail;
 			}
 
-			ret = cryptodev_hash_reset(&ns->ctx.hash);
+			ret = cryptodev_hash_reset(&ns->hash);
 			if (ret < 0) {
 				err();
 				goto fail;
@@ -290,10 +427,10 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 fail:
 	if (ret < 0) {
 		if (ns->key) _ncr_key_item_put(ns->key);
-		if (ns->ctx.cipher.init)
-			cryptodev_cipher_deinit(&ns->ctx.cipher);
-		if (ns->ctx.hash.init)
-			cryptodev_hash_deinit(&ns->ctx.hash);
+
+		ncr_pk_cipher_deinit(&ns->pk);
+		cryptodev_cipher_deinit(&ns->cipher);
+		cryptodev_hash_deinit(&ns->hash);
 		_ncr_session_remove(&lists->sessions, ns->desc);
 	}
 
@@ -320,6 +457,8 @@ int ncr_session_init(struct ncr_lists* lists, void __user* arg)
 	return copy_to_user( arg, &session, sizeof(session));
 }
 
+/* Main update function
+ */
 static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st* op)
 {
 	struct key_item_st *key = NULL;
@@ -357,15 +496,28 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 				goto fail;
 			}
 			
-			/* read key */
-			ret = _cryptodev_cipher_encrypt(&sess->ctx.cipher, data->data, data->data_size, odata->data, data->data_size);
-			if (ret < 0) {
-				err();
-				goto fail;
+			if (algo_is_symmetric(sess->algorithm)) {
+				/* read key */
+				ret = _cryptodev_cipher_encrypt(&sess->cipher, data->data, 
+					data->data_size, odata->data, data->data_size);
+				if (ret < 0) {
+					err();
+					goto fail;
+				}
+				/* FIXME: handle ciphers that do not require that */
+				odata->data_size = data->data_size;
+			} else { /* public key */
+				size_t new_size = odata->max_data_size;
+				ret = ncr_pk_cipher_encrypt(&sess->pk, data->data, data->data_size,
+					odata->data, &new_size);
+				
+				odata->data_size = new_size;
+				
+				if (ret < 0) {
+					err();
+					goto fail;
+				}
 			}
-			/* FIXME: handle ciphers that do not require that */
-			odata->data_size = data->data_size;
-
 			break;
 		case NCR_OP_DECRYPT:
 			/* obtain data item */
@@ -390,7 +542,7 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 			}
 			
 			/* read key */
-			ret = _cryptodev_cipher_decrypt(&sess->ctx.cipher, data->data, data->data_size, odata->data, data->data_size);
+			ret = _cryptodev_cipher_decrypt(&sess->cipher, data->data, data->data_size, odata->data, data->data_size);
 			if (ret < 0) {
 				err();
 				goto fail;
@@ -400,7 +552,7 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 
 			break;
 
-		case NCR_OP_MAC:
+		case NCR_OP_SIGN:
 		case NCR_OP_DIGEST:
 			/* obtain data item */
 			data = ncr_data_item_get( &lists->data, op->data.digest.text);
@@ -410,12 +562,29 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 				goto fail;
 			}
 
-			ret = _cryptodev_hash_update(&sess->ctx.hash, data->data, data->data_size);
+			ret = _cryptodev_hash_update(&sess->hash, data->data, data->data_size);
 			if (ret < 0) {
 				err();
 				goto fail;
 			}
 			break;
+
+		case NCR_OP_VERIFY:
+			/* obtain data item */
+			data = ncr_data_item_get( &lists->data, op->data.verify.text);
+			if (data == NULL) {
+				err();
+				ret = -EINVAL;
+				goto fail;
+			}
+
+			ret = _cryptodev_hash_update(&sess->hash, data->data, data->data_size);
+			if (ret < 0) {
+				err();
+				goto fail;
+			}
+			break;
+
 		default:
 			err();
 			ret = -EINVAL;
@@ -474,6 +643,7 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 	struct data_item_st* data = NULL;
 	struct data_item_st* odata = NULL;
 	int digest_size;
+	uint8_t digest[NCR_HASH_MAX_OUTPUT_SIZE];
 
 	sess = ncr_sessions_item_get( &lists->sessions, op->ses);
 	if (sess == NULL) {
@@ -489,9 +659,60 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 				op->data.cipher.ciphertext != NCR_DATA_INVALID) {
 				_ncr_session_update(lists, op);
 			}
-			cryptodev_cipher_deinit(&sess->ctx.cipher);
+			
+			if (algo_is_symmetric(sess->algorithm)) {
+				cryptodev_cipher_deinit(&sess->cipher);
+			} else {
+				ncr_pk_cipher_deinit(&sess->pk);
+			}
 			break;
-		case NCR_OP_MAC:
+
+		case NCR_OP_VERIFY:
+			/* obtain data item */
+			if (op->data.digest.text != NCR_DATA_INVALID) {
+				_ncr_session_update(lists, op);
+			}
+			
+			odata = ncr_data_item_get( &lists->data, op->data.verify.signature);
+			if (odata == NULL) {
+				err();
+				ret = -EINVAL;
+				goto fail;
+			}
+
+			digest_size = _ncr_algo_digest_size(sess->algorithm);
+			if (digest_size == 0 || sizeof(digest) < digest_size) {
+				err();
+				ret = -EINVAL;
+				goto fail;
+			}
+			ret = cryptodev_hash_final(&sess->hash, digest);
+			odata->data_size = digest_size;
+			
+			cryptodev_hash_deinit(&sess->hash);
+
+			if (algo_is_hmac(sess->algorithm)) {
+				if (digest_size != odata->data_size ||
+					memcmp(odata->data, digest, digest_size) != 0) {
+						
+					op->err = NCR_VERIFICATION_FAILED;
+				} else {
+					op->err = NCR_SUCCESS;
+				}
+			} else {
+				/* PK signature */
+				ret = ncr_pk_cipher_verify(&sess->pk, odata->data, odata->data_size,
+					digest, digest_size, &op->err);
+				if (ret < 0) {
+					err();
+					goto fail;
+				}
+
+				ncr_pk_cipher_deinit(&sess->pk);
+			}
+			break;
+
+		case NCR_OP_SIGN:
 		case NCR_OP_DIGEST:
 			/* obtain data item */
 			if (op->data.digest.text != NCR_DATA_INVALID) {
@@ -504,16 +725,29 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 				goto fail;
 			}
 
-			digest_size = _ncr_algo_digest_size(sess->algo);
+			digest_size = _ncr_algo_digest_size(sess->algorithm);
 			if (digest_size == 0 || odata->max_data_size < digest_size) {
 				err();
 				ret = -EINVAL;
 				goto fail;
 			}
-			ret = cryptodev_hash_final(&sess->ctx.hash, odata->data);
+			ret = cryptodev_hash_final(&sess->hash, odata->data);
 			odata->data_size = digest_size;
 			
-			cryptodev_hash_deinit(&sess->ctx.hash);
+			cryptodev_hash_deinit(&sess->hash);
+
+			if (sess->op != NCR_OP_DIGEST && !algo_is_hmac(sess->algorithm)) {
+				/* PK signature */
+				size_t new_size = odata->max_data_size;
+				ret = ncr_pk_cipher_sign(&sess->pk, odata->data, odata->data_size,
+					odata->data, &new_size);
+				if (ret < 0) {
+					err();
+					goto fail;
+				}
+
+				ncr_pk_cipher_deinit(&sess->pk);
+			}
 			break;
 		default:
 			err();
@@ -543,7 +777,13 @@ int ncr_session_final(struct ncr_lists* lists, void __user* arg)
 		return ret;
 	}
 
-	return _ncr_session_final(lists, &op);
+	ret = _ncr_session_final(lists, &op);
+	if (unlikely(ret)) {
+		err();
+		return ret;
+	}
+	
+	return copy_to_user(arg, &op, sizeof(op));
 }
 
 int ncr_session_once(struct ncr_lists* lists, void __user* arg)

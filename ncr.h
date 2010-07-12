@@ -128,8 +128,9 @@ struct ncr_key_generate_st {
 };
 
 typedef enum {
-	RSA_PKCS1_V1_5,
-	RSA_PKCS1_OAEP,
+	RSA_PKCS1_V1_5, /* both signatures and encryption */
+	RSA_PKCS1_OAEP, /* for encryption only */
+	RSA_PKCS1_PSS, /* for signatures only */
 } ncr_rsa_type_t;
 
 /* used in derivation/encryption
@@ -148,8 +149,10 @@ struct ncr_key_params_st {
 		} dh;
 		struct {
 			ncr_rsa_type_t type;
-			ncr_algorithm_t hash; /* for OAEP */
-		} rsa;
+			ncr_algorithm_t oaep_hash; /* for OAEP */
+			ncr_algorithm_t sign_hash; /* for signatures */
+			unsigned int pss_salt; /* PSS signatures */
+		} pk;
 	} params;
 };
 
@@ -237,7 +240,6 @@ typedef enum {
 	NCR_OP_ENCRYPT=1,
 	NCR_OP_DECRYPT,
 	NCR_OP_DIGEST,
-	NCR_OP_MAC,
 	NCR_OP_SIGN,
 	NCR_OP_VERIFY,
 } ncr_crypto_op_t;
@@ -259,6 +261,7 @@ struct ncr_session_st {
 typedef enum {
 	NCR_SUCCESS = 0,
 	NCR_ERROR_GENERIC = -1,
+	NCR_VERIFICATION_FAILED = -2,
 } ncr_error_t;
 
 struct ncr_session_op_st {
@@ -277,10 +280,10 @@ struct ncr_session_op_st {
 		struct {
 			ncr_data_t text;
 			ncr_data_t signature;
-		} verify; /* mac/hash/sign */
+		} verify; /* mac/sign */
 	} data;
 
-	/* output */
+	/* output of verification */
 	ncr_error_t err;
 };
 

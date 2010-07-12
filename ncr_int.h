@@ -12,8 +12,14 @@
 
 struct ncr_pk_ctx {
 	ncr_algorithm_t algorithm; /* algorithm */
-	ncr_algorithm_t hash; /* if hash is required is of this type */
+	
+	ncr_algorithm_t sign_hash; /* for verification */
+	
+	ncr_algorithm_t oaep_hash;
+	int salt_len; /* for RSA-PSS signatures */
+	
 	int type; /* libtomcrypt type */
+	int init; /* non zero if initialized */
 	
 	struct key_item_st * key;
 };
@@ -21,13 +27,16 @@ struct ncr_pk_ctx {
 struct session_item_st {
 	struct list_head list;
 
-	ncr_algorithm_t algo;
+	ncr_algorithm_t algorithm;
 	ncr_crypto_op_t op;
-	union {
-		struct cipher_data cipher;
-		struct hash_data hash;
-		struct ncr_pk_ctx pk;
-	} ctx;
+
+	/* contexts for various options.
+	 * simpler to have them like that than
+	 * in a union.
+	 */
+	struct cipher_data cipher;
+	struct ncr_pk_ctx pk;
+	struct hash_data hash;
 
 	struct key_item_st* key;
 
@@ -220,6 +229,12 @@ int ncr_pk_cipher_encrypt(const struct ncr_pk_ctx* ctx, const void* input,
 	size_t input_size, void* output, size_t *output_size);
 int ncr_pk_cipher_decrypt(const struct ncr_pk_ctx* ctx, const void* input, 
 	size_t input_size, void* output, size_t *output_size);
+int ncr_pk_cipher_sign(const struct ncr_pk_ctx* ctx, const void* input, 
+	size_t input_size, void* output, size_t *output_size);
+
+int ncr_pk_cipher_verify(const struct ncr_pk_ctx* ctx, 
+	const void* signature, size_t signature_size, 
+	const void* hash, size_t hash_size, ncr_error_t*);
 
 
 
