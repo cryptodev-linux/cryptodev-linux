@@ -3,7 +3,10 @@ designed. The ioctl() API is in ncr.h and the userspace in ncrypto.h.
 
 For the new API to fully operate, root must load a system key (constant
 per system) using the setkey program. After this stage the new API should
-be fully operational. 
+be fully operational. Example:
+$ dd if=/dev/urandom of=/boot/key count=1 bs=16
+$ chmod 600 /boot/key
+$ userspace/ncr-setkey /boot/key
 
 The main concept of the new API is disallow userspace applications
 access to cryptographic keys. Operations should be possible (such

@@ -47,6 +47,11 @@ int main(int argc, char** argv)
 	
 	memset(&key, 0, sizeof(key));
 	fp = fopen(argv[1], "r");
+	if (fp == NULL) {
+		fprintf(stderr, "Cannot read %s\n", argv[1]);
+		exit(1);
+	}
+
 	size = fread(key.key, 1, sizeof(key.key), fp);
 	if (size < 16) {
 		fprintf(stderr, "Illegal key!\n");

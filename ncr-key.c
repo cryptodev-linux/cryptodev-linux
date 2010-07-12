@@ -61,21 +61,80 @@ int mx = 1;
 }
 
 /* returns the data item corresponding to desc */
-struct key_item_st* ncr_key_item_get( struct list_sem_st* lst, ncr_key_t desc)
+int ncr_key_item_get_read(struct key_item_st**st, struct list_sem_st* lst, 
+	ncr_key_t desc)
 {
 struct key_item_st* item;
+int ret;
+	
+	*st = NULL;
+	
 	down(&lst->sem);
 	list_for_each_entry(item, &lst->list, list) {
 		if (item->desc == desc) {
 			atomic_inc(&item->refcnt);
-			up(&lst->sem);
-			return item;
+			
+			if (atomic_read(&item->writer) != 0) {
+				/* writer in place busy */
+				atomic_dec(&item->refcnt);
+				ret = -EBUSY;
+				goto exit;
+			}
+			
+			*st = item;
+			ret = 0;
+			goto exit;
 		}
 	}
-	up(&lst->sem);
 
 	err();
-	return NULL;
+	ret = -EINVAL;
+exit:
+	up(&lst->sem);
+	return ret;
+}
+
+/* as above but will never return anything that
+ * is in use.
+ */
+int ncr_key_item_get_write( struct key_item_st** st, 
+	struct list_sem_st* lst, ncr_key_t desc)
+{
+struct key_item_st* item;
+int ret;
+
+	*st = NULL;
+
+	down(&lst->sem);
+	list_for_each_entry(item, &lst->list, list) {
+		if (item->desc == desc) {
+			/* do not return items that are in use already */
+
+			if (atomic_add_unless(&item->writer, 1, 1)==0) {
+				/* another writer so busy */
+				ret = -EBUSY;
+				goto exit;
+			}
+			
+			if (atomic_add_unless(&item->refcnt, 1, 2)==0) {
+				/* some reader is active so busy */
+				atomic_dec(&item->writer);
+				ret = -EBUSY;
+				goto exit;
+			}
+
+			*st = item;
+			ret = 0;
+			goto exit;
+		}
+	}
+
+	err();
+	ret = -EINVAL;
+
+exit:
+	up(&lst->sem);
+	return ret;
 }
 
 void _ncr_key_item_put( struct key_item_st* item)
@@ -85,6 +144,8 @@ void _ncr_key_item_put( struct key_item_st* item)
 			ncr_key_clear(item);
 			kfree(item);
 	}
+	if (atomic_read(&item->writer) > 0)
+		atomic_dec(&item->writer);
 }
 
 int ncr_key_init(struct list_sem_st* lst, void __user* arg)
@@ -108,6 +169,7 @@ int ncr_key_init(struct list_sem_st* lst, void __user* arg)
 	memset(key, 0, sizeof(*key));
 
 	atomic_set(&key->refcnt, 1);
+	atomic_set(&key->writer, 0);
 
 	down(&lst->sem);
 
@@ -169,10 +231,10 @@ int ret;
 		return ret;
 	}
 
-	item = ncr_key_item_get( key_lst, data.key);
-	if (item == NULL) {
+	ret = ncr_key_item_get_read( &item, key_lst, data.key);
+	if (ret < 0) {
 		err();
-		return -EINVAL;
+		return ret;
 	}
 
 	ditem = ncr_data_item_get( data_lst, data.data);
@@ -250,12 +312,12 @@ int ret;
 		return ret;
 	}
 
-	item = ncr_key_item_get( key_lst, data.key);
-	if (item == NULL) {
+	ret = ncr_key_item_get_write( &item, key_lst, data.key);
+	if (ret < 0) {
 		err();
-		return -EINVAL;
+		return ret;
 	}
-
+	
 	ditem = ncr_data_item_get( data_lst, data.data);
 	if (ditem == NULL) {
 		err();
@@ -331,6 +393,8 @@ static void ncr_key_clear(struct key_item_st* item)
 		ncr_pk_clear(item);
 	}
 	memset(&item->key, 0, sizeof(item->key));
+	
+	return;
 }
 
 /* Generate a secret key
@@ -348,10 +412,10 @@ size_t size;
 		return ret;
 	}
 
-	item = ncr_key_item_get( lst, gen.desc);
-	if (item == NULL) {
+	ret = ncr_key_item_get_write( &item, lst, gen.desc);
+	if (ret < 0) {
 		err();
-		return -EINVAL;
+		return ret;
 	}
 
 	ncr_key_clear(item);
@@ -404,10 +468,10 @@ int ret;
 		return ret;
 	}
 
-	item = ncr_key_item_get( lst, info.key);
-	if (item == NULL) {
+	ret = ncr_key_item_get_read(&item, lst, info.key);
+	if (ret < 0) {
 		err();
-		return -EINVAL;
+		return ret;
 	}
 
 	info.flags = item->flags;
@@ -432,16 +496,15 @@ int ret;
 		return ret;
 	}
 
-	private = ncr_key_item_get( lst, gen.desc);
-	if (private == NULL) {
+	ret = ncr_key_item_get_write( &private, lst, gen.desc);
+	if (ret < 0) {
 		err();
-		return -EINVAL;
+		goto fail;
 	}
 
-	public = ncr_key_item_get( lst, gen.desc2);
-	if (public == NULL) {
+	ret = ncr_key_item_get_write( &public, lst, gen.desc2);
+	if (ret < 0) {
 		err();
-		ret = -EINVAL;
 		goto fail;
 	}
 

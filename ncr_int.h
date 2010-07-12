@@ -10,13 +10,26 @@
 
 #define err() printk(KERN_DEBUG"ncr: %s: %s: %d\n", __FILE__, __func__, __LINE__)
 
+struct ncr_pk_ctx {
+	ncr_algorithm_t algorithm; /* algorithm */
+	ncr_algorithm_t hash; /* if hash is required is of this type */
+	int type; /* libtomcrypt type */
+	
+	struct key_item_st * key;
+};
+
 struct session_item_st {
 	struct list_head list;
 
 	ncr_algorithm_t algo;
 	ncr_crypto_op_t op;
-	struct cipher_data ctx;
-	struct hash_data hctx;
+	union {
+		struct cipher_data cipher;
+		struct hash_data hash;
+		struct ncr_pk_ctx pk;
+	} ctx;
+
+	struct key_item_st* key;
 
 	atomic_t refcnt;
 	ncr_session_t desc;
@@ -64,6 +77,7 @@ struct key_item_st {
 	} key;
 
 	atomic_t refcnt;
+	atomic_t writer;
 
 	/* owner. The one charged with this */
 	uid_t uid;
@@ -116,7 +130,11 @@ int ncr_key_generate_pair(struct list_sem_st* lst, void __user* arg);
 int ncr_key_derive(struct list_sem_st*, void __user* arg);
 int ncr_key_get_public(struct list_sem_st* lst, void __user* arg);
 
-struct key_item_st* ncr_key_item_get( struct list_sem_st* lst, ncr_key_t desc);
+int ncr_key_item_get_read(struct key_item_st**st, struct list_sem_st* lst, 
+	ncr_key_t desc);
+/* get key item for writing */
+int ncr_key_item_get_write( struct key_item_st** st, 
+	struct list_sem_st* lst, ncr_key_t desc);
 void _ncr_key_item_put( struct key_item_st* item);
 
 typedef enum {
@@ -192,5 +210,17 @@ int ncr_pk_unpack( struct key_item_st * key, const void * packed, size_t packed_
 
 int ncr_pk_queue_init(void);
 void ncr_pk_queue_deinit(void);
+
+/* encryption/decryption */
+int ncr_pk_cipher_init(ncr_algorithm_t algo, 
+	struct ncr_pk_ctx* ctx, struct ncr_key_params_st* params,
+	struct key_item_st *key);
+void ncr_pk_cipher_deinit(struct ncr_pk_ctx* ctx);
+int ncr_pk_cipher_encrypt(const struct ncr_pk_ctx* ctx, const void* input, 
+	size_t input_size, void* output, size_t *output_size);
+int ncr_pk_cipher_decrypt(const struct ncr_pk_ctx* ctx, const void* input, 
+	size_t input_size, void* output, size_t *output_size);
+
+
 
 #endif

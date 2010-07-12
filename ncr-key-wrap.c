@@ -428,10 +428,10 @@ int ret;
 		return ret;
 	}
 
-	wkey = ncr_key_item_get( key_lst, wrap.keytowrap);
-	if (wkey == NULL) {
+	ret = ncr_key_item_get_read( &wkey, key_lst, wrap.keytowrap);
+	if (ret < 0) {
 		err();
-		return -EINVAL;
+		return ret;
 	}
 
 	if (!(wkey->flags & NCR_KEY_FLAG_WRAPPABLE)) {
@@ -439,10 +439,9 @@ int ret;
 		return -EPERM;
 	}
 
-	key = ncr_key_item_get( key_lst, wrap.key.key);
-	if (key == NULL) {
+	ret = ncr_key_item_get_read( &key, key_lst, wrap.key.key);
+	if (ret < 0) {
 		err();
-		ret = -EINVAL;
 		goto fail;
 	}
 
@@ -492,16 +491,15 @@ int ret;
 		return ret;
 	}
 
-	wkey = ncr_key_item_get( key_lst, wrap.keytowrap);
-	if (wkey == NULL) {
+	ret = ncr_key_item_get_write( &wkey, key_lst, wrap.keytowrap);
+	if (ret < 0) {
 		err();
-		return -EINVAL;
+		return ret;
 	}
 
-	key = ncr_key_item_get( key_lst, wrap.key.key);
-	if (key == NULL) {
+	ret = ncr_key_item_get_read( &key, key_lst, wrap.key.key);
+	if (ret < 0) {
 		err();
-		ret = -EINVAL;
 		goto fail;
 	}
 
@@ -554,10 +552,10 @@ int ret;
 		return ret;
 	}
 
-	wkey = ncr_key_item_get( key_lst, wrap.keytowrap);
-	if (wkey == NULL) {
+	ret = ncr_key_item_get_read( &wkey, key_lst, wrap.keytowrap);
+	if (ret < 0) {
 		err();
-		return -EINVAL;
+		return ret;
 	}
 
 	if (!(wkey->flags & NCR_KEY_FLAG_WRAPPABLE)) {
@@ -613,10 +611,10 @@ int ret;
 		return ret;
 	}
 
-	wkey = ncr_key_item_get( key_lst, wrap.keytowrap);
-	if (wkey == NULL) {
+	ret = ncr_key_item_get_write( &wkey, key_lst, wrap.keytowrap);
+	if (ret < 0) {
 		err();
-		return -EINVAL;
+		return ret;
 	}
 
 	data = ncr_data_item_get(data_lst, wrap.data);

@@ -283,7 +283,6 @@ struct keygen_st st;
 	return 0;
 }
 
-
 int ncr_pk_queue_init(void)
 {
 	pk_wq =
@@ -300,4 +299,108 @@ void ncr_pk_queue_deinit(void)
 {
 	flush_workqueue(pk_wq);
 	destroy_workqueue(pk_wq);
+}
+
+/* Encryption/Decryption
+ */
+
+void ncr_pk_cipher_deinit(struct ncr_pk_ctx* ctx)
+{
+	ctx->key = NULL;
+}
+
+int ncr_pk_cipher_init(ncr_algorithm_t algo, 
+	struct ncr_pk_ctx* ctx, struct ncr_key_params_st* params,
+	struct key_item_st *key)
+{
+	memset(ctx, 0, sizeof(*ctx));
+	
+	if (key->algorithm != algo) {
+		err();
+		return -EINVAL;
+	}
+
+	ctx->algorithm = algo;
+	ctx->key = key;
+
+	switch(algo) {
+		case NCR_ALG_RSA:
+			if (params->params.rsa.type == RSA_PKCS1_V1_5)
+				ctx->type = LTC_LTC_PKCS_1_V1_5;
+			else
+				ctx->type = LTC_LTC_PKCS_1_OAEP;
+			
+			ctx->hash = params->params.rsa.hash;
+			break;
+		case NCR_ALG_DSA:
+			break;
+		default:
+			err();
+			return -EINVAL;
+	}
+	
+	return 0;
+}
+
+int ncr_pk_cipher_encrypt(const struct ncr_pk_ctx* ctx, 
+	const void* input, size_t input_size,
+	void* output, size_t *output_size)
+{
+int cret;
+unsigned long osize = *output_size;
+
+	switch(ctx->algorithm) {
+		case NCR_ALG_RSA:
+			cret = rsa_encrypt_key_ex( input, input_size, output, &osize, 
+				NULL, 0, ctx->hash, ctx->type, &ctx->key->key.pk.rsa);
+
+			if (cret != CRYPT_OK) {
+				err();
+				return tomerr(cret);
+			}
+			*output_size = osize;
+			break;
+		case NCR_ALG_DSA:
+			return -EINVAL;
+			break;
+		default:
+			err();
+			return -EINVAL;
+	}
+	
+	return 0;
+}
+
+int ncr_pk_cipher_decrypt(const struct ncr_pk_ctx* ctx, const void* input, size_t input_size,
+	void* output, size_t *output_size)
+{
+int cret;
+unsigned long osize = *output_size;
+int stat;
+
+	switch(ctx->algorithm) {
+		case NCR_ALG_RSA:
+			cret = rsa_decrypt_key_ex( input, input_size, output, &osize, 
+				NULL, 0, ctx->hash, ctx->type, &stat, &ctx->key->key.pk.rsa);
+
+			if (cret != CRYPT_OK) {
+				err();
+				return tomerr(cret);
+			}
+
+			if (stat==0) {
+				err();
+				return -EINVAL;
+			}
+			*output_size = osize;
+			break;
+		case NCR_ALG_DSA:
+			return -EINVAL;
+			break;
+		default:
+			err();
+			return -EINVAL;
+	}
+	
+	return 0;
 }

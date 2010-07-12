@@ -1,9 +1,12 @@
-KERNEL_DIR ?= /lib/modules/$(shell uname -r)/build
+CC = gcc
+CFLAGS = -Wall -g -O2
 
-hostprogs := setkey
-setkey-objs := setkey.o
+progs := ncr-setkey
 
-all: $(hostprogs)
+all: $(progs)
+
+ncr-setkey: setkey.c
+	$(CC) $(CFLAGS) $< -o $@
 
 clean:
-	rm -f *.o *~ setkey
+	rm -f *.o *~ ncr-setkey
