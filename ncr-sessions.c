@@ -369,6 +369,11 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				}
 
 			} else if (ns->key->type == NCR_KEY_TYPE_PRIVATE || ns->key->type == NCR_KEY_TYPE_PUBLIC) {
+				if (algo_can_digest(session->params.params.pk.sign_hash) == 0) {
+					err();
+					ret = -EINVAL;
+					goto fail;
+				}
 				str = _ncr_algo_to_str(session->params.params.pk.sign_hash);
 				if (str == NULL) {
 					err();
