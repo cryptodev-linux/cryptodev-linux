@@ -110,12 +110,12 @@ struct session_item_st* ncr_session_new(struct list_sem_st* lst)
 static const struct algo_properties_st {
 	ncr_algorithm_t algo;
 	const char* kstr;
-	int needs_iv:1;
-	int hmac:1;
-	int can_sign:1;
-	int can_digest:1;
-	int can_encrypt:1;
-	int symmetric:1;
+	unsigned needs_iv:1;
+	unsigned hmac:1;
+	unsigned can_sign:1;
+	unsigned can_digest:1;
+	unsigned can_encrypt:1;
+	unsigned symmetric:1;
 	int digest_size;
 } algo_properties[] = {
 	{ .algo = NCR_ALG_3DES_CBC, .kstr = "cbc(des3_ede)", 
