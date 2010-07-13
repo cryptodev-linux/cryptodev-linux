@@ -478,7 +478,6 @@ int ncr_session_init(struct ncr_lists* lists, void __user* arg)
  */
 static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st* op)
 {
-	struct key_item_st *key = NULL;
 	int ret;
 	struct session_item_st* sess;
 	struct data_item_st* data = NULL;
@@ -611,7 +610,6 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 	ret = 0;
 
 fail:
-	if (key) _ncr_key_item_put(key);
 	if (odata) _ncr_data_item_put(odata);
 	if (data) _ncr_data_item_put(data);
 	_ncr_sessions_item_put(sess);
@@ -655,7 +653,6 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 {
 	int ret;
 	struct session_item_st* sess;
-	struct data_item_st* data = NULL;
 	struct data_item_st* odata = NULL;
 	int digest_size;
 	uint8_t digest[NCR_HASH_MAX_OUTPUT_SIZE];
@@ -767,7 +764,6 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 
 fail:
 	if (odata) _ncr_data_item_put(odata);
-	if (data) _ncr_data_item_put(data);
 	cryptodev_hash_deinit(&sess->hash);
 	if (algo_is_symmetric(sess->algorithm)) {
 		cryptodev_cipher_deinit(&sess->cipher);
