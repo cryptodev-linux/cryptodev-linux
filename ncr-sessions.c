@@ -669,14 +669,18 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 			/* obtain data item */
 			if (op->data.cipher.plaintext != NCR_DATA_INVALID &&
 				op->data.cipher.ciphertext != NCR_DATA_INVALID) {
-				_ncr_session_update(lists, op);
+				ret = _ncr_session_update(lists, op);
+				if (ret < 0)
+					goto fail;
 			}
 			break;
 
 		case NCR_OP_VERIFY:
 			/* obtain data item */
 			if (op->data.sign.text != NCR_DATA_INVALID) {
-				_ncr_session_update(lists, op);
+				ret = _ncr_session_update(lists, op);
+				if (ret < 0)
+					goto fail;
 			}
 			
 			odata = ncr_data_item_get( &lists->data, op->data.verify.signature);
@@ -722,7 +726,9 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 		case NCR_OP_DIGEST:
 			/* obtain data item */
 			if (op->data.sign.text != NCR_DATA_INVALID) {
-				_ncr_session_update(lists, op);
+				ret = _ncr_session_update(lists, op);
+				if (ret < 0)
+					goto fail;
 			}
 			odata = ncr_data_item_get( &lists->data, op->data.sign.output);
 			if (odata == NULL) {
