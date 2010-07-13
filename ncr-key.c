@@ -145,13 +145,13 @@ exit:
 
 void _ncr_key_item_put( struct key_item_st* item)
 {
+	if (atomic_read(&item->writer) > 0)
+		atomic_dec(&item->writer);
 	if (atomic_dec_and_test(&item->refcnt)) {
 			ncr_limits_remove(item->uid, item->pid, LIMIT_TYPE_KEY);
 			ncr_key_clear(item);
 			kfree(item);
 	}
-	if (atomic_read(&item->writer) > 0)
-		atomic_dec(&item->writer);
 }
 
 int ncr_key_init(struct list_sem_st* lst, void __user* arg)
