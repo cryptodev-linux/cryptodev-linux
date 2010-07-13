@@ -79,6 +79,11 @@ struct session_item_st* item;
 void _ncr_sessions_item_put( struct session_item_st* item)
 {
 	if (atomic_dec_and_test(&item->refcnt)) {
+		cryptodev_cipher_deinit(&item->cipher);
+		ncr_pk_cipher_deinit(&item->pk);
+		cryptodev_hash_deinit(&item->hash);
+		if (item->key)
+			_ncr_key_item_put(item->key);
 		kfree(item);
 	}
 }
@@ -437,12 +442,6 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 
 fail:
 	if (ret < 0) {
-		if (ns->key) _ncr_key_item_put(ns->key);
-		ns->key = NULL;
-
-		ncr_pk_cipher_deinit(&ns->pk);
-		cryptodev_cipher_deinit(&ns->cipher);
-		cryptodev_hash_deinit(&ns->hash);
 		_ncr_session_remove(&lists->sessions, ns->desc);
 	}
 
@@ -638,7 +637,6 @@ static void _ncr_session_remove(struct list_sem_st* lst, ncr_session_t desc)
 	list_for_each_entry_safe(item, tmp, &lst->list, list) {
 		if(item->desc == desc) {
 			list_del(&item->list);
-			if (item->key) _ncr_key_item_put(item->key);
 			_ncr_sessions_item_put( item); /* decrement ref count */
 			break;
 		}
