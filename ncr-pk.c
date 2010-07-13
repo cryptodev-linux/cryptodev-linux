@@ -60,7 +60,7 @@ void ncr_pk_clear(struct key_item_st* key)
 static int ncr_pk_make_public_and_id( struct key_item_st * private, struct key_item_st * public)
 {
 	uint8_t * tmp;
-	long max_size;
+	unsigned long max_size;
 	int ret, cret;
 	unsigned long key_id_size;
 
