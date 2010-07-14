@@ -220,19 +220,22 @@ static void keygen_handler(struct work_struct *instance)
 			if (cret != CRYPT_OK) {
 				err();
 				st->ret = tomerr(cret);
-			}
-			
-			st->ret = 0;
+			} else
+				st->ret = 0;
 			break;
 		case NCR_ALG_DSA:
+			if (st->params->params.dsa.q_bits==0)
+				st->params->params.dsa.q_bits = 160;
+			if (st->params->params.dsa.p_bits==0)
+				st->params->params.dsa.p_bits = 1024;
+
 			cret = dsa_make_key(st->params->params.dsa.q_bits/8, 
 				st->params->params.dsa.p_bits/8, &st->private->key.pk.dsa);
 			if (cret != CRYPT_OK) {
 				err();
 				st->ret = tomerr(cret);
-			}
-			
-			st->ret = 0;
+			} else 
+				st->ret = 0;
 			break;
 		default:
 			err();
@@ -268,10 +271,9 @@ struct keygen_st st;
 	}
 
 	wait_for_completion(&st.completed);
-	
 	if (st.ret < 0) {
 		err();
-		return ret;
+		return st.ret;
 	}
 
 	ret = ncr_pk_make_public_and_id(private, public);

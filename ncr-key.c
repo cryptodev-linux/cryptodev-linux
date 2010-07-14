@@ -273,8 +273,6 @@ int ret;
 			}
 			
 			break;
-
-			
 		default:
 			err();
 			ret = -EINVAL;
@@ -446,13 +444,13 @@ size_t size;
 		goto fail;
 	}
 	
-	_ncr_key_item_put( item);
-
-	return 0;
+	ret = 0;
 
 fail:
-	if (item)
+	if (item) {
+		if (ret < 0) item->type = NCR_KEY_TYPE_INVALID;
 		_ncr_key_item_put(item);
+	}
 	return ret;
 }
 
@@ -520,7 +518,6 @@ int ret;
 	
 	if (public->type == NCR_KEY_TYPE_PUBLIC) {
 		ret = ncr_pk_generate(gen.params.algorithm, &gen.params, private, public);
-
 		if (ret < 0) {
 			err();
 			goto fail;
@@ -533,10 +530,14 @@ int ret;
 	
 	ret = 0;
 fail:
-	if (public)
+	if (public) {
+		if (ret < 0) public->type = NCR_KEY_TYPE_INVALID;
 		_ncr_key_item_put(public);
-	if (private)
+	}
+	if (private) {
+		if (ret < 0) private->type = NCR_KEY_TYPE_INVALID;
 		_ncr_key_item_put(private);
+	}
 	return ret;
 }
 

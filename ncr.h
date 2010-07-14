@@ -276,7 +276,7 @@ struct ncr_session_op_st {
 		struct {
 			ncr_data_t text;
 			ncr_data_t output;
-		} digest; /* mac/hash/sign */
+		} sign; /* mac/hash/sign */
 		struct {
 			ncr_data_t text;
 			ncr_data_t signature;

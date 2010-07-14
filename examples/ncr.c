@@ -1116,8 +1116,8 @@ test_ncr_hash(int cfd)
 		if (hash_vectors[i].key != NULL)
 			nop.init.params.key = key;
 		nop.init.op = hash_vectors[i].op;
-		nop.op.data.digest.text = dd;
-		nop.op.data.digest.output = dd2;
+		nop.op.data.sign.text = dd;
+		nop.op.data.sign.output = dd2;
 
 		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);

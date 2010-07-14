@@ -277,13 +277,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 {
 	struct session_item_st* ns = NULL;
 	int ret;
-	const char* str;
-
-	str = _ncr_algo_to_str(session->algorithm);
-	if (str == NULL) {
-		err();
-		return -EINVAL;
-	}
+	const char* str = NULL;
 
 	ns = ncr_session_new(&lists->sessions);
 	if (ns == NULL) {
@@ -310,6 +304,12 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 			}
 
 			if (ns->key->type == NCR_KEY_TYPE_SECRET) {
+				str = _ncr_algo_to_str(session->algorithm);
+				if (str == NULL) {
+					err();
+					return -EINVAL;
+				}
+
 				ret = cryptodev_cipher_init(&ns->cipher, str, 
 					ns->key->key.secret.data, ns->key->key.secret.size);
 				if (ret < 0) {
@@ -355,6 +355,12 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 			}
 
 			if (ns->key->type == NCR_KEY_TYPE_SECRET) {
+				str = _ncr_algo_to_str(session->algorithm);
+				if (str == NULL) {
+					err();
+					return -EINVAL;
+				}
+
 				ret = cryptodev_hash_init(&ns->hash, str, 1, 
 					ns->key->key.secret.data, ns->key->key.secret.size);
 				if (ret < 0) {
@@ -427,6 +433,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 fail:
 	if (ret < 0) {
 		if (ns->key) _ncr_key_item_put(ns->key);
+		ns->key = NULL;
 
 		ncr_pk_cipher_deinit(&ns->pk);
 		cryptodev_cipher_deinit(&ns->cipher);
@@ -555,7 +562,7 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 		case NCR_OP_SIGN:
 		case NCR_OP_DIGEST:
 			/* obtain data item */
-			data = ncr_data_item_get( &lists->data, op->data.digest.text);
+			data = ncr_data_item_get( &lists->data, op->data.sign.text);
 			if (data == NULL) {
 				err();
 				ret = -EINVAL;
@@ -659,17 +666,11 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 				op->data.cipher.ciphertext != NCR_DATA_INVALID) {
 				_ncr_session_update(lists, op);
 			}
-			
-			if (algo_is_symmetric(sess->algorithm)) {
-				cryptodev_cipher_deinit(&sess->cipher);
-			} else {
-				ncr_pk_cipher_deinit(&sess->pk);
-			}
 			break;
 
 		case NCR_OP_VERIFY:
 			/* obtain data item */
-			if (op->data.digest.text != NCR_DATA_INVALID) {
+			if (op->data.sign.text != NCR_DATA_INVALID) {
 				_ncr_session_update(lists, op);
 			}
 			
@@ -680,16 +681,18 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 				goto fail;
 			}
 
-			digest_size = _ncr_algo_digest_size(sess->algorithm);
+			digest_size = sess->hash.digestsize;
 			if (digest_size == 0 || sizeof(digest) < digest_size) {
 				err();
 				ret = -EINVAL;
 				goto fail;
 			}
 			ret = cryptodev_hash_final(&sess->hash, digest);
-			odata->data_size = digest_size;
+			if (ret < 0) {
+				err();
+				goto fail;
+			}
 			
-			cryptodev_hash_deinit(&sess->hash);
 
 			if (algo_is_hmac(sess->algorithm)) {
 				if (digest_size != odata->data_size ||
@@ -707,25 +710,23 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 					err();
 					goto fail;
 				}
-
-				ncr_pk_cipher_deinit(&sess->pk);
 			}
 			break;
 
 		case NCR_OP_SIGN:
 		case NCR_OP_DIGEST:
 			/* obtain data item */
-			if (op->data.digest.text != NCR_DATA_INVALID) {
+			if (op->data.sign.text != NCR_DATA_INVALID) {
 				_ncr_session_update(lists, op);
 			}
-			odata = ncr_data_item_get( &lists->data, op->data.digest.output);
+			odata = ncr_data_item_get( &lists->data, op->data.sign.output);
 			if (odata == NULL) {
 				err();
 				ret = -EINVAL;
 				goto fail;
 			}
 
-			digest_size = _ncr_algo_digest_size(sess->algorithm);
+			digest_size = sess->hash.digestsize;
 			if (digest_size == 0 || odata->max_data_size < digest_size) {
 				err();
 				ret = -EINVAL;
@@ -745,8 +746,7 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 					err();
 					goto fail;
 				}
-
-				ncr_pk_cipher_deinit(&sess->pk);
+				odata->data_size = new_size;
 			}
 			break;
 		default:
@@ -760,6 +760,13 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 fail:
 	if (odata) _ncr_data_item_put(odata);
 	if (data) _ncr_data_item_put(data);
+	cryptodev_hash_deinit(&sess->hash);
+	if (algo_is_symmetric(sess->algorithm)) {
+		cryptodev_cipher_deinit(&sess->cipher);
+	} else {
+		ncr_pk_cipher_deinit(&sess->pk);
+	}
+
 	_ncr_sessions_item_put(sess);
 	_ncr_session_remove(&lists->sessions, op->ses);
 
