@@ -134,7 +134,8 @@ extern int KARATSUBA_MUL_CUTOFF,
            TOOM_SQR_CUTOFF;
 
 /* define this to use lower memory usage routines (exptmods mostly) */
-/* #define MP_LOW_MEM */
+/* We use this to reduce stack usage --nmav */
+#define MP_LOW_MEM
 
 /* default precision */
 #ifndef MP_PREC
