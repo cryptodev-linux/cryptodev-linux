@@ -5,7 +5,7 @@ enum {
    PK_PRIVATE=1
 };
 
-int rand_prime(void *N, long len);
+int rand_prime(mp_int *N, long len);
 
 /* ---- RSA ---- */
 #ifdef LTC_MRSA

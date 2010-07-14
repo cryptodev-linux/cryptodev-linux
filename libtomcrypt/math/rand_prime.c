@@ -17,7 +17,7 @@
 
 #define USE_BBS 1
 
-int rand_prime(void *N, long len)
+int rand_prime(mp_int *N, long len)
 {
    int            err, res, type;
    unsigned char *buf;
@@ -36,7 +36,7 @@ int rand_prime(void *N, long len)
    if (len < 2 || len > 512) { 
       return CRYPT_INVALID_PRIME_SIZE;
    }
-   
+
    /* allocate buffer to work with */
    buf = XCALLOC(1, len);
    if (buf == NULL) {
@@ -50,7 +50,7 @@ int rand_prime(void *N, long len)
       /* munge bits */
       buf[0]     |= 0x80 | 0x40;
       buf[len-1] |= 0x01 | ((type & USE_BBS) ? 0x02 : 0x00);
- 
+
       /* load value */
       if ((err = mp_read_unsigned_bin(N, buf, len)) != CRYPT_OK) {
          XFREE(buf);
