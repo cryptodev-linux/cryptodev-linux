@@ -73,7 +73,7 @@ cryptodev-objs = cryptodev_main.o cryptodev_cipher.o ncr.o \
 obj-m += cryptodev.o
 
 build:
-	@echo "#define VERSION \"$(VERSION)\"" > version.h
+	@make version.h
 	make -C $(KERNEL_DIR) SUBDIRS=`pwd` modules
 
 install:
@@ -106,3 +106,6 @@ dist: clean
 	@gpg --output $(OUTPUT).sig -sb $(OUTPUT)
 	@gpg --verify $(OUTPUT).sig $(OUTPUT)
 	@mv $(OUTPUT) $(OUTPUT).sig releases/
+
+version.h: Makefile
+	@echo "#define VERSION \"$(VERSION)\"" > version.h
