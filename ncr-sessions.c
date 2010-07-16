@@ -417,6 +417,12 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				ret = -EINVAL;
 				goto fail;
 			}
+			str = _ncr_algo_to_str(session->algorithm);
+			if (str == NULL) {
+				err();
+				ret = -EINVAL;
+				goto fail;
+			}
 
 			ret = cryptodev_hash_init(&ns->hash, str, 0, NULL, 0);
 			if (ret < 0) {
