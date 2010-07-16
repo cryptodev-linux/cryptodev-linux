@@ -56,8 +56,6 @@ int cryptodev_cipher_init(struct cipher_data* out, const char* alg_name, uint8_t
 
 	memset(out, 0, sizeof(*out));
 
-	out->init = 1;
-
 	out->async.s = crypto_alloc_ablkcipher(alg_name, 0, 0);
 	if (unlikely(IS_ERR(out->async.s))) {
 		dprintk(1,KERN_DEBUG,"%s: Failed to load cipher %s\n", __func__,
@@ -109,6 +107,7 @@ int cryptodev_cipher_init(struct cipher_data* out, const char* alg_name, uint8_t
 	ablkcipher_request_set_callback(out->async.request, CRYPTO_TFM_REQ_MAY_BACKLOG,
 					cryptodev_complete, out->async.result);
 
+	out->init = 1;
 	return 0;
 error:
 	if (out->async.request)
@@ -219,8 +218,6 @@ int cryptodev_hash_init( struct hash_data* hdata, const char* alg_name, int hmac
 {
 int ret;
 
-	hdata->init = 1;
-
 	hdata->async.s = crypto_alloc_ahash(alg_name, 0, 0);
 	if (unlikely(IS_ERR(hdata->async.s))) {
 		dprintk(1,KERN_DEBUG,"%s: Failed to load transform for %s\n", __func__,
@@ -261,7 +258,7 @@ int ret;
 	ahash_request_set_callback(hdata->async.request, CRYPTO_TFM_REQ_MAY_BACKLOG,
 					cryptodev_complete, hdata->async.result);
 
-
+	hdata->init = 1;
 	return 0;
 
 error:
