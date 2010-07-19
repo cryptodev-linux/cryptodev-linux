@@ -11,6 +11,7 @@ examples/cipher
 examples/hmac
 examples/ncr
 examples/pk
+examples/speed
 releases
 scripts
 userspace/ncr-setkey
