@@ -35,6 +35,7 @@
 #include <linux/highmem.h>
 #include <linux/random.h>
 #include <linux/syscalls.h>
+#include <linux/pagemap.h>
 #include "cryptodev.h"
 #include <asm/uaccess.h>
 #include <asm/ioctl.h>
@@ -63,6 +64,8 @@ static int enable_stats = 0;
 module_param(enable_stats, int, 0644);
 MODULE_PARM_DESC(enable_stats, "collect statictics about cryptodev usage");
 #endif
+
+#define DEFAULT_PREALLOC_PAGES 16
 
 /* ====== CryptoAPI ====== */
 struct fcrypt {
@@ -96,6 +99,9 @@ struct csession {
 	unsigned long long stat[2];
 	size_t stat_max_size, stat_count;
 #endif
+	int array_size;
+	struct page **pages;
+	struct scatterlist *sg;
 };
 
 /* Prepare session for future use. */
@@ -131,6 +137,9 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 			break;
 		case CRYPTO_CAMELLIA_CBC:
 			alg_name = "cbc(camelia)";
+			break;
+		case CRYPTO_NULL:
+			alg_name = "ecb(cipher_null)";
 			break;
 		default:
 			dprintk(1,KERN_DEBUG,"%s: bad cipher: %d\n", __func__, sop->cipher);
@@ -191,12 +200,10 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 	}
 
 	/* Create a session and put it to the list. */
-	ses_new = kmalloc(sizeof(*ses_new), GFP_KERNEL);
+	ses_new = kzalloc(sizeof(*ses_new), GFP_KERNEL);
 	if(!ses_new) {
 		return -ENOMEM;
 	}
-
-	memset(ses_new, 0, sizeof(*ses_new));
 
 	/* Set-up crypto transform. */
 	if (alg_name) {
@@ -248,6 +255,19 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 		}
 	}
 
+	ses_new->array_size = DEFAULT_PREALLOC_PAGES;
+	dprintk(2, KERN_DEBUG, "%s: preallocating for %d user pages\n",
+			__func__, ses_new->array_size);
+	ses_new->pages = kzalloc(ses_new->array_size *
+			sizeof(struct page *), GFP_KERNEL);
+	ses_new->sg = kzalloc(ses_new->array_size *
+			sizeof(struct scatterlist), GFP_KERNEL);
+	if (ses_new->sg == NULL || ses_new->pages == NULL) {
+		dprintk(0,KERN_DEBUG,"Memory error\n");
+		ret = -ENOMEM;
+		goto error_hash;
+	}
+
 	/* put the new session to the list */
 	get_random_bytes(&ses_new->sid, sizeof(ses_new->sid));
 	init_MUTEX(&ses_new->sem);
@@ -274,6 +294,8 @@ restart:
 
 error_hash:
 	cryptodev_cipher_deinit( &ses_new->cdata);
+	kfree(ses_new->sg);
+	kfree(ses_new->pages);
 error_cipher:
 	if (ses_new) kfree(ses_new);
 
@@ -304,6 +326,11 @@ crypto_destroy_session(struct csession *ses_ptr)
 #endif
 	cryptodev_cipher_deinit(&ses_ptr->cdata);
 	cryptodev_hash_deinit(&ses_ptr->hdata);
+	dprintk(2, KERN_DEBUG, "%s: freeing space for %d user pages\n",
+			__func__, ses_ptr->array_size);
+	kfree(ses_ptr->pages);
+	kfree(ses_ptr->sg);
+
 	up(&ses_ptr->sem);
 	kfree(ses_ptr);
 }
@@ -372,156 +399,294 @@ crypto_get_session_by_sid(struct fcrypt *fcr, uint32_t sid)
 	return ses_ptr;
 }
 
+static int
+hash_n_crypt(struct csession *ses_ptr, struct crypt_op *cop,
+		struct scatterlist *src_sg, struct scatterlist *dst_sg, uint32_t len)
+{
+	int ret;
+
+	/* Always hash before encryption and after decryption. Maybe
+	 * we should introduce a flag to switch... TBD later on.
+	 */
+	if (cop->op == COP_ENCRYPT) {
+		if (ses_ptr->hdata.init != 0) {
+			ret = cryptodev_hash_update(&ses_ptr->hdata, src_sg, len);
+			if (unlikely(ret))
+				goto out_err;
+		}
+		if (ses_ptr->cdata.init != 0) {
+			ret = cryptodev_cipher_encrypt( &ses_ptr->cdata, src_sg, dst_sg, len);
+
+			if (unlikely(ret))
+				goto out_err;
+		}
+	} else {
+		if (ses_ptr->cdata.init != 0) {
+			ret = cryptodev_cipher_decrypt( &ses_ptr->cdata, src_sg, dst_sg, len);
+
+			if (unlikely(ret))
+				goto out_err;
+		}
+
+		if (ses_ptr->hdata.init != 0) {
+			ret = cryptodev_hash_update(&ses_ptr->hdata, dst_sg, len);
+			if (unlikely(ret))
+				goto out_err;
+		}
+	}
+	return 0;
+out_err:
+	dprintk(0, KERN_ERR, "CryptoAPI failure: %d\n",ret);
+	return ret;
+}
+
 /* This is the main crypto function - feed it with plaintext 
    and get a ciphertext (or vice versa :-) */
 static int
-crypto_run(struct fcrypt *fcr, struct crypt_op *cop)
+__crypto_run_std(struct csession *ses_ptr, struct crypt_op *cop)
 {
 	char *data;
 	char __user *src, __user *dst;
 	struct scatterlist sg;
-	struct csession *ses_ptr;
-	unsigned int ivsize=0;
 	size_t nbytes, bufsize;
 	int ret = 0;
+
+	nbytes = cop->len;
+	data = (char*)__get_free_page(GFP_KERNEL);
+
+	if (unlikely(!data)) {
+		return -ENOMEM;
+	}
+	bufsize = PAGE_SIZE < nbytes ? PAGE_SIZE : nbytes;
+
+	src = cop->src;
+	dst = cop->dst;
+
+	while(nbytes > 0) {
+		size_t current_len = nbytes > bufsize ? bufsize : nbytes;
+
+		ret = copy_from_user(data, src, current_len);
+		if (unlikely(ret))
+			break;
+
+		sg_init_one(&sg, data, current_len);
+
+		ret = hash_n_crypt(ses_ptr, cop, &sg, &sg, current_len);
+
+		if (unlikely(ret))
+			break;
+
+		if (ses_ptr->cdata.init != 0) {
+			ret = copy_to_user(dst, data, current_len);
+			if (unlikely(ret))
+				break;
+		}
+
+		dst += current_len;
+		nbytes -= current_len;
+		src += current_len;
+	}
+
+	free_page((unsigned long)data);
+	return ret;
+}
+
+#ifndef DISABLE_ZCOPY
+
+static void release_user_pages(struct page **pg, int pagecount)
+{
+	while (pagecount--) {
+		if (!PageReserved(pg[pagecount]))
+			SetPageDirty(pg[pagecount]);
+		page_cache_release(pg[pagecount]);
+	}
+}
+
+/* last page - first page + 1 */
+#define PAGECOUNT(buf, buflen) \
+        ((((unsigned long)(buf + buflen - 1) & PAGE_MASK) >> PAGE_SHIFT) - \
+         (((unsigned long) buf               & PAGE_MASK) >> PAGE_SHIFT) + 1)
+
+/* offset of buf in it's first page */
+#define PAGEOFFSET(buf) ((unsigned long)buf & ~PAGE_MASK)
+
+/* fetch the pages addr resides in into pg and initialise sg with them */
+static int __get_userbuf(uint8_t *addr, uint32_t len, int write,
+		int pgcount, struct page **pg, struct scatterlist *sg)
+{
+	int ret, pglen, i = 0;
+	struct scatterlist *sgp;
+
+	down_write(&current->mm->mmap_sem);
+	ret = get_user_pages(current, current->mm,
+			(unsigned long)addr, pgcount, write, 0, pg, NULL);
+	up_write(&current->mm->mmap_sem);
+	if (ret != pgcount)
+		return -EINVAL;
+
+	sg_init_table(sg, pgcount);
+
+	pglen = min((ptrdiff_t)(PAGE_SIZE - PAGEOFFSET(addr)), (ptrdiff_t)len);
+	sg_set_page(sg, pg[i++], pglen, PAGEOFFSET(addr));
+
+	len -= pglen;
+	for (sgp = sg_next(sg); len; sgp = sg_next(sgp)) {
+		pglen = min((uint32_t)PAGE_SIZE, len);
+		sg_set_page(sgp, pg[i++], pglen, 0);
+		len -= pglen;
+	}
+	sg_mark_end(sg_last(sg, pgcount));
+	return 0;
+}
+
+/* make cop->src and cop->dst available in scatterlists */
+static int get_userbuf(struct csession *ses,
+		struct crypt_op *cop, struct scatterlist **src_sg,
+		struct scatterlist **dst_sg, int *tot_pages)
+{
+	int src_pagecount, dst_pagecount = 0, pagecount, write_src = 1;
+
+	if (cop->src == NULL) {
+		return -EINVAL;
+	}
+
+	src_pagecount = PAGECOUNT(cop->src, cop->len);
+	if (!ses->cdata.init) {		/* hashing only */
+		write_src = 0;
+	} else if (cop->src != cop->dst) {	/* non-in-situ transformation */
+		if (cop->dst == NULL) {
+			return -EINVAL;
+		}
+		dst_pagecount = PAGECOUNT(cop->dst, cop->len);
+		write_src = 0;
+	}
+	(*tot_pages) = pagecount = src_pagecount + dst_pagecount;
+
+	if (pagecount > ses->array_size) {
+		while (ses->array_size < pagecount)
+			ses->array_size *= 2;
+
+		dprintk(2, KERN_DEBUG, "%s: reallocating to %d elements\n",
+				__func__, ses->array_size);
+		ses->pages = krealloc(ses->pages, ses->array_size *
+				sizeof(struct page *), GFP_KERNEL);
+		ses->sg = krealloc(ses->sg, ses->array_size *
+				sizeof(struct scatterlist), GFP_KERNEL);
+
+		if (ses->sg == NULL || ses->pages == NULL) {
+			return -ENOMEM;
+		}
+	}
+
+	if (__get_userbuf(cop->src, cop->len, write_src,
+			src_pagecount, ses->pages, ses->sg)) {
+		dprintk(1, KERN_ERR, "failed to get user pages for data input\n");
+		return -EINVAL;
+	}
+	(*src_sg) = (*dst_sg) = ses->sg;
+
+	if (dst_pagecount) {
+		(*dst_sg) = ses->sg + src_pagecount;
+
+		if (__get_userbuf(cop->dst, cop->len, 1, dst_pagecount,
+					ses->pages + src_pagecount, *dst_sg)) {
+			dprintk(1, KERN_ERR, "failed to get user pages for data output\n");
+			release_user_pages(ses->pages, src_pagecount);
+			return -EINVAL;
+		}
+	}
+	return 0;
+}
+
+/* This is the main crypto function - zero-copy edition */
+static int
+__crypto_run_zc(struct csession *ses_ptr, struct crypt_op *cop)
+{
+	struct scatterlist *src_sg, *dst_sg;
+	int ret = 0, pagecount;
+
+	ret = get_userbuf(ses_ptr, cop, &src_sg, &dst_sg, &pagecount);
+	if (unlikely(ret)) {
+		dprintk(1, KERN_ERR, "Error getting user pages. Falling back to non zero copy.\n");
+		return __crypto_run_std(ses_ptr, cop);
+	}
+
+	ret = hash_n_crypt(ses_ptr, cop, src_sg, dst_sg, cop->len);
+
+	release_user_pages(ses_ptr->pages, pagecount);
+	return ret;
+}
+
+#endif /* DISABLE_ZCOPY */
+
+static int crypto_run(struct fcrypt *fcr, struct crypt_op *cop)
+{
+	struct csession *ses_ptr;
 	uint8_t hash_output[AALG_MAX_RESULT_LEN];
+	int ret;
 
 	if (unlikely(cop->op != COP_ENCRYPT && cop->op != COP_DECRYPT)) {
 		dprintk(1, KERN_DEBUG, "invalid operation op=%u\n", cop->op);
 		return -EINVAL;
 	}
 
+	/* this also enters ses_ptr->sem */
 	ses_ptr = crypto_get_session_by_sid(fcr, cop->ses);
 	if (unlikely(!ses_ptr)) {
 		dprintk(1, KERN_ERR, "invalid session ID=0x%08X\n", cop->ses);
 		return -EINVAL;
 	}
 
-	nbytes = cop->len;
-	data = (char*)__get_free_page(GFP_KERNEL);
-
-	if (unlikely(!data)) {
-		ret = -ENOMEM;
-		goto out_unlock;
-	}
-	bufsize = PAGE_SIZE < nbytes ? PAGE_SIZE : nbytes;
-
 	if (ses_ptr->hdata.init != 0) {
 		ret = cryptodev_hash_reset(&ses_ptr->hdata);
 		if (unlikely(ret)) {
 			dprintk(1, KERN_ERR,
 				"error in cryptodev_hash_reset()\n");
-			goto out;
+			goto out_unlock;
 		}
 	}
 
 	if (ses_ptr->cdata.init != 0) {
 		int blocksize = ses_ptr->cdata.blocksize;
 
-		if (unlikely(nbytes % blocksize)) {
+		if (unlikely(cop->len % blocksize)) {
 			dprintk(1, KERN_ERR,
-				"data size (%zu) isn't a multiple of block size (%u)\n",
-				nbytes, blocksize);
+				"data size (%u) isn't a multiple of block size (%u)\n",
+				cop->len, blocksize);
 			ret = -EINVAL;
-			goto out;
+			goto out_unlock;
 		}
 
 		if (cop->iv) {
 			uint8_t iv[EALG_MAX_BLOCK_LEN];
 
-			ivsize = min((int)sizeof(iv), ses_ptr->cdata.ivsize);
-			if (unlikely(copy_from_user(iv, cop->iv, ivsize))) {
-				ret = -EFAULT;
-				goto out;
+			ret = copy_from_user(iv, cop->iv, min( (int)sizeof(iv), (ses_ptr->cdata.ivsize)));
+			if (unlikely(ret)) {
+				dprintk(1, KERN_ERR, "error copying IV (%d bytes)\n", min( (int)sizeof(iv), (ses_ptr->cdata.ivsize)));
+				goto out_unlock;
 			}
 
-			cryptodev_cipher_set_iv(&ses_ptr->cdata, iv, ivsize);
+			cryptodev_cipher_set_iv(&ses_ptr->cdata, iv, ses_ptr->cdata.ivsize);
 		}
 	}
 
-	src = cop->src;
-	dst = cop->dst;
-
-
-	while(nbytes > 0) {
-		size_t current_len = nbytes > bufsize ? bufsize : nbytes;
-
-		if (unlikely(copy_from_user(data, src, current_len))) {
-			ret = -EFAULT;
-			goto out;
-		}
-
-		sg_init_one(&sg, data, current_len);
-
-		/* Always hash before encryption and after decryption. Maybe
-		 * we should introduce a flag to switch... TBD later on.
-		 */
-		if (cop->op == COP_ENCRYPT) {
-			if (ses_ptr->hdata.init != 0) {
-				ret = cryptodev_hash_update(&ses_ptr->hdata, &sg, current_len);
-				if (unlikely(ret)) {
-					dprintk(0, KERN_ERR, "CryptoAPI failure: %d\n",ret);
-					goto out;
-				}
-			}
-			if (ses_ptr->cdata.init != 0) {
-				ret = cryptodev_cipher_encrypt( &ses_ptr->cdata, &sg, &sg, current_len);
-
-				if (unlikely(ret)) {
-					dprintk(0, KERN_ERR, "CryptoAPI failure: %d\n",ret);
-					goto out;
-				}
-
-				ret = copy_to_user(dst, data, current_len);
-				if (unlikely(ret)) {
-					ret = -EFAULT;
-					goto out;
-				}
-				dst += current_len;
-			}
-		} else {
-			if (ses_ptr->cdata.init != 0) {
-				ret = cryptodev_cipher_decrypt( &ses_ptr->cdata, &sg, &sg, current_len);
-
-				if (unlikely(ret)) {
-					dprintk(0, KERN_ERR, "CryptoAPI failure: %d\n",ret);
-					goto out;
-				}
-			
-				ret = copy_to_user(dst, data, current_len);
-				if (unlikely(ret)) {
-					ret = -EFAULT;
-					goto out;
-				}
-				dst += current_len;
-
-			}
-
-			if (ses_ptr->hdata.init != 0) {
-				ret = cryptodev_hash_update(&ses_ptr->hdata, &sg, current_len);
-				if (unlikely(ret)) {
-					dprintk(0, KERN_ERR, "CryptoAPI failure: %d\n",ret);
-					goto out;
-				}
-			}
-		}
-
-		nbytes -= current_len;
-		src += current_len;
-	}
+#ifdef DISABLE_ZCOPY
+	ret = __crypto_run_std(ses_ptr, cop);
+#else /* normal */
+	ret = __crypto_run_zc(ses_ptr, cop);
+#endif
+	if (unlikely(ret))
+		goto out_unlock;
 
 	if (ses_ptr->hdata.init != 0) {
 		ret = cryptodev_hash_final(&ses_ptr->hdata, hash_output);
 		if (unlikely(ret)) {
 			dprintk(0, KERN_ERR, "CryptoAPI failure: %d\n",ret);
-			goto out;
+			goto out_unlock;
 		}
 
-		ret = copy_to_user(cop->mac, hash_output, ses_ptr->hdata.digestsize);
-		if (unlikely(ret)) {
-			ret = -EFAULT;
-			goto out;
-		}
+		if (unlikely(copy_to_user(cop->mac, hash_output, ses_ptr->hdata.digestsize)))
+			goto out_unlock;
 	}
 
 #if defined(CRYPTODEV_STATS)
@@ -534,14 +699,11 @@ crypto_run(struct fcrypt *fcr, struct crypt_op *cop)
 	}
 #endif
 
-out:
-	free_page((unsigned long)data);
-
 out_unlock:
 	up(&ses_ptr->sem);
-
 	return ret;
 }
+
 
 /* ====== /dev/crypto ====== */
 
