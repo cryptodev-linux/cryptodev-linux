@@ -16,6 +16,9 @@
 #include <stdlib.h>
 #include <gnutls/gnutls.h>
 #include <gnutls/x509.h>
+#if GNUTLS_VERSION_NUMBER >= 0x020b00
+# include <gnutls/abstract.h>
+#endif
 
 #define DATA_SIZE 4096
 
@@ -107,7 +110,7 @@ int privkey_info (void* data, int data_size, int verbose)
 	gnutls_x509_privkey_t key;
 	size_t size;
 	int ret;
-	gnutls_datum_t pem;
+	gnutls_datum_t der;
 	unsigned char buffer[5*1024];
 	const char *cprint;
 
@@ -117,10 +120,10 @@ int privkey_info (void* data, int data_size, int verbose)
 		return 1;
 	}
 
-	pem.data = data;
-	pem.size = data_size;
+	der.data = data;
+	der.size = data_size;
 
-	ret = gnutls_x509_privkey_import (key, &pem, GNUTLS_X509_FMT_DER);
+	ret = gnutls_x509_privkey_import (key, &der, GNUTLS_X509_FMT_DER);
 	if (ret < 0) {
 		fprintf(stderr, "unable to import privkey\n");
 		return 1;
@@ -141,11 +144,11 @@ int privkey_info (void* data, int data_size, int verbose)
 		if (ret == GNUTLS_PK_RSA) {
 			gnutls_datum_t m, e, d, p, q, u, exp1={NULL,0}, exp2={NULL,0};
 
-	#if GNUTLS_VERSION_NUMBER >= 0x020b00
+#if GNUTLS_VERSION_NUMBER >= 0x020b00
 			ret = gnutls_x509_privkey_export_rsa_raw2 (key, &m, &e, &d, &p, &q, &u, &exp1, &exp2);
-	#else
+#else
 			ret = gnutls_x509_privkey_export_rsa_raw (key, &m, &e, &d, &p, &q, &u);
-	#endif
+#endif
 			if (ret < 0)
 				fprintf (stderr, "Error in key RSA data export: %s\n",
 					gnutls_strerror (ret));
@@ -204,10 +207,92 @@ int privkey_info (void* data, int data_size, int verbose)
 
 
 
-int pubkey_info(void* data, int data_size)
+int pubkey_info(void* data, int data_size, int verbose)
 {
 #if GNUTLS_VERSION_NUMBER >= 0x020b00
-	/* XXX: use pubkey_t */
+	gnutls_pubkey_t key;
+	size_t size;
+	int ret;
+	gnutls_datum_t der;
+	unsigned char buffer[5*1024];
+	const char *cprint;
+
+	ret = gnutls_pubkey_init (&key);
+	if (ret < 0) {
+		fprintf(stderr, "error in pubkey_init\n");
+		return 1;
+	}
+
+	der.data = data;
+	der.size = data_size;
+
+	ret = gnutls_pubkey_import (key, &der, GNUTLS_X509_FMT_DER);
+	if (ret < 0) {
+		fprintf(stderr, "unable to import pubkey\n");
+		return 1;
+	}
+
+	if (verbose > 0) {
+		/* Public key algorithm
+		*/
+		fprintf (stdout, "Public Key Info:\n");
+		ret = gnutls_pubkey_get_pk_algorithm (key, NULL);
+
+		fprintf (stdout, "\tPublic Key Algorithm: ");
+		cprint = gnutls_pk_algorithm_get_name (ret);
+		fprintf (stdout, "%s\n", cprint ? cprint : "Unknown");
+
+		/* Print the raw public and private keys
+		*/
+		if (ret == GNUTLS_PK_RSA) {
+			gnutls_datum_t m, e;
+
+			ret = gnutls_pubkey_get_pk_rsa_raw (key, &m, &e);
+			if (ret < 0)
+				fprintf (stderr, "Error in key RSA data export: %s\n",
+					gnutls_strerror (ret));
+			else {
+				print_rsa_pkey (&m, &e, NULL, NULL, NULL, NULL, NULL, NULL);
+				gnutls_free (m.data);
+				gnutls_free (e.data);
+			}
+		} else if (ret == GNUTLS_PK_DSA) {
+			gnutls_datum_t p, q, g, y;
+
+			ret = gnutls_pubkey_get_pk_dsa_raw (key, &p, &q, &g, &y);
+			if (ret < 0)
+				fprintf (stderr, "Error in key DSA data export: %s\n",
+					gnutls_strerror (ret));
+			else {
+				print_dsa_pkey (NULL, &y, &p, &q, &g);
+				gnutls_free (y.data);
+				gnutls_free (p.data);
+				gnutls_free (q.data);
+				gnutls_free (g.data);
+			}
+		}
+
+		fprintf (stdout, "\n");
+
+		size = sizeof (buffer);
+		if ((ret = gnutls_pubkey_get_key_id (key, 0, buffer, &size)) < 0) {
+			fprintf (stderr, "Error in key id calculation: %s\n",
+			       gnutls_strerror (ret));
+		} else {
+			fprintf (stdout, "Public Key ID: %s\n", raw_to_string (buffer, size));
+		}
+
+		size = sizeof (buffer);
+		ret = gnutls_pubkey_export (key, GNUTLS_X509_FMT_PEM, buffer, &size);
+		if (ret < 0) {
+			fprintf(stderr, "Error in privkey_export\n");
+			return 1;
+		}
+
+		fprintf (stdout, "\n%s\n", buffer);
+	}
+
+	gnutls_pubkey_deinit (key);
 #endif
 	return 0;
 }
@@ -599,8 +684,8 @@ static int test_ncr_rsa(int cfd)
 		return 1;
 	}
 	
-	ret = pubkey_info(kdata.data, kdata.data_size);
-	if (ret < 0) {
+	ret = pubkey_info(kdata.data, kdata.data_size, 0);
+	if (ret != 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		return 1;
 	}
@@ -743,8 +828,8 @@ static int test_ncr_dsa(int cfd)
 		return 1;
 	}
 	
-	ret = pubkey_info(kdata.data, kdata.data_size);
-	if (ret < 0) {
+	ret = pubkey_info(kdata.data, kdata.data_size, 0);
+	if (ret != 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		return 1;
 	}
@@ -778,10 +863,10 @@ main()
 		return 1;
 	}
 
-	if (test_ncr_dsa(fd))
+	if (test_ncr_rsa(fd))
 		return 1;
 
-	if (test_ncr_rsa(fd))
+	if (test_ncr_dsa(fd))
 		return 1;
 
 	/* Close the original descriptor */

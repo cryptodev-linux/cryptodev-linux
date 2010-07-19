@@ -5,6 +5,18 @@ enum {
    PK_PRIVATE=1
 };
 
+enum {
+   PKA_RSA,
+   PKA_DSA
+};
+
+typedef struct Oid {
+    unsigned long OID[16];
+    /** Length of DER encoding */
+    unsigned long OIDlen;
+} oid_st;
+
+int pk_get_oid(int pk, oid_st *st);
 int rand_prime(mp_int *N, long len);
 
 /* ---- RSA ---- */
@@ -210,11 +222,20 @@ int der_encode_sequence_ex(ltc_asn1_list *list, unsigned long inlen,
 
 int der_decode_sequence_ex(const unsigned char *in, unsigned long  inlen,
                            ltc_asn1_list *list,     unsigned long  outlen, int ordered);
-                              
+
 #define der_decode_sequence(in, inlen, list, outlen) der_decode_sequence_ex(in, inlen, list, outlen, 1)
 
 int der_length_sequence(ltc_asn1_list *list, unsigned long inlen,
                         unsigned long *outlen);
+
+/* SUBJECT PUBLIC KEY INFO */
+int der_encode_subject_public_key_info(unsigned char *out, unsigned long *outlen, 
+        unsigned int algorithm, void* public_key, unsigned long public_key_len, 
+        unsigned long parameters_type, void* parameters, unsigned long parameters_len);
+
+int der_decode_subject_public_key_info(const unsigned char *in, unsigned long inlen,
+        unsigned int algorithm, void* public_key, unsigned long* public_key_len,
+        unsigned long parameters_type, ltc_asn1_list* parameters, unsigned long parameters_len);
 
 /* SET */
 #define der_decode_set(in, inlen, list, outlen) der_decode_sequence_ex(in, inlen, list, outlen, 0)

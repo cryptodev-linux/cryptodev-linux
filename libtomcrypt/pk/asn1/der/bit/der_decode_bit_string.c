@@ -18,11 +18,13 @@
 
 #ifdef LTC_DER
 
+#define setbit(v, n)    (v=((unsigned char)(v) | (1U << (unsigned char)(n))))
+
 /**
   Store a BIT STRING
   @param in      The DER encoded BIT STRING
   @param inlen   The size of the DER BIT STRING
-  @param out     [out] The array of bits stored (one per char)
+  @param out     [out] The array of bits stored (8 per char)
   @param outlen  [in/out] The number of bits stored
   @return CRYPT_OK if successful
 */
@@ -84,7 +86,9 @@ int der_decode_bit_string(const unsigned char *in,  unsigned long inlen,
 
    /* decode/store the bits */
    for (y = 0; y < blen; y++) {
-       out[y] = (in[x] & (1 << (7 - (y & 7)))) ? 1 : 0;
+       if (in[x] & (1 << (7 - (y & 7)))) {
+          setbit(out[y/8], 7-(y%8));
+       }
        if ((y & 7) == 7) {
           ++x;
        }
