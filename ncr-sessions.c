@@ -123,6 +123,8 @@ static const struct algo_properties_st {
 	unsigned symmetric:1;
 	int digest_size;
 } algo_properties[] = {
+	{ .algo = NCR_ALG_NULL, .kstr = "ecb(cipher_null)", 
+		.needs_iv = 0, .symmetric=1, .can_encrypt=1 },
 	{ .algo = NCR_ALG_3DES_CBC, .kstr = "cbc(des3_ede)", 
 		.needs_iv = 1, .symmetric=1, .can_encrypt=1 },
 	{ .algo = NCR_ALG_AES_CBC, .kstr = "cbc(aes)", 
@@ -315,6 +317,11 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 			}
 
 			if (ns->key->type == NCR_KEY_TYPE_SECRET) {
+				int keysize = ns->key->key.secret.size;
+				
+				if (session->algorithm == NCR_ALG_NULL)
+				  keysize = 0;
+				
 				str = _ncr_algo_to_str(session->algorithm);
 				if (str == NULL) {
 					err();
@@ -322,7 +329,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				}
 
 				ret = cryptodev_cipher_init(&ns->cipher, str, 
-					ns->key->key.secret.data, ns->key->key.secret.size);
+					ns->key->key.secret.data, keysize);
 				if (ret < 0) {
 					err();
 					goto fail;
