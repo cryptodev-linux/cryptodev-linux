@@ -315,7 +315,6 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				err();
 				goto fail;
 			}
-
 			if (ns->key->type == NCR_KEY_TYPE_SECRET) {
 				int keysize = ns->key->key.secret.size;
 				
@@ -576,13 +575,26 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 			}
 			
 			/* read key */
-			ret = _cryptodev_cipher_decrypt(&sess->cipher, data->data, data->data_size, odata->data, data->data_size);
-			if (ret < 0) {
-				err();
-				goto fail;
+			if (algo_is_symmetric(sess->algorithm)) {
+				ret = _cryptodev_cipher_decrypt(&sess->cipher, data->data, data->data_size, odata->data, data->data_size);
+				if (ret < 0) {
+					err();
+					goto fail;
+				}
+				/* FIXME: handle ciphers that do not require that */
+				odata->data_size = data->data_size;
+			} else { /* public key */
+				size_t new_size = odata->max_data_size;
+				ret = ncr_pk_cipher_decrypt(&sess->pk, data->data, data->data_size,
+					odata->data, &new_size);
+
+				odata->data_size = new_size;
+				
+				if (ret < 0) {
+					err();
+					goto fail;
+				}
 			}
-			/* FIXME: handle ciphers that do not require that */
-			odata->data_size = data->data_size;
 
 			break;
 

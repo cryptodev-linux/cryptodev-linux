@@ -366,6 +366,7 @@ unsigned long osize = *output_size;
 				NULL, 0, ctx->oaep_hash, ctx->type, &ctx->key->key.pk.rsa);
 
 			if (cret != CRYPT_OK) {
+				printk("cret: %d type: %d\n", cret, ctx->type);
 				err();
 				return tomerr(cret);
 			}

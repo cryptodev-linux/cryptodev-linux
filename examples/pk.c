@@ -102,7 +102,7 @@ raw_to_string (const unsigned char *raw, size_t raw_size)
 	return buf;
 }
 
-int privkey_info (void* data, int data_size)
+int privkey_info (void* data, int data_size, int verbose)
 {
 	gnutls_x509_privkey_t key;
 	size_t size;
@@ -126,71 +126,76 @@ int privkey_info (void* data, int data_size)
 		return 1;
 	}
 
-	/* Public key algorithm
-	*/
-	fprintf (stdout, "Public Key Info:\n");
-	ret = gnutls_x509_privkey_get_pk_algorithm (key);
+	if (verbose > 0) {
+		/* Public key algorithm
+		*/
+		fprintf (stdout, "Public Key Info:\n");
+		ret = gnutls_x509_privkey_get_pk_algorithm (key);
 
-	fprintf (stdout, "\tPublic Key Algorithm: ");
-	cprint = gnutls_pk_algorithm_get_name (ret);
-	fprintf (stdout, "%s\n", cprint ? cprint : "Unknown");
+		fprintf (stdout, "\tPublic Key Algorithm: ");
+		cprint = gnutls_pk_algorithm_get_name (ret);
+		fprintf (stdout, "%s\n", cprint ? cprint : "Unknown");
 
-	/* Print the raw public and private keys
-	*/
-	if (ret == GNUTLS_PK_RSA) {
-		gnutls_datum_t m, e, d, p, q, u, exp1={NULL,0}, exp2={NULL,0};
+		/* Print the raw public and private keys
+		*/
+		if (ret == GNUTLS_PK_RSA) {
+			gnutls_datum_t m, e, d, p, q, u, exp1={NULL,0}, exp2={NULL,0};
 
-		//ret = gnutls_x509_privkey_export_rsa_raw2 (key, &m, &e, &d, &p, &q, &u, &exp1, &exp2);
-		ret = gnutls_x509_privkey_export_rsa_raw (key, &m, &e, &d, &p, &q, &u);
-		if (ret < 0)
-			fprintf (stderr, "Error in key RSA data export: %s\n",
-				gnutls_strerror (ret));
-		else {
-			print_rsa_pkey (&m, &e, &d, &p, &q, &u, &exp1, &exp2);
-			gnutls_free (m.data);
-			gnutls_free (e.data);
-			gnutls_free (d.data);
-			gnutls_free (p.data);
-			gnutls_free (q.data);
-			gnutls_free (u.data);
-			gnutls_free (exp1.data);
-			gnutls_free (exp2.data);
+	#if GNUTLS_VERSION_NUMBER >= 0x020b00
+			ret = gnutls_x509_privkey_export_rsa_raw2 (key, &m, &e, &d, &p, &q, &u, &exp1, &exp2);
+	#else
+			ret = gnutls_x509_privkey_export_rsa_raw (key, &m, &e, &d, &p, &q, &u);
+	#endif
+			if (ret < 0)
+				fprintf (stderr, "Error in key RSA data export: %s\n",
+					gnutls_strerror (ret));
+			else {
+				print_rsa_pkey (&m, &e, &d, &p, &q, &u, &exp1, &exp2);
+				gnutls_free (m.data);
+				gnutls_free (e.data);
+				gnutls_free (d.data);
+				gnutls_free (p.data);
+				gnutls_free (q.data);
+				gnutls_free (u.data);
+				gnutls_free (exp1.data);
+				gnutls_free (exp2.data);
+			}
+		} else if (ret == GNUTLS_PK_DSA) {
+			gnutls_datum_t p, q, g, y, x;
+
+			ret = gnutls_x509_privkey_export_dsa_raw (key, &p, &q, &g, &y, &x);
+			if (ret < 0)
+				fprintf (stderr, "Error in key DSA data export: %s\n",
+					gnutls_strerror (ret));
+			else {
+				print_dsa_pkey (&x, &y, &p, &q, &g);
+				gnutls_free (x.data);
+				gnutls_free (y.data);
+				gnutls_free (p.data);
+				gnutls_free (q.data);
+				gnutls_free (g.data);
+			}
 		}
-	} else if (ret == GNUTLS_PK_DSA) {
-		gnutls_datum_t p, q, g, y, x;
 
-		ret = gnutls_x509_privkey_export_dsa_raw (key, &p, &q, &g, &y, &x);
-		if (ret < 0)
-			fprintf (stderr, "Error in key DSA data export: %s\n",
-				gnutls_strerror (ret));
-		else {
-			print_dsa_pkey (&x, &y, &p, &q, &g);
-			gnutls_free (x.data);
-			gnutls_free (y.data);
-			gnutls_free (p.data);
-			gnutls_free (q.data);
-			gnutls_free (g.data);
+		fprintf (stdout, "\n");
+
+		size = sizeof (buffer);
+		if ((ret = gnutls_x509_privkey_get_key_id (key, 0, buffer, &size)) < 0) {
+			fprintf (stderr, "Error in key id calculation: %s\n",
+			       gnutls_strerror (ret));
+		} else {
+			fprintf (stdout, "Public Key ID: %s\n", raw_to_string (buffer, size));
 		}
+
+		size = sizeof (buffer);
+		ret = gnutls_x509_privkey_export (key, GNUTLS_X509_FMT_PEM, buffer, &size);
+		if (ret < 0) {
+			fprintf(stderr, "Error in privkey_export\n");
+			return 1;
+		}
+
+		fprintf (stdout, "\n%s\n", buffer);
 	}
-
-	fprintf (stdout, "\n");
-
-	size = sizeof (buffer);
-	if ((ret = gnutls_x509_privkey_get_key_id (key, 0, buffer, &size)) < 0) {
-		fprintf (stderr, "Error in key id calculation: %s\n",
-		       gnutls_strerror (ret));
-	} else {
-		fprintf (stdout, "Public Key ID: %s\n", raw_to_string (buffer, size));
-	}
-
-	size = sizeof (buffer);
-	ret = gnutls_x509_privkey_export (key, GNUTLS_X509_FMT_PEM, buffer, &size);
-	if (ret < 0) {
-		fprintf(stderr, "Error in privkey_export\n");
-		return 1;
-	}
-
-	fprintf (stdout, "\n%s\n", buffer);
 
 	gnutls_x509_privkey_deinit (key);
 	
@@ -201,7 +206,131 @@ int privkey_info (void* data, int data_size)
 
 int pubkey_info(void* data, int data_size)
 {
+#if GNUTLS_VERSION_NUMBER >= 0x020b00
+	/* XXX: use pubkey_t */
+#endif
 	return 0;
+}
+
+static int data_get(int cfd, ncr_data_t dd, void* data, size_t data_size)
+{
+struct ncr_data_st kdata;
+
+	memset(&kdata, 0, sizeof(kdata));
+	kdata.desc = dd;
+	kdata.data = data;
+	kdata.data_size = data_size;
+
+	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_DATA_GET)");
+		return -1;
+	}
+
+	return 0;
+}
+
+#define RSA_ENCRYPT_SIZE 32
+
+static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oaep)
+{
+	struct ncr_data_init_st dinit;
+	ncr_data_t datad;
+	ncr_data_t encd;
+	struct ncr_session_once_op_st nop;
+	uint8_t data[DATA_SIZE];
+	uint8_t vdata[RSA_ENCRYPT_SIZE];
+	int ret;
+
+	fprintf(stdout, "Tests on RSA (%s) key encryption:", (oaep!=0)?"OAEP":"PKCS V1.5");
+	fflush(stdout);
+
+	memset(data, 0x3, sizeof(data));
+	memset(vdata, 0x0, sizeof(vdata));
+
+	/* data to sign */
+	memset(&dinit, 0, sizeof(dinit));
+	dinit.max_object_size = DATA_SIZE;
+	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
+	dinit.initial_data = data;
+	dinit.initial_data_size = RSA_ENCRYPT_SIZE;
+
+	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_DATA_INIT)");
+		return 1;
+	}
+	
+	datad = dinit.desc;
+
+	memset(&dinit, 0, sizeof(dinit));
+	dinit.max_object_size = DATA_SIZE;
+	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
+
+	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_DATA_INIT)");
+		return 1;
+	}
+
+	encd = dinit.desc;
+
+	/* do encryption */
+	memset(&nop, 0, sizeof(nop));
+	nop.init.algorithm = NCR_ALG_RSA;
+	nop.init.params.key = pubkey;
+	if (oaep) {
+		nop.init.params.params.pk.type = RSA_PKCS1_OAEP;
+		nop.init.params.params.pk.oaep_hash = NCR_ALG_SHA1;
+	} else {
+		nop.init.params.params.pk.type = RSA_PKCS1_V1_5;
+	}
+	nop.init.op = NCR_OP_ENCRYPT;
+	nop.op.data.cipher.plaintext = datad;
+	nop.op.data.cipher.ciphertext = encd;
+
+	if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_SESSION_ONCE)");
+		return 1;
+	}
+
+	/* decrypt data */
+	memset(&nop, 0, sizeof(nop));
+	nop.init.algorithm = NCR_ALG_RSA;
+	nop.init.params.key = privkey;
+	nop.init.op = NCR_OP_DECRYPT;
+	if (oaep) {
+		nop.init.params.params.pk.type = RSA_PKCS1_OAEP;
+		nop.init.params.params.pk.oaep_hash = NCR_ALG_SHA1;
+	} else {
+		nop.init.params.params.pk.type = RSA_PKCS1_V1_5;
+	}
+	nop.op.data.cipher.plaintext = encd;
+	nop.op.data.cipher.ciphertext = encd;
+
+	if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_SESSION_ONCE)");
+		return 1;
+	}
+	
+	ret = data_get(cfd, encd, vdata, sizeof(vdata));
+	if (ret < 0) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		return 1;
+	}
+	
+	if (memcmp(vdata, data, sizeof(vdata)) != 0) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		fprintf(stderr, "Decrypted data do not match!\n");
+		return 1;
+	}
+
+	fprintf(stdout, " Success\n");
+
+	return 0;
+
 }
 
 static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int pss)
@@ -373,7 +502,8 @@ static int test_ncr_rsa(int cfd)
 	struct ncr_data_st kdata;
 	uint8_t data[DATA_SIZE];
 
-	fprintf(stdout, "\n\nTests on RSA key generation:\n");
+	fprintf(stdout, "Tests on RSA key generation:");
+	fflush(stdout);
 
 	/* convert it to key */
 	if (ioctl(cfd, NCRIO_KEY_INIT, &privkey)) {
@@ -437,7 +567,7 @@ static int test_ncr_rsa(int cfd)
 		return 1;
 	}
 
-	ret = privkey_info(kdata.data, kdata.data_size);
+	ret = privkey_info(kdata.data, kdata.data_size, 0);
 	if (ret != 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		return 1;
@@ -475,6 +605,8 @@ static int test_ncr_rsa(int cfd)
 		return 1;
 	}
 
+	fprintf(stdout, " Success\n");
+
 	ret = rsa_key_sign_verify(cfd, privkey, pubkey, 0);
 	if (ret != 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -482,6 +614,18 @@ static int test_ncr_rsa(int cfd)
 	}
 
 	ret = rsa_key_sign_verify(cfd, privkey, pubkey, 1);
+	if (ret != 0) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		return 1;
+	}
+
+	ret = rsa_key_encrypt(cfd, privkey, pubkey, 0);
+	if (ret != 0) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		return 1;
+	}
+
+	ret = rsa_key_encrypt(cfd, privkey, pubkey, 1);
 	if (ret != 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		return 1;
@@ -501,7 +645,8 @@ static int test_ncr_dsa(int cfd)
 	struct ncr_data_st kdata;
 	uint8_t data[DATA_SIZE];
 
-	fprintf(stdout, "\n\nTests on DSA key generation:\n");
+	fprintf(stdout, "Tests on DSA key generation:");
+	fflush(stdout);
 
 	/* convert it to key */
 	if (ioctl(cfd, NCRIO_KEY_INIT, &privkey)) {
@@ -566,7 +711,7 @@ static int test_ncr_dsa(int cfd)
 		return 1;
 	}
 
-	ret = privkey_info(kdata.data, kdata.data_size);
+	ret = privkey_info(kdata.data, kdata.data_size, 0);
 	if (ret != 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		return 1;
@@ -603,6 +748,8 @@ static int test_ncr_dsa(int cfd)
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		return 1;
 	}
+
+	fprintf(stdout, " Success\n");
 
 	ret = dsa_key_sign_verify(cfd, privkey, pubkey);
 	if (ret != 0) {
