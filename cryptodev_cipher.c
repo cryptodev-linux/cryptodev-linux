@@ -258,6 +258,13 @@ int ret;
 	ahash_request_set_callback(hdata->async.request, CRYPTO_TFM_REQ_MAY_BACKLOG,
 					cryptodev_complete, hdata->async.result);
 
+	ret = crypto_ahash_init(hdata->async.request);
+	if (unlikely(ret)) {
+		dprintk(0,KERN_ERR,
+			"error in crypto_hash_init()\n");
+		goto error;
+	}
+
 	hdata->init = 1;
 	return 0;
 

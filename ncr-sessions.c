@@ -416,12 +416,6 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				goto fail;
 			}
 
-			ret = cryptodev_hash_reset(&ns->hash);
-			if (ret < 0) {
-				err();
-				goto fail;
-			}
-
 			break;
 		case NCR_OP_DIGEST:
 			if (algo_can_digest(session->algorithm)==0) {
@@ -442,13 +436,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				goto fail;
 			}
 
-			ret = cryptodev_hash_reset(&ns->hash);
-			if (ret < 0) {
-				err();
-				goto fail;
-			}
 			break;
-
 		default:
 			err();
 			ret = -EINVAL;

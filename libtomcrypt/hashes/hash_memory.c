@@ -52,12 +52,6 @@ int hash_memory(int hash, const unsigned char *in, unsigned long inlen, unsigned
        goto LBL_ERR;
     }
 
-    err = cryptodev_hash_reset( &hdata);
-    if (err < 0) {
-       err = CRYPT_INVALID_HASH;
-       goto LBL_ERR;
-    }
-
     if ((err = _cryptodev_hash_update(&hdata, in, inlen)) < 0) {
        err = CRYPT_ERROR;
        goto LBL_ERR;

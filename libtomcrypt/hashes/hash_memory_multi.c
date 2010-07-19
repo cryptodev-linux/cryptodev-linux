@@ -58,12 +58,6 @@ int hash_memory_multi(int hash, unsigned char *out, unsigned long *outlen,
        goto LBL_ERR;
     }
 
-    err = cryptodev_hash_reset( &hdata);
-    if (err < 0) {
-       err = CRYPT_INVALID_HASH;
-       goto LBL_ERR;
-    }
-
     va_start(args, inlen);
     curptr = in; 
     curlen = inlen;
