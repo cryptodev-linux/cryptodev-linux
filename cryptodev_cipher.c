@@ -262,12 +262,14 @@ int ret;
 	if (unlikely(ret)) {
 		dprintk(0,KERN_ERR,
 			"error in crypto_hash_init()\n");
-		goto error;
+		goto error_request;
 	}
 
 	hdata->init = 1;
 	return 0;
 
+error_request:
+	ahash_request_free(hdata->async.request);
 error:
 	kfree(hdata->async.result);
 	crypto_free_ahash(hdata->async.s);
