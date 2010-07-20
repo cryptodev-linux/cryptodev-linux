@@ -465,9 +465,10 @@ __crypto_run_std(struct csession *ses_ptr, struct crypt_op *cop)
 	while(nbytes > 0) {
 		size_t current_len = nbytes > bufsize ? bufsize : nbytes;
 
-		ret = copy_from_user(data, src, current_len);
-		if (unlikely(ret))
+		if (unlikely(copy_from_user(data, src, current_len))) {
+			ret = -EFAULT;
 			break;
+		}
 
 		sg_init_one(&sg, data, current_len);
 
@@ -477,9 +478,10 @@ __crypto_run_std(struct csession *ses_ptr, struct crypt_op *cop)
 			break;
 
 		if (ses_ptr->cdata.init != 0) {
-			ret = copy_to_user(dst, data, current_len);
-			if (unlikely(ret))
+			if (unlikely(copy_to_user(dst, data, current_len))) {
+				ret = -EFAULT;
 				break;
+			}
 		}
 
 		dst += current_len;
@@ -658,6 +660,7 @@ static int crypto_run(struct fcrypt *fcr, struct crypt_op *cop)
 			ret = copy_from_user(iv, cop->iv, min( (int)sizeof(iv), (ses_ptr->cdata.ivsize)));
 			if (unlikely(ret)) {
 				dprintk(1, KERN_ERR, "error copying IV (%d bytes)\n", min( (int)sizeof(iv), (ses_ptr->cdata.ivsize)));
+				ret = -EFAULT;
 				goto out_unlock;
 			}
 
@@ -680,8 +683,10 @@ static int crypto_run(struct fcrypt *fcr, struct crypt_op *cop)
 			goto out_unlock;
 		}
 
-		if (unlikely(copy_to_user(cop->mac, hash_output, ses_ptr->hdata.digestsize)))
+		if (unlikely(copy_to_user(cop->mac, hash_output, ses_ptr->hdata.digestsize))) {
+			ret = -EFAULT;
 			goto out_unlock;
+		}
 	}
 
 #if defined(CRYPTODEV_STATS)
