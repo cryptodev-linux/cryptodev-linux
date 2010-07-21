@@ -55,6 +55,7 @@ test_ncr_key(int cfd)
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
 	dinit.initial_data = data;
 	dinit.initial_data_size = sizeof(data);
+	dinit.type = NCR_DATA_KERNEL;
 
 	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -96,6 +97,7 @@ test_ncr_key(int cfd)
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
 	dinit.initial_data = NULL;
 	dinit.initial_data_size = 0;
+	dinit.type = NCR_DATA_KERNEL;
 
 	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -114,12 +116,10 @@ test_ncr_key(int cfd)
 	}
 
 	/* now read data */
-	memset(data, 0, sizeof(data));
-
+	memset(&kdata, 0, sizeof(kdata));
 	kdata.desc = dinit.desc;
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
-	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -129,7 +129,7 @@ test_ncr_key(int cfd)
 
 	if (memcmp(data, data_bak, sizeof(data))!=0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		fprintf(stderr, "data returned but differ!\n");
+		fprintf(stderr, "data returned but differ (%d, %d)!\n", (int)kdata.data_size, sizeof(data));
 		return 1;
 	}
 
@@ -179,7 +179,6 @@ test_ncr_key(int cfd)
 	kdata.desc = dinit.desc;
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
-	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -237,7 +236,6 @@ test_ncr_key(int cfd)
 	kdata.desc = dinit.desc;
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
-	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)==0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -272,6 +270,7 @@ static int test_ncr_data(int cfd)
 	init.flags = NCR_DATA_FLAG_EXPORTABLE;
 	init.initial_data = data;
 	init.initial_data_size = sizeof(data);
+	init.type = NCR_DATA_KERNEL;
 
 	if (ioctl(cfd, NCRIO_DATA_INIT, &init)) {
 		perror("ioctl(NCRIO_DATA_INIT)");
@@ -285,7 +284,6 @@ static int test_ncr_data(int cfd)
 	kdata.desc = init.desc;
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
-	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 		perror("ioctl(NCRIO_DATA_GET)");
@@ -305,7 +303,6 @@ static int test_ncr_data(int cfd)
 	kdata.desc = init.desc;
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
-	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 		perror("ioctl(NCRIO_DATA_SET)");
@@ -318,7 +315,6 @@ static int test_ncr_data(int cfd)
 	kdata.desc = init.desc;
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
-	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 		perror("ioctl(NCRIO_DATA_GET)");
@@ -345,6 +341,7 @@ static int test_ncr_data(int cfd)
 	init.flags = 0;
 	init.initial_data = data;
 	init.initial_data_size = sizeof(data);
+	init.type = NCR_DATA_KERNEL;
 
 	if (ioctl(cfd, NCRIO_DATA_INIT, &init)) {
 		perror("ioctl(NCRIO_DATA_INIT)");
@@ -354,7 +351,6 @@ static int test_ncr_data(int cfd)
 	kdata.desc = init.desc;
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
-	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)==0) {
 		fprintf(stderr, "Unexportable data were exported!?\n");
@@ -367,6 +363,7 @@ static int test_ncr_data(int cfd)
 		init.flags = 0;
 		init.initial_data = data;
 		init.initial_data_size = sizeof(data);
+		init.type = NCR_DATA_KERNEL;
 
 		if (ioctl(cfd, NCRIO_DATA_INIT, &init)) {
 			//fprintf(stderr, "Reached maximum limit at: %d data items\n", i);
@@ -404,6 +401,7 @@ test_ncr_wrap_key(int cfd)
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
 	dinit.initial_data = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
 	dinit.initial_data_size = 16;
+	dinit.type = NCR_DATA_KERNEL;
 
 	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -438,11 +436,10 @@ test_ncr_wrap_key(int cfd)
 	kdata.data = DKEY;
 	kdata.data_size = 16;
 	kdata.desc = dinit.desc;
-	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_DATA_INIT)");
+		perror("ioctl(NCRIO_DATA_SET)");
 		return 1;
 	}
 
@@ -483,7 +480,6 @@ test_ncr_wrap_key(int cfd)
 
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
-	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -589,6 +585,7 @@ test_ncr_store_wrap_key(int cfd)
 	memset(&dinit, 0, sizeof(dinit));
 	dinit.max_object_size = DATA_SIZE;
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
+	dinit.type = NCR_DATA_KERNEL;
 
 	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -603,11 +600,10 @@ test_ncr_store_wrap_key(int cfd)
 	kdata.data = DKEY;
 	kdata.data_size = 16;
 	kdata.desc = dd;
-	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_DATA_INIT)");
+		perror("ioctl(NCRIO_DATA_SET)");
 		return 1;
 	}
 
@@ -750,6 +746,7 @@ test_ncr_aes(int cfd)
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
 	dinit.initial_data = NULL;
 	dinit.initial_data_size = 0;
+	dinit.type = NCR_DATA_KERNEL;
 
 	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -788,11 +785,10 @@ test_ncr_aes(int cfd)
 		kdata.data = (void*)aes_vectors[i].key;
 		kdata.data_size = 16;
 		kdata.desc = dd;
-		kdata.append_flag = 0;
 
 		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_INIT)");
+			perror("ioctl(NCRIO_DATA_SET)");
 			return 1;
 		}
 
@@ -808,11 +804,10 @@ test_ncr_aes(int cfd)
 		kdata.data = (void*)aes_vectors[i].plaintext;
 		kdata.data_size = 16;
 		kdata.desc = dd;
-		kdata.append_flag = 0;
 
 		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_INIT)");
+			perror("ioctl(NCRIO_DATA_SET)");
 			return 1;
 		}
 
@@ -834,7 +829,6 @@ test_ncr_aes(int cfd)
 		kdata.desc = dd2;
 		kdata.data = data;
 		kdata.data_size = sizeof(data);
-		kdata.append_flag = 0;
 
 		if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -865,11 +859,10 @@ test_ncr_aes(int cfd)
 		kdata.data = (void*)aes_vectors[i].key;
 		kdata.data_size = 16;
 		kdata.desc = dd;
-		kdata.append_flag = 0;
 
 		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_INIT)");
+			perror("ioctl(NCRIO_DATA_SET)");
 			return 1;
 		}
 
@@ -886,11 +879,10 @@ test_ncr_aes(int cfd)
 		kdata.data = (void*)aes_vectors[i].ciphertext;
 		kdata.data_size = 16;
 		kdata.desc = dd;
-		kdata.append_flag = 0;
 
 		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_INIT)");
+			perror("ioctl(NCRIO_DATA_SET)");
 			return 1;
 		}
 
@@ -912,7 +904,6 @@ test_ncr_aes(int cfd)
 		kdata.desc = dd2;
 		kdata.data = data;
 		kdata.data_size = sizeof(data);
-		kdata.append_flag = 0;
 
 		if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -1041,6 +1032,7 @@ test_ncr_hash(int cfd)
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
 	dinit.initial_data = NULL;
 	dinit.initial_data_size = 0;
+	dinit.type = NCR_DATA_KERNEL;
 
 	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -1081,11 +1073,10 @@ test_ncr_hash(int cfd)
 			kdata.data = (void*)hash_vectors[i].key;
 			kdata.data_size = hash_vectors[i].key_size;
 			kdata.desc = dd;
-			kdata.append_flag = 0;
 
 			if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 				fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-				perror("ioctl(NCRIO_DATA_INIT)");
+				perror("ioctl(NCRIO_DATA_SET)");
 				return 1;
 			}
 
@@ -1102,11 +1093,10 @@ test_ncr_hash(int cfd)
 		kdata.data = (void*)hash_vectors[i].plaintext;
 		kdata.data_size = hash_vectors[i].plaintext_size;
 		kdata.desc = dd;
-		kdata.append_flag = 0;
 
 		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_INIT)");
+			perror("ioctl(NCRIO_DATA_SET)");
 			return 1;
 		}
 
@@ -1126,10 +1116,10 @@ test_ncr_hash(int cfd)
 		}
 
 		/* verify */
+		memset(&kdata, 0, sizeof(kdata));
 		kdata.desc = dd2;
 		kdata.data = data;
 		kdata.data_size = sizeof(data);
-		kdata.append_flag = 0;
 
 		if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);

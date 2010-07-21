@@ -63,8 +63,17 @@ typedef enum {
 typedef int ncr_data_t;
 #define NCR_DATA_INVALID (ncr_data_t)(0)
 
+typedef enum {
+	NCR_DATA_KERNEL,
+	NCR_DATA_USER,
+} ncr_data_type_t;
+
+/* When initializing a data_t we can initialize it as a kernel data object
+ * or as an object that points to userspace data.
+ */
 struct ncr_data_init_st {
 	ncr_data_t desc;
+	ncr_data_type_t type;
 	size_t max_object_size;
 	unsigned int flags;
 	void __user *initial_data; /* can be null */
@@ -75,7 +84,6 @@ struct ncr_data_st {
 	ncr_data_t desc;
 	void __user* data;
 	size_t data_size; /* rw in get */
-	unsigned int append_flag; /* only when used with NCRIO_DATA_SET */
 };
 
 #define NCRIO_DATA_INIT         _IOWR('c', 200, struct ncr_data_init_st)
@@ -183,6 +191,7 @@ struct ncr_key_info_st {
 struct ncr_key_data_st {
 	ncr_key_t key;
 	ncr_data_t data;
+		
 	/* in case of import this will be used as key id */
 	uint8_t key_id[MAX_KEY_ID_SIZE];
 	size_t key_id_size;
@@ -207,7 +216,7 @@ struct ncr_key_data_st {
 
 #define NCRIO_KEY_DEINIT       _IOR ('c', 215, ncr_key_t)
 
-/* FIXME key wrap ioctls
+/* Key wrap ioctls
  */
 struct ncr_key_wrap_st {
 	ncr_wrap_algorithm_t algorithm;

@@ -30,6 +30,7 @@ struct session_item_st {
 	ncr_session_t desc;
 };
 
+#define MAX_DATA_PAGES 64
 struct data_item_st {
 	struct list_head list;
 	/* This object is not protected from concurrent access.
@@ -37,9 +38,21 @@ struct data_item_st {
 	 * not an issue).
 	 */
 
-	uint8_t* data;
 	size_t data_size;
 	size_t max_data_size;
+
+	struct scatterlist _sg[MAX_DATA_PAGES]; /* do not access directly */
+	union {
+		uint8_t* kernel;
+		struct {
+			uint8_t* __user ptr;
+			struct page *pg[MAX_DATA_PAGES];
+			size_t pg_cnt;
+			atomic_t pg_used;
+		} user;
+	} data;
+	ncr_data_type_t type;
+
 	unsigned int flags;
 	atomic_t refcnt;
 
@@ -110,6 +123,13 @@ int ncr_data_init(struct list_sem_st*, void __user* arg);
 void ncr_data_list_deinit(struct list_sem_st*);
 struct data_item_st* ncr_data_item_get( struct list_sem_st* lst, ncr_data_t desc);
 void _ncr_data_item_put( struct data_item_st* item);
+
+int ncr_data_item_get_sg( struct data_item_st* item, struct scatterlist** sg, 
+	unsigned int *sg_cnt, size_t *data_size, size_t* max_data_size, unsigned int data_flags, int write);
+void ncr_data_item_put_sg( struct data_item_st* item);
+int ncr_data_item_setd( struct data_item_st* item, const void* data, size_t data_size, unsigned int data_flags);
+int ncr_data_item_getd( struct data_item_st* item, void* data, size_t data_size, unsigned int data_flags);
+
 
 int ncr_key_init(struct list_sem_st*, void __user* arg);
 int ncr_key_deinit(struct list_sem_st*, void __user* arg);

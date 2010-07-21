@@ -487,6 +487,10 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 	struct session_item_st* sess;
 	struct data_item_st* data = NULL;
 	struct data_item_st* odata = NULL;
+	struct scatterlist *osg;
+	struct scatterlist *isg;
+	size_t osg_size, isg_size;
+	unsigned int osg_cnt, isg_cnt;
 
 	sess = ncr_sessions_item_get( &lists->sessions, op->ses);
 	if (sess == NULL) {
@@ -511,6 +515,25 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 				goto fail;
 			}
 
+			/* output data will have the same status as input data */
+			ret = ncr_data_item_get_sg(odata, &osg, &osg_cnt, NULL, &osg_size, data->flags, 1);
+			if (ret < 0) {
+				err();
+				goto fail;
+			}
+
+			if (odata != data) {
+				ret = ncr_data_item_get_sg(data, &isg, &isg_cnt, &isg_size, NULL, data->flags, 0);
+				if (ret < 0) {
+					err();
+					goto fail;
+				}
+			} else {
+				isg = osg;
+				isg_cnt = osg_cnt;
+				isg_size = osg_size;
+			}
+
 			if (odata->max_data_size < data->data_size) {
 				err();
 				ret = -EINVAL;
@@ -519,18 +542,18 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 			
 			if (algo_is_symmetric(sess->algorithm)) {
 				/* read key */
-				ret = _cryptodev_cipher_encrypt(&sess->cipher, data->data, 
-					data->data_size, odata->data, data->data_size);
+				ret = cryptodev_cipher_encrypt(&sess->cipher, isg, osg, isg_size);
 				if (ret < 0) {
 					err();
 					goto fail;
 				}
 				/* FIXME: handle ciphers that do not require that */
 				odata->data_size = data->data_size;
+
 			} else { /* public key */
-				size_t new_size = odata->max_data_size;
-				ret = ncr_pk_cipher_encrypt(&sess->pk, data->data, data->data_size,
-					odata->data, &new_size);
+				size_t new_size = osg_size;
+				ret = ncr_pk_cipher_encrypt(&sess->pk, isg, isg_cnt, isg_size,
+					osg, osg_cnt, &new_size);
 				
 				odata->data_size = new_size;
 				
@@ -556,6 +579,24 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 				goto fail;
 			}
 
+			ret = ncr_data_item_get_sg(odata, &osg, &osg_cnt, NULL, &osg_size, data->flags, 1);
+			if (ret < 0) {
+				err();
+				goto fail;
+			}
+
+			if (odata != data) {
+				ret = ncr_data_item_get_sg(data, &isg, &isg_cnt, NULL, &isg_size, data->flags, 0);
+				if (ret < 0) {
+					err();
+					goto fail;
+				}
+			} else {
+				isg = osg;
+				isg_cnt = osg_cnt;
+				isg_size = osg_size;
+			}
+
 			if (odata->max_data_size < data->data_size) {
 				err();
 				ret = -EINVAL;
@@ -564,7 +605,7 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 			
 			/* read key */
 			if (algo_is_symmetric(sess->algorithm)) {
-				ret = _cryptodev_cipher_decrypt(&sess->cipher, data->data, data->data_size, odata->data, data->data_size);
+				ret = cryptodev_cipher_decrypt(&sess->cipher, isg, osg, isg_size);
 				if (ret < 0) {
 					err();
 					goto fail;
@@ -572,9 +613,9 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 				/* FIXME: handle ciphers that do not require that */
 				odata->data_size = data->data_size;
 			} else { /* public key */
-				size_t new_size = odata->max_data_size;
-				ret = ncr_pk_cipher_decrypt(&sess->pk, data->data, data->data_size,
-					odata->data, &new_size);
+				size_t new_size = osg_size;
+				ret = ncr_pk_cipher_decrypt(&sess->pk, isg, isg_cnt, isg_size,
+					osg, osg_cnt, &new_size);
 
 				odata->data_size = new_size;
 				
@@ -596,7 +637,13 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 				goto fail;
 			}
 
-			ret = _cryptodev_hash_update(&sess->hash, data->data, data->data_size);
+			ret = ncr_data_item_get_sg(data, &isg, &isg_cnt, &isg_size, NULL, data->flags, 0);
+			if (ret < 0) {
+				err();
+				goto fail;
+			}
+
+			ret = cryptodev_hash_update(&sess->hash, isg, isg_size);
 			if (ret < 0) {
 				err();
 				goto fail;
@@ -612,7 +659,13 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 				goto fail;
 			}
 
-			ret = _cryptodev_hash_update(&sess->hash, data->data, data->data_size);
+			ret = ncr_data_item_get_sg(data, &isg, &isg_cnt, &isg_size, NULL, data->flags, 0);
+			if (ret < 0) {
+				err();
+				goto fail;
+			}
+
+			ret = cryptodev_hash_update(&sess->hash, isg, isg_size);
 			if (ret < 0) {
 				err();
 				goto fail;
@@ -628,8 +681,14 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 	ret = 0;
 
 fail:
-	if (odata) _ncr_data_item_put(odata);
-	if (data) _ncr_data_item_put(data);
+	if (odata) {
+		ncr_data_item_put_sg(odata);
+		_ncr_data_item_put(odata);
+	}
+	if (data) {
+		ncr_data_item_put_sg(data);
+		_ncr_data_item_put(data);
+	}
 	_ncr_sessions_item_put(sess);
 
 	return ret;
@@ -673,6 +732,9 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 	struct data_item_st* odata = NULL;
 	int digest_size;
 	uint8_t digest[NCR_HASH_MAX_OUTPUT_SIZE];
+	struct scatterlist *osg;
+	size_t osg_size;
+	unsigned int osg_cnt;
 
 	sess = ncr_sessions_item_get( &lists->sessions, op->ses);
 	if (sess == NULL) {
@@ -718,19 +780,32 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 				err();
 				goto fail;
 			}
-			
 
 			if (algo_is_hmac(sess->algorithm)) {
+				uint8_t vdigest[digest_size];
+				
+				ret = ncr_data_item_getd( odata, vdigest, sizeof(vdigest), odata->flags);
+				if (ret < 0) {
+					err();
+					goto fail;
+				}
+				
 				if (digest_size != odata->data_size ||
-					memcmp(odata->data, digest, digest_size) != 0) {
-						
+					memcmp(vdigest, digest, digest_size) != 0) {
+
 					op->err = NCR_VERIFICATION_FAILED;
 				} else {
 					op->err = NCR_SUCCESS;
 				}
 			} else {
 				/* PK signature */
-				ret = ncr_pk_cipher_verify(&sess->pk, odata->data, odata->data_size,
+				ret = ncr_data_item_get_sg(odata, &osg, &osg_cnt, NULL, &osg_size, odata->flags, 0);
+				if (ret < 0) {
+					err();
+					goto fail;
+				}
+
+				ret = ncr_pk_cipher_verify(&sess->pk, osg, osg_cnt, osg_size,
 					digest, digest_size, &op->err);
 				if (ret < 0) {
 					err();
@@ -760,22 +835,41 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 				ret = -EINVAL;
 				goto fail;
 			}
-			ret = cryptodev_hash_final(&sess->hash, odata->data);
-			odata->data_size = digest_size;
+			ret = cryptodev_hash_final(&sess->hash, digest);
+			if (ret < 0) {
+				err();
+				goto fail;
+			}
 			
+			ret = ncr_data_item_setd( odata, digest, digest_size, odata->flags);
+			if (ret < 0) {
+				err();
+				goto fail;
+			}
+
 			cryptodev_hash_deinit(&sess->hash);
 
 			if (sess->op != NCR_OP_DIGEST && !algo_is_hmac(sess->algorithm)) {
+				size_t new_size;
+
+				ret = ncr_data_item_get_sg(odata, &osg, &osg_cnt, NULL, &osg_size, odata->flags, 1);
+				if (ret < 0) {
+					err();
+					goto fail;
+				}
+				
+				new_size = osg_size;
+
 				/* PK signature */
-				size_t new_size = odata->max_data_size;
-				ret = ncr_pk_cipher_sign(&sess->pk, odata->data, odata->data_size,
-					odata->data, &new_size);
+				ret = ncr_pk_cipher_sign(&sess->pk, osg, osg_cnt, digest_size,
+					osg, osg_cnt, &new_size);
 				if (ret < 0) {
 					err();
 					goto fail;
 				}
 				odata->data_size = new_size;
 			}
+
 			break;
 		default:
 			err();
@@ -786,7 +880,10 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 	ret = 0;
 
 fail:
-	if (odata) _ncr_data_item_put(odata);
+	if (odata) {
+		ncr_data_item_put_sg(odata);
+		_ncr_data_item_put(odata);
+	}
 	cryptodev_hash_deinit(&sess->hash);
 	if (algo_is_symmetric(sess->algorithm)) {
 		cryptodev_cipher_deinit(&sess->cipher);

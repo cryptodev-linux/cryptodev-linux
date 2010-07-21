@@ -39,6 +39,17 @@ struct packed_key {
 	uint32_t raw_size;
 } __attribute__((__packed__));
 
+/**
+ * key_to_storage_data:
+ * @key: The key to pack
+ * @sdata: Output data
+ * @sdata_size: Output data size
+ *
+ * This function will pack the given key and return allocated data with the packed
+ * key.
+ *
+ * Returns: 0 or errno.
+ **/
 int key_to_storage_data( uint8_t** sdata, size_t * sdata_size, const struct key_item_st *key)
 {
 	struct packed_key * pkey;
@@ -82,6 +93,16 @@ fail:
 	return ret;
 }
 
+/**
+ * key_from_storage_data:
+ * @key: The key to unpack on
+ * @data: input data
+ * @data_size: Input data size
+ *
+ * This function will unpack the given packed key and store it into the key item.
+ *
+ * Returns: 0 or errno.
+ **/
 int key_from_storage_data(struct key_item_st* key, const void* data, size_t data_size)
 {
 	const struct packed_key * pkey = data;
