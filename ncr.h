@@ -63,21 +63,22 @@ typedef enum {
 typedef int ncr_data_t;
 #define NCR_DATA_INVALID (ncr_data_t)(0)
 
-typedef enum {
-	NCR_DATA_KERNEL,
-	NCR_DATA_USER,
-} ncr_data_type_t;
-
 /* When initializing a data_t we can initialize it as a kernel data object
  * or as an object that points to userspace data.
  */
 struct ncr_data_init_st {
 	ncr_data_t desc;
-	ncr_data_type_t type;
 	size_t max_object_size;
 	unsigned int flags;
 	void __user *initial_data; /* can be null */
 	size_t initial_data_size;
+};
+
+struct ncr_data_init_user_st {
+	ncr_data_t desc;
+	unsigned int flags;
+	void __user *data; /* can be null */
+	size_t __user* data_size_ptr;
 };
 
 struct ncr_data_st {
@@ -86,7 +87,8 @@ struct ncr_data_st {
 	size_t data_size; /* rw in get */
 };
 
-#define NCRIO_DATA_INIT         _IOWR('c', 200, struct ncr_data_init_st)
+#define NCRIO_DATA_INIT       _IOWR('c', 200, struct ncr_data_init_st)
+#define NCRIO_DATA_INIT_USER         _IOWR('c', 200, struct ncr_data_init_user_st)
 #define NCRIO_DATA_GET         _IOWR('c', 201, struct ncr_data_st)
 #define NCRIO_DATA_SET         _IOR('c', 202, struct ncr_data_st)
 #define NCRIO_DATA_DEINIT         _IOR('c', 203, ncr_data_t)

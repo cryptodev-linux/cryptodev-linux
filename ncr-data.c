@@ -102,7 +102,7 @@ void _ncr_data_item_put( struct data_item_st* item)
 	if (atomic_dec_and_test(&item->refcnt)) {
 			ncr_limits_remove(item->uid, item->pid, LIMIT_TYPE_DATA);
 			if (item->type == NCR_DATA_KERNEL)
-				kfree(item->data.kernel);
+				kfree(item->data.kernel.data);
 			else if (item->type == NCR_DATA_USER)
 				ncr_data_item_put_sg(item); /* just in case */
 			kfree(item);
@@ -115,16 +115,25 @@ int ncr_data_item_get_sg( struct data_item_st* item, struct scatterlist** sg,
 	if (item->type == NCR_DATA_KERNEL) {
 		item->flags = data_flags;
 
-		sg_init_one(item->_sg, item->data.kernel, item->max_data_size);
+		sg_init_one(item->_sg, item->data.kernel.data, item->data.kernel.max_data_size);
 
-		if (data_size) *data_size = item->data_size;
-		if (max_data_size) *max_data_size = item->max_data_size;
+		if (data_size) *data_size = item->data.kernel.data_size;
+		if (max_data_size) *max_data_size = item->data.kernel.max_data_size;
 		*sg_cnt = 1;
 		*sg = item->_sg;
 		
 	} else if (item->type == NCR_DATA_USER) {
 		int ret;
-		size_t pagecount = PAGECOUNT(item->data.user.ptr, item->data_size);
+		size_t pagecount, item_size;
+		
+		ret = ncr_data_item_size(item, 0);
+		if (ret < 0) {
+			err();
+			return ret;
+		}
+		item_size = ret;
+		 
+		pagecount = PAGECOUNT(item->data.user.ptr, item_size);
 		
 		if (atomic_add_unless(&item->data.user.pg_used, 1, 1) == 0) {
 			err();
@@ -141,15 +150,15 @@ int ncr_data_item_get_sg( struct data_item_st* item, struct scatterlist** sg,
 			return -EOVERFLOW;
 		}
 
-		ret = __get_userbuf(item->data.user.ptr, item->data_size, write,
+		ret = __get_userbuf(item->data.user.ptr, item_size, write,
 			pagecount, item->data.user.pg, item->_sg);
 		if (ret < 0) {
 			err();
 			return ret;
 		}
 
-		if (max_data_size) *max_data_size = item->data_size;
-		if (data_size) *data_size = item->data_size;
+		if (max_data_size) *max_data_size = item_size;
+		if (data_size) *data_size = item_size;
 		*sg = item->_sg;
 		*sg_cnt = item->data.user.pg_cnt = pagecount;
 	} else {
@@ -171,6 +180,45 @@ void ncr_data_item_put_sg( struct data_item_st* item)
 	}
 
 	return;
+}
+
+int ncr_data_item_set_size( struct data_item_st* item, size_t new_size)
+{
+	switch(item->type) {
+		case NCR_DATA_KERNEL:
+			item->data.kernel.data_size = new_size;
+			
+			return 0;
+		case NCR_DATA_USER:
+			if (unlikely(copy_to_user(item->data.user.size_ptr, &new_size, sizeof(new_size)))) {
+				err();
+				return -EFAULT;
+			}
+			return 0;
+		default:
+			return -EINVAL;
+	}
+}
+
+int ncr_data_item_size( struct data_item_st* item, int max)
+{
+size_t size;
+
+	switch(item->type) {
+		case NCR_DATA_KERNEL:
+			if (max == 0)
+				return item->data.kernel.data_size;
+			else
+				return item->data.kernel.max_data_size;
+		case NCR_DATA_USER:
+			if (unlikely(copy_from_user(&size, item->data.user.size_ptr, sizeof(size)))) {
+				err();
+				return -EFAULT;
+			}
+			return size;
+		default:
+			return -EINVAL;
+	}
 }
 
 int ncr_data_item_setd( struct data_item_st* item, const void* data, size_t data_size, unsigned int data_flags)
@@ -198,7 +246,12 @@ int ret;
 		ret = -EINVAL;
 		goto fail;
 	}
-	item->data_size = data_size;
+
+	ret = ncr_data_item_set_size( item, data_size);
+	if (ret < 0) {
+		err();
+		goto fail;
+	}
 
 	ret = 0;
 fail:
@@ -271,33 +324,24 @@ int ncr_data_init(struct list_sem_st* lst, void __user* arg)
 
 	atomic_set(&data->refcnt, 1);
 
-	data->type = init.type;
+	data->type = NCR_DATA_KERNEL;
 
-	if (init.type == NCR_DATA_KERNEL) {
-		data->data.kernel = data_alloc(init.max_object_size);
-		if (data->data.kernel == NULL) {
-			err();
-			ret = -ENOMEM;
-			goto err_data;
-		}
-		data->max_data_size = init.max_object_size;
-
-		if (init.initial_data != NULL) {
-			if (unlikely(copy_from_user(data->data.kernel, init.initial_data,
-						    init.initial_data_size))) {
-				err();
-				_ncr_data_item_put(data);
-				return -EFAULT;
-			}
-			data->data_size = init.initial_data_size;
-		}
-	} else if (init.type == NCR_DATA_USER) {
-		data->data.user.ptr = init.initial_data;
-		data->max_data_size = data->data_size = init.initial_data_size;
-		atomic_set(&data->data.user.pg_used, 0);
-	} else {
+	data->data.kernel.data = data_alloc(init.max_object_size);
+	if (data->data.kernel.data == NULL) {
 		err();
+		ret = -ENOMEM;
 		goto err_data;
+	}
+	data->data.kernel.max_data_size = init.max_object_size;
+
+	if (init.initial_data != NULL) {
+		if (unlikely(copy_from_user(data->data.kernel.data, init.initial_data,
+					    init.initial_data_size))) {
+			err();
+			_ncr_data_item_put(data);
+			return -EFAULT;
+		}
+		data->data.kernel.data_size = init.initial_data_size;
 	}
 
 	down(&lst->sem);
@@ -320,6 +364,70 @@ int ncr_data_init(struct list_sem_st* lst, void __user* arg)
 
  err_data:
 	kfree(data);
+ err_limits:
+	ncr_limits_remove(current_euid(), task_pid_nr(current),
+			  LIMIT_TYPE_DATA);
+	return ret;
+}
+
+int ncr_data_init_user(struct list_sem_st* lst, void __user* arg)
+{
+	struct ncr_data_init_user_st init;
+	struct data_item_st* data;
+	int ret;
+
+	ret = ncr_limits_add_and_check(current_euid(), task_pid_nr(current), LIMIT_TYPE_DATA);
+	if (ret < 0) {
+		err();
+		return ret;
+	}
+
+	if (unlikely(copy_from_user(&init, arg, sizeof(init)))) {
+		err();
+		ret = -EFAULT;
+		goto err_limits;
+	}
+
+	data = kmalloc(sizeof(*data), GFP_KERNEL);
+	if (data == NULL) {
+		err();
+		ret = -ENOMEM;
+		goto err_limits;
+	}
+
+	memset(data, 0, sizeof(*data));
+
+	data->flags = init.flags;
+	data->uid = current_euid();
+	data->pid = task_pid_nr(current);
+
+	atomic_set(&data->refcnt, 1);
+
+	data->type = NCR_DATA_USER;
+
+	data->data.user.ptr = init.data;
+	data->data.user.size_ptr = init.data_size_ptr;
+
+	atomic_set(&data->data.user.pg_used, 0);
+
+	down(&lst->sem);
+
+	data->desc = _ncr_data_get_new_desc(lst);
+
+	list_add(&data->list, &lst->list);
+	
+	up(&lst->sem);
+
+	init.desc = data->desc;
+	ret = copy_to_user(arg, &init, sizeof(init));
+	if (unlikely(ret)) {
+		down(&lst->sem);
+		_ncr_data_unlink_item(data);
+		up(&lst->sem);
+		return -EFAULT;
+	}
+	return ret;
+
  err_limits:
 	ncr_limits_remove(current_euid(), task_pid_nr(current),
 			  LIMIT_TYPE_DATA);
@@ -368,7 +476,7 @@ int ncr_data_get(struct list_sem_st* lst, void __user* arg)
 		return -EINVAL;
 	}
 
-	if (data->type == NCR_DATA_USER) {
+	if (data->type != NCR_DATA_KERNEL) {
 		err();
 		ret = -EINVAL;
 		goto cleanup;
@@ -380,7 +488,7 @@ int ncr_data_get(struct list_sem_st* lst, void __user* arg)
 		goto cleanup;
 	}
 
-	len = min(get.data_size, data->data_size);
+	len = min(get.data_size, data->data.kernel.data_size);
 	/* update length */
 	get.data_size = len;
 
@@ -391,7 +499,7 @@ int ncr_data_get(struct list_sem_st* lst, void __user* arg)
 	}
 
 	if (ret == 0 && len > 0) {
-		ret = copy_to_user(get.data, data->data.kernel, len);
+		ret = copy_to_user(get.data, data->data.kernel.data, len);
 		if (unlikely(ret)) {
 			err();
 			ret = -EFAULT;
@@ -421,13 +529,13 @@ int ncr_data_set(struct list_sem_st* lst, void __user* arg)
 		return -EINVAL;
 	}
 
-	if (data->type == NCR_DATA_USER) {
+	if (data->type != NCR_DATA_KERNEL) {
 		err();
 		ret = -EINVAL;
 		goto cleanup;
 	}
 
-	if ((get.data_size > data->max_data_size) ||
+	if ((get.data_size > data->data.kernel.max_data_size) ||
 		(get.data == NULL && get.data_size != 0)) {
 		err();
 		ret = -EINVAL;
@@ -435,14 +543,14 @@ int ncr_data_set(struct list_sem_st* lst, void __user* arg)
 	}
 
 	if (get.data != NULL) {
-		if (unlikely(copy_from_user(data->data.kernel, get.data,
+		if (unlikely(copy_from_user(data->data.kernel.data, get.data,
 					    get.data_size))) {
 			err();
 			ret = -EFAULT;
 			goto cleanup;
 		}
 	}
-	data->data_size = get.data_size;
+	data->data.kernel.data_size = get.data_size;
 
 	ret = 0;
 
