@@ -349,7 +349,7 @@ int ret;
 		err();
 		return ret;
 	}
-	ctx->sign_hash = ret;
+	ctx->sign_hash = _ncr_algo_to_properties(ret);
 
 	switch(algo->algo) {
 		case NCR_ALG_RSA:
@@ -448,8 +448,12 @@ unsigned long osize = *output_size;
 
 	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
+			if (ctx->sign_hash == NULL) {
+				err();
+				return -EINVAL;
+			}
 			cret = rsa_sign_hash_ex( input, input_size, output, &osize, 
-				ctx->type, ctx->sign_hash, ctx->salt_len, &ctx->key->key.pk.rsa);
+				ctx->type, ctx->sign_hash->algo, ctx->salt_len, &ctx->key->key.pk.rsa);
 
 			if (cret != CRYPT_OK) {
 				err();
@@ -484,8 +488,12 @@ int stat;
 
 	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
+			if (ctx->sign_hash == NULL) {
+				err();
+				return -EINVAL;
+			}
 			cret = rsa_verify_hash_ex( signature, signature_size, 
-				hash, hash_size, ctx->type, ctx->sign_hash,
+				hash, hash_size, ctx->type, ctx->sign_hash->algo,
 				ctx->salt_len, &stat, &ctx->key->key.pk.rsa);
 
 			if (cret != CRYPT_OK) {

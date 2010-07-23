@@ -6,7 +6,7 @@
 struct ncr_pk_ctx {
 	const struct algo_properties_st *algorithm; /* algorithm */
 	
-	ncr_algorithm_t sign_hash; /* for verification */
+	const struct algo_properties_st *sign_hash; /* for verification */
 	
 	ncr_algorithm_t oaep_hash;
 	int salt_len; /* for RSA-PSS signatures */
