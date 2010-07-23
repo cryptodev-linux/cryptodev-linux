@@ -303,6 +303,18 @@ void ncr_pk_queue_deinit(void)
 	destroy_workqueue(pk_wq);
 }
 
+int ncr_key_params_get_sign_hash(ncr_algorithm_t algo, struct ncr_key_params_st * params)
+{
+	switch(algo) {
+		case NCR_ALG_RSA:
+			return params->params.rsa.sign_hash;
+		case NCR_ALG_DSA:
+			return params->params.dsa.sign_hash;
+		default:
+			return -EINVAL;
+	}
+}
+
 /* Encryption/Decryption
  */
 
@@ -318,6 +330,8 @@ int ncr_pk_cipher_init(ncr_algorithm_t algo,
 	struct ncr_pk_ctx* ctx, struct ncr_key_params_st* params,
 	struct key_item_st *key)
 {
+int ret;
+
 	memset(ctx, 0, sizeof(*ctx));
 	
 	if (key->algorithm != algo) {
@@ -327,19 +341,24 @@ int ncr_pk_cipher_init(ncr_algorithm_t algo,
 
 	ctx->algorithm = algo;
 	ctx->key = key;
-	ctx->sign_hash = params->params.pk.sign_hash;
+	ret = ncr_key_params_get_sign_hash(algo, params);
+	if (ret < 0) {
+		err();
+		return ret;
+	}
+	ctx->sign_hash = ret;
 
 	switch(algo) {
 		case NCR_ALG_RSA:
-			if (params->params.pk.type == RSA_PKCS1_V1_5)
+			if (params->params.rsa.type == RSA_PKCS1_V1_5)
 				ctx->type = LTC_LTC_PKCS_1_V1_5;
-			else if (params->params.pk.type == RSA_PKCS1_OAEP)
+			else if (params->params.rsa.type == RSA_PKCS1_OAEP)
 				ctx->type = LTC_LTC_PKCS_1_OAEP;
-			else if (params->params.pk.type == RSA_PKCS1_PSS)
+			else if (params->params.rsa.type == RSA_PKCS1_PSS)
 				ctx->type = LTC_LTC_PKCS_1_PSS;
 			
-			ctx->oaep_hash = params->params.pk.oaep_hash;
-			ctx->salt_len = params->params.pk.pss_salt;
+			ctx->oaep_hash = params->params.rsa.oaep_hash;
+			ctx->salt_len = params->params.rsa.pss_salt;
 			break;
 		case NCR_ALG_DSA:
 			break;

@@ -290,6 +290,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 {
 	struct session_item_st* ns = NULL;
 	int ret;
+	ncr_algorithm_t sign_hash;
 	const char* str = NULL;
 
 	ns = ncr_session_new(&lists->sessions);
@@ -310,7 +311,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 			}
 
 			/* read key */
-			ret = ncr_key_item_get_read( &ns->key, &lists->key, session->params.key);
+			ret = ncr_key_item_get_read( &ns->key, &lists->key, session->key);
 			if (ret < 0) {
 				err();
 				goto fail;
@@ -365,7 +366,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 			}
 
 			/* read key */
-			ret = ncr_key_item_get_read( &ns->key, &lists->key, session->params.key);
+			ret = ncr_key_item_get_read( &ns->key, &lists->key, session->key);
 			if (ret < 0) {
 				err();
 				goto fail;
@@ -386,12 +387,19 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				}
 
 			} else if (ns->key->type == NCR_KEY_TYPE_PRIVATE || ns->key->type == NCR_KEY_TYPE_PUBLIC) {
-				if (algo_can_digest(session->params.params.pk.sign_hash) == 0) {
+				ret = ncr_key_params_get_sign_hash(ns->key->algorithm, &session->params);
+				if (ret < 0) {
+					err();
+					return ret;
+				}
+				sign_hash = ret;
+
+				if (algo_can_digest(sign_hash) == 0) {
 					err();
 					ret = -EINVAL;
 					goto fail;
 				}
-				str = _ncr_algo_to_str(session->params.params.pk.sign_hash);
+				str = _ncr_algo_to_str(sign_hash);
 				if (str == NULL) {
 					err();
 					ret = -EINVAL;

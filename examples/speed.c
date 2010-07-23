@@ -187,7 +187,7 @@ int encrypt_data_ncr(int cfd, int algo, int chunksize)
 		
 		memset(&nop, 0, sizeof(nop));
 		nop.init.algorithm = algo;
-		nop.init.params.key = key;
+		nop.init.key = key;
 		nop.init.op = NCR_OP_ENCRYPT;
 		nop.op.data.cipher.plaintext = dd;
 		nop.op.data.cipher.ciphertext = dd;

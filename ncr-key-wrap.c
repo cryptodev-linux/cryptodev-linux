@@ -456,7 +456,7 @@ int ret;
 		goto fail;
 	}
 
-	ret = ncr_key_item_get_read( &key, key_lst, wrap.key.key);
+	ret = ncr_key_item_get_read( &key, key_lst, wrap.key);
 	if (ret < 0) {
 		err();
 		goto fail;
@@ -473,10 +473,10 @@ int ret;
 
 	switch(wrap.algorithm) {
 		case NCR_WALG_AES_RFC3394:
-			ret = wrap_aes(wkey, key, data, wrap.key.params.cipher.iv, wrap.key.params.cipher.iv_size);
+			ret = wrap_aes(wkey, key, data, wrap.params.params.cipher.iv, wrap.params.params.cipher.iv_size);
 			break;
 		case NCR_WALG_AES_RFC5649:
-			ret = wrap_aes_rfc5649(wkey, key, data, wrap.key.params.cipher.iv, wrap.key.params.cipher.iv_size);
+			ret = wrap_aes_rfc5649(wkey, key, data, wrap.params.params.cipher.iv, wrap.params.params.cipher.iv_size);
 			break;
 		default:
 			err();
@@ -513,7 +513,7 @@ int ret;
 		return ret;
 	}
 
-	ret = ncr_key_item_get_read( &key, key_lst, wrap.key.key);
+	ret = ncr_key_item_get_read( &key, key_lst, wrap.key);
 	if (ret < 0) {
 		err();
 		goto fail;
@@ -530,10 +530,10 @@ int ret;
 
 	switch(wrap.algorithm) {
 		case NCR_WALG_AES_RFC3394:
-			ret = unwrap_aes(wkey, key, data, wrap.key.params.cipher.iv, wrap.key.params.cipher.iv_size);
+			ret = unwrap_aes(wkey, key, data, wrap.params.params.cipher.iv, wrap.params.params.cipher.iv_size);
 			break;
 		case NCR_WALG_AES_RFC5649:
-			ret = unwrap_aes_rfc5649(wkey, key, data, wrap.key.params.cipher.iv, wrap.key.params.cipher.iv_size);
+			ret = unwrap_aes_rfc5649(wkey, key, data, wrap.params.params.cipher.iv, wrap.params.params.cipher.iv_size);
 			break;
 		default:
 			err();

@@ -363,12 +363,12 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 	/* do encryption */
 	memset(&nop, 0, sizeof(nop));
 	nop.init.algorithm = NCR_ALG_RSA;
-	nop.init.params.key = pubkey;
+	nop.init.key = pubkey;
 	if (oaep) {
-		nop.init.params.params.pk.type = RSA_PKCS1_OAEP;
-		nop.init.params.params.pk.oaep_hash = NCR_ALG_SHA1;
+		nop.init.params.params.rsa.type = RSA_PKCS1_OAEP;
+		nop.init.params.params.rsa.oaep_hash = NCR_ALG_SHA1;
 	} else {
-		nop.init.params.params.pk.type = RSA_PKCS1_V1_5;
+		nop.init.params.params.rsa.type = RSA_PKCS1_V1_5;
 	}
 	nop.init.op = NCR_OP_ENCRYPT;
 	nop.op.data.cipher.plaintext = datad;
@@ -383,13 +383,13 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 	/* decrypt data */
 	memset(&nop, 0, sizeof(nop));
 	nop.init.algorithm = NCR_ALG_RSA;
-	nop.init.params.key = privkey;
+	nop.init.key = privkey;
 	nop.init.op = NCR_OP_DECRYPT;
 	if (oaep) {
-		nop.init.params.params.pk.type = RSA_PKCS1_OAEP;
-		nop.init.params.params.pk.oaep_hash = NCR_ALG_SHA1;
+		nop.init.params.params.rsa.type = RSA_PKCS1_OAEP;
+		nop.init.params.params.rsa.oaep_hash = NCR_ALG_SHA1;
 	} else {
-		nop.init.params.params.pk.type = RSA_PKCS1_V1_5;
+		nop.init.params.params.rsa.type = RSA_PKCS1_V1_5;
 	}
 	nop.op.data.cipher.plaintext = encd;
 	nop.op.data.cipher.ciphertext = encd;
@@ -461,9 +461,9 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 	/* sign datad */
 	memset(&nop, 0, sizeof(nop));
 	nop.init.algorithm = NCR_ALG_RSA;
-	nop.init.params.key = privkey;
-	nop.init.params.params.pk.type = (pss!=0)?RSA_PKCS1_PSS:RSA_PKCS1_V1_5;
-	nop.init.params.params.pk.sign_hash = NCR_ALG_SHA1;
+	nop.init.key = privkey;
+	nop.init.params.params.rsa.type = (pss!=0)?RSA_PKCS1_PSS:RSA_PKCS1_V1_5;
+	nop.init.params.params.rsa.sign_hash = NCR_ALG_SHA1;
 
 	nop.init.op = NCR_OP_SIGN;
 	nop.op.data.sign.text = datad;
@@ -478,9 +478,9 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 	/* verify signature */
 	memset(&nop, 0, sizeof(nop));
 	nop.init.algorithm = NCR_ALG_RSA;
-	nop.init.params.key = pubkey;
-	nop.init.params.params.pk.type = (pss!=0)?RSA_PKCS1_PSS:RSA_PKCS1_V1_5;
-	nop.init.params.params.pk.sign_hash = NCR_ALG_SHA1;
+	nop.init.key = pubkey;
+	nop.init.params.params.rsa.type = (pss!=0)?RSA_PKCS1_PSS:RSA_PKCS1_V1_5;
+	nop.init.params.params.rsa.sign_hash = NCR_ALG_SHA1;
 
 	nop.init.op = NCR_OP_VERIFY;
 	nop.op.data.verify.text = datad;
@@ -541,8 +541,8 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 	/* sign datad */
 	memset(&nop, 0, sizeof(nop));
 	nop.init.algorithm = NCR_ALG_DSA;
-	nop.init.params.key = privkey;
-	nop.init.params.params.pk.sign_hash = NCR_ALG_SHA1;
+	nop.init.key = privkey;
+	nop.init.params.params.dsa.sign_hash = NCR_ALG_SHA1;
 
 	nop.init.op = NCR_OP_SIGN;
 	nop.op.data.sign.text = datad;
@@ -557,8 +557,8 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 	/* verify signature */
 	memset(&nop, 0, sizeof(nop));
 	nop.init.algorithm = NCR_ALG_DSA;
-	nop.init.params.key = pubkey;
-	nop.init.params.params.pk.sign_hash = NCR_ALG_SHA1;
+	nop.init.key = pubkey;
+	nop.init.params.params.dsa.sign_hash = NCR_ALG_SHA1;
 
 	nop.init.op = NCR_OP_VERIFY;
 	nop.op.data.verify.text = datad;

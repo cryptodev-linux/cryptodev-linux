@@ -137,11 +137,16 @@ typedef enum {
 	RSA_PKCS1_PSS, /* for signatures only */
 } ncr_rsa_type_t;
 
+typedef enum {
+	NCR_KEY_PARAMS_CIPHER,
+	NCR_KEY_PARAMS_DH,
+	NCR_KEY_PARAMS_RSA
+} ncr_key_params_type_t;
+
 /* used in derivation/encryption
  */
 struct ncr_key_params_st {
-	ncr_key_t key;
-
+	ncr_key_params_type_t type;
 	union {
 		struct {
 			uint8_t iv[NCR_CIPHER_MAX_BLOCK_LEN];
@@ -156,7 +161,10 @@ struct ncr_key_params_st {
 			ncr_algorithm_t oaep_hash; /* for OAEP */
 			ncr_algorithm_t sign_hash; /* for signatures */
 			unsigned int pss_salt; /* PSS signatures */
-		} pk;
+		} rsa;
+		struct {
+			ncr_algorithm_t sign_hash; /* for signatures */
+		} dsa;
 	} params;
 };
 
@@ -164,7 +172,8 @@ struct ncr_key_derivation_params_st {
 	ncr_key_t newkey;
 	unsigned int keyflags; /* for new key */
 	
-	struct ncr_key_params_st key;
+	ncr_key_t key;
+	struct ncr_key_params_st params;
 };
 
 #define MAX_KEY_ID_SIZE 20
@@ -212,7 +221,9 @@ struct ncr_key_data_st {
 struct ncr_key_wrap_st {
 	ncr_wrap_algorithm_t algorithm;
 	ncr_key_t keytowrap;
-	struct ncr_key_params_st key;
+
+	ncr_key_t key;
+	struct ncr_key_params_st params;
 	ncr_data_t data; /* encrypted keytowrap */
 };
 
@@ -255,6 +266,8 @@ typedef int ncr_session_t;
 struct ncr_session_st {
 	/* input */
 	ncr_algorithm_t algorithm;
+
+	ncr_key_t key;
 	struct ncr_key_params_st params;
 	ncr_crypto_op_t op;
 

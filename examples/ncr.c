@@ -464,7 +464,7 @@ test_ncr_wrap_key(int cfd)
 	memset(&kwrap, 0, sizeof(kwrap));
 	kwrap.algorithm = NCR_WALG_AES_RFC3394;
 	kwrap.keytowrap = key2;
-	kwrap.key.key = key;
+	kwrap.key = key;
 	kwrap.data = kdata.desc;
 
 	if (ioctl(cfd, NCRIO_KEY_WRAP, &kwrap)) {
@@ -513,7 +513,7 @@ test_ncr_wrap_key(int cfd)
 	memset(&kwrap, 0, sizeof(kwrap));
 	kwrap.algorithm = NCR_WALG_AES_RFC3394;
 	kwrap.keytowrap = key2;
-	kwrap.key.key = key;
+	kwrap.key = key;
 	kwrap.data = kdata.desc;
 
 	if (ioctl(cfd, NCRIO_KEY_UNWRAP, &kwrap)) {
@@ -807,7 +807,7 @@ test_ncr_aes(int cfd)
 		/* encrypt */
 		memset(&nop, 0, sizeof(nop));
 		nop.init.algorithm = NCR_ALG_AES_ECB;
-		nop.init.params.key = key;
+		nop.init.key = key;
 		nop.init.op = NCR_OP_ENCRYPT;
 		nop.op.data.cipher.plaintext = dd;
 		nop.op.data.cipher.ciphertext = dd2;
@@ -882,7 +882,7 @@ test_ncr_aes(int cfd)
 		/* decrypt */
 		memset(&nop, 0, sizeof(nop));
 		nop.init.algorithm = NCR_ALG_AES_ECB;
-		nop.init.params.key = key;
+		nop.init.key = key;
 		nop.init.op = NCR_OP_DECRYPT;
 		nop.op.data.cipher.ciphertext = dd;
 		nop.op.data.cipher.plaintext = dd2;
@@ -1096,7 +1096,7 @@ test_ncr_hash(int cfd)
 		memset(&nop, 0, sizeof(nop));
 		nop.init.algorithm = hash_vectors[i].algorithm;
 		if (hash_vectors[i].key != NULL)
-			nop.init.params.key = key;
+			nop.init.key = key;
 		nop.init.op = hash_vectors[i].op;
 		nop.op.data.sign.text = dd;
 		nop.op.data.sign.output = dd2;
