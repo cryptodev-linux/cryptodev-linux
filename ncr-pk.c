@@ -355,12 +355,16 @@ int ret;
 		case NCR_ALG_RSA:
 			if (params->params.rsa.type == RSA_PKCS1_V1_5)
 				ctx->type = LTC_LTC_PKCS_1_V1_5;
-			else if (params->params.rsa.type == RSA_PKCS1_OAEP)
+			else if (params->params.rsa.type == RSA_PKCS1_OAEP) {
 				ctx->type = LTC_LTC_PKCS_1_OAEP;
-			else if (params->params.rsa.type == RSA_PKCS1_PSS)
+				ctx->oaep_hash = _ncr_algo_to_properties(params->params.rsa.oaep_hash);
+				if (ctx->oaep_hash == NULL) {
+				  err();
+				  return -EINVAL;
+				}
+			} else if (params->params.rsa.type == RSA_PKCS1_PSS)
 				ctx->type = LTC_LTC_PKCS_1_PSS;
 			
-			ctx->oaep_hash = params->params.rsa.oaep_hash;
 			ctx->salt_len = params->params.rsa.pss_salt;
 			break;
 		case NCR_ALG_DSA:
@@ -385,7 +389,7 @@ unsigned long osize = *output_size;
 	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
 			cret = rsa_encrypt_key_ex( input, input_size, output, &osize, 
-				NULL, 0, ctx->oaep_hash, ctx->type, &ctx->key->key.pk.rsa);
+				NULL, 0, ctx->oaep_hash->algo, ctx->type, &ctx->key->key.pk.rsa);
 
 			if (cret != CRYPT_OK) {
 				printk("cret: %d type: %d\n", cret, ctx->type);
@@ -415,7 +419,7 @@ int stat;
 	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
 			cret = rsa_decrypt_key_ex( input, input_size, output, &osize, 
-				NULL, 0, ctx->oaep_hash, ctx->type, &stat, &ctx->key->key.pk.rsa);
+				NULL, 0, ctx->oaep_hash->algo, ctx->type, &stat, &ctx->key->key.pk.rsa);
 
 			if (cret != CRYPT_OK) {
 				err();

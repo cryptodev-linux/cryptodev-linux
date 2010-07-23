@@ -8,7 +8,7 @@ struct ncr_pk_ctx {
 	
 	const struct algo_properties_st *sign_hash; /* for verification */
 	
-	ncr_algorithm_t oaep_hash;
+	const struct algo_properties_st *oaep_hash;
 	int salt_len; /* for RSA-PSS signatures */
 	
 	int type; /* libtomcrypt type */
