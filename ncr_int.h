@@ -154,7 +154,7 @@ int ncr_limits_add_and_check(uid_t uid, pid_t pid, limits_type_t type);
 void ncr_limits_init(void);
 void ncr_limits_deinit(void);
 
-ncr_key_type_t ncr_algorithm_to_key_type(ncr_algorithm_t algo);
+ncr_key_type_t ncr_algorithm_to_key_type(const struct algo_properties_st *algo);
 
 int ncr_key_wrap(struct list_sem_st* keys, struct list_sem_st* data, void __user* arg);
 int ncr_key_unwrap(struct list_sem_st*, struct list_sem_st* data, void __user* arg);

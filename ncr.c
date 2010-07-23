@@ -177,9 +177,9 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 /* Returns NCR_KEY_TYPE_SECRET if a secret key algorithm or MAC is given,
  * and NCR_KEY_TYPE_PUBLIC if a public key algorithm is given.
  */
-ncr_key_type_t ncr_algorithm_to_key_type(ncr_algorithm_t algo)
+ncr_key_type_t ncr_algorithm_to_key_type(const struct algo_properties_st *algo)
 {
-	switch(algo) {
+	switch(algo->algo) {
 		case NCR_ALG_3DES_CBC:
 		case NCR_ALG_AES_CBC:
 		case NCR_ALG_CAMELLIA_CBC:

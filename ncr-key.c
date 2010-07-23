@@ -419,6 +419,7 @@ int ncr_key_generate(struct list_sem_st* lst, void __user* arg)
 {
 struct ncr_key_generate_st gen;
 struct key_item_st* item = NULL;
+const struct algo_properties_st *algo;
 int ret;
 size_t size;
 
@@ -437,7 +438,12 @@ size_t size;
 
 	/* we generate only secret keys */
 	item->flags = gen.params.keyflags;
-	item->type = ncr_algorithm_to_key_type(gen.params.algorithm);
+	algo = _ncr_algo_to_properties(gen.params.algorithm);
+	if (algo == NULL) {
+		err();
+		return ret;
+	}
+	item->type = ncr_algorithm_to_key_type(algo);
 	if (item->type == NCR_KEY_TYPE_SECRET) {
 		/* arbitrary */
 		item->algorithm = _ncr_algo_to_properties(NCR_ALG_AES_CBC);
@@ -527,14 +533,14 @@ int ret;
 
 	/* we generate only secret keys */
 	private->flags = public->flags = gen.params.keyflags;
-	public->type = ncr_algorithm_to_key_type(gen.params.algorithm);
-	private->type = NCR_KEY_TYPE_PRIVATE;
 	private->algorithm = public->algorithm = _ncr_algo_to_properties(gen.params.algorithm);
 	if (private->algorithm == NULL) {
 		err();
 		ret = -EINVAL;
 		goto fail;
 	}
+	public->type = ncr_algorithm_to_key_type(public->algorithm);
+	private->type = NCR_KEY_TYPE_PRIVATE;
 	public->flags |= (NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE);
 	
 	if (public->type == NCR_KEY_TYPE_PUBLIC) {
