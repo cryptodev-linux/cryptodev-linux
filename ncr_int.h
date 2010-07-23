@@ -25,7 +25,7 @@ struct algo_properties_st {
 struct session_item_st {
 	struct list_head list;
 
-	ncr_algorithm_t algorithm;
+	const struct algo_properties_st *algorithm;
 	ncr_crypto_op_t op;
 
 	/* contexts for various options.
