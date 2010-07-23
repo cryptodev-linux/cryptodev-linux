@@ -10,6 +10,18 @@
 
 #define err() printk(KERN_DEBUG"ncr: %s: %s: %d\n", __FILE__, __func__, __LINE__)
 
+struct algo_properties_st {
+	ncr_algorithm_t algo;
+	const char *kstr;
+	unsigned needs_iv:1;
+	unsigned hmac:1;
+	unsigned can_sign:1;
+	unsigned can_digest:1;
+	unsigned can_encrypt:1;
+	unsigned symmetric:1;
+	int digest_size;
+};
+
 struct session_item_st {
 	struct list_head list;
 
