@@ -644,7 +644,6 @@ static int test_ncr_rsa(int cfd)
 	kdata.desc = dinit.desc;
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
-	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -676,7 +675,6 @@ static int test_ncr_rsa(int cfd)
 	kdata.desc = dinit.desc;
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
-	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -788,7 +786,6 @@ static int test_ncr_dsa(int cfd)
 	kdata.desc = dinit.desc;
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
-	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -820,7 +817,6 @@ static int test_ncr_dsa(int cfd)
 	kdata.desc = dinit.desc;
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
-	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);

@@ -177,7 +177,6 @@ int encrypt_data_ncr(int cfd, int algo, int chunksize)
 		kdata.data = buffer;
 		kdata.data_size = chunksize;
 		kdata.desc = dd;
-		kdata.append_flag = 0;
 
 		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
