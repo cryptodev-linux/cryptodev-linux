@@ -126,8 +126,6 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 	switch (cmd) {
 		case NCRIO_DATA_INIT:
 			return ncr_data_init(&lst->data, arg);
-		case NCRIO_DATA_INIT_USER:
-			return ncr_data_init_user(&lst->data, arg);
 		case NCRIO_DATA_GET:
 			return ncr_data_get(&lst->data, arg);
 		case NCRIO_DATA_SET:

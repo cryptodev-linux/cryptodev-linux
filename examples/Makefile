@@ -17,15 +17,11 @@ hmac: hmac.c
 ncr: ncr.c
 	$(CC) $(CFLAGS) $< -o $@
 
-ncr-user: ncr-user.c
-	$(CC) $(CFLAGS) $< -o $@
-
 pk: pk.c
 	$(CC) $(CFLAGS) $< -o $@ -L/usr/local/lib -lgnutls
 
 check: $(progs)
 	./ncr
-	./ncr-user
 	./pk
 	./cipher
 	./hmac

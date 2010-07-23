@@ -51,17 +51,8 @@ uint8_t aes_block[16];
 int i,j, ret;
 uint8_t * output;
 size_t output_size = (n+1)*8;
-size_t max_data_size;
 
-	ret = ncr_data_item_size(odata, 1);
-	if (ret < 0) {
-		err();
-		return ret;
-	}
-	max_data_size = ret;
-
-
-	if (max_data_size < output_size) {
+	if (odata->max_data_size < output_size) {
 		err();
 		return -EINVAL;
 	}
@@ -202,14 +193,6 @@ struct cipher_data ctx;
 uint8_t iv[4];
 size_t size;
 
-	ret = ncr_data_item_size(wrapped, 0);
-	if (ret < 0) {
-		err();
-		return ret;
-	}
-	wrapped_key_size = ret;
-
-
 	if (iv_size != 4) {
 		memcpy(iv, RFC5649_IV, 4);
 	} else {
@@ -223,16 +206,16 @@ size_t size;
 		return ret;
 	}
 
-	wrapped_key = kmalloc(wrapped_key_size, GFP_KERNEL);
+	wrapped_key = kmalloc(wrapped->data_size, GFP_KERNEL);
 	if (wrapped_key == NULL) {
 		err();
 		ret = -ENOMEM;
 		goto cleanup;
 	}
 
+	wrapped_key_size = wrapped->data_size;
 	
-	
-	ret =  ncr_data_item_getd( wrapped, wrapped_key, wrapped_key_size, wrapped->flags);
+	ret =  ncr_data_item_getd( wrapped, wrapped_key, wrapped->data_size, wrapped->flags);
 	if (ret < 0) {
 		err();
 		goto cleanup;
@@ -407,13 +390,6 @@ val64_t A;
 int i, ret;
 struct cipher_data ctx;
 
-	ret = ncr_data_item_size(wrapped, 0);
-	if (ret < 0) {
-		err();
-		return ret;
-	}
-	wrapped_key_size = ret;
-
 	if (iv_size < sizeof(initA)) {
 		iv_size = sizeof(initA);
 		iv = initA;
@@ -427,13 +403,15 @@ struct cipher_data ctx;
 
 	output->type = NCR_KEY_TYPE_SECRET;
 
-	wrapped_key = kmalloc(wrapped_key_size, GFP_KERNEL);
+	wrapped_key = kmalloc(wrapped->data_size, GFP_KERNEL);
 	if (wrapped_key == NULL) {
 		err();
 		ret = -ENOMEM;
 		goto cleanup;
 	}
 
+	wrapped_key_size = wrapped->data_size;
+	
 	ret =  ncr_data_item_getd( wrapped, wrapped_key, wrapped_key_size, wrapped->flags);
 	if (ret < 0) {
 		err();
@@ -696,13 +674,7 @@ int ret;
 		goto fail;
 	}
 
-	ret = ncr_data_item_size(data, 0);
-	if (ret < 0) {
-		err();
-		return ret;
-	}
-	sdata_size = ret;
-
+	sdata_size = data->data_size;
 	sdata = kmalloc(sdata_size, GFP_KERNEL);
 	if (sdata == NULL) {
 		err();

@@ -489,7 +489,7 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 	struct data_item_st* odata = NULL;
 	struct scatterlist *osg;
 	struct scatterlist *isg;
-	size_t osg_size, isg_size, new_size, max_odata_size, idata_size;
+	size_t osg_size, isg_size;
 	unsigned int osg_cnt, isg_cnt;
 
 	sess = ncr_sessions_item_get( &lists->sessions, op->ses);
@@ -534,21 +534,7 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 				isg_size = osg_size;
 			}
 
-			ret = ncr_data_item_size(odata, 1);
-			if (ret < 0) {
-				err();
-				goto fail;
-			}
-			max_odata_size = ret;
-
-			ret = ncr_data_item_size(data, 0);
-			if (ret < 0) {
-				err();
-				goto fail;
-			}
-			idata_size = ret;
-
-			if (max_odata_size < idata_size) {
+			if (odata->max_data_size < data->data_size) {
 				err();
 				ret = -EINVAL;
 				goto fail;
@@ -561,25 +547,21 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 					err();
 					goto fail;
 				}
-	
 				/* FIXME: handle ciphers that do not require that */
-				new_size = idata_size;
+				odata->data_size = data->data_size;
 
 			} else { /* public key */
-				new_size = osg_size;
+				size_t new_size = osg_size;
 				ret = ncr_pk_cipher_encrypt(&sess->pk, isg, isg_cnt, isg_size,
 					osg, osg_cnt, &new_size);
+				
+				odata->data_size = new_size;
+				
 				if (ret < 0) {
 					err();
 					goto fail;
 				}
 			}
-			ret = ncr_data_item_set_size(odata, new_size);
-			if (ret < 0) {
-				err();
-				goto fail;
-			}
-
 			break;
 		case NCR_OP_DECRYPT:
 			/* obtain data item */
@@ -615,21 +597,7 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 				isg_size = osg_size;
 			}
 
-			ret = ncr_data_item_size(odata, 1);
-			if (ret < 0) {
-				err();
-				goto fail;
-			}
-			max_odata_size = ret;
-
-			ret = ncr_data_item_size(data, 0);
-			if (ret < 0) {
-				err();
-				goto fail;
-			}
-			idata_size = ret;
-
-			if (max_odata_size < idata_size) {
+			if (odata->max_data_size < data->data_size) {
 				err();
 				ret = -EINVAL;
 				goto fail;
@@ -643,23 +611,19 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 					goto fail;
 				}
 				/* FIXME: handle ciphers that do not require that */
-				new_size = idata_size;
+				odata->data_size = data->data_size;
 			} else { /* public key */
 				size_t new_size = osg_size;
 				ret = ncr_pk_cipher_decrypt(&sess->pk, isg, isg_cnt, isg_size,
 					osg, osg_cnt, &new_size);
+
+				odata->data_size = new_size;
+				
 				if (ret < 0) {
 					err();
 					goto fail;
 				}
 			}
-
-			ret = ncr_data_item_set_size(odata, new_size);
-			if (ret < 0) {
-				err();
-				goto fail;
-			}
-
 
 			break;
 
@@ -769,7 +733,7 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 	int digest_size;
 	uint8_t digest[NCR_HASH_MAX_OUTPUT_SIZE];
 	struct scatterlist *osg;
-	size_t osg_size, odata_size, max_odata_size;
+	size_t osg_size;
 	unsigned int osg_cnt;
 
 	sess = ncr_sessions_item_get( &lists->sessions, op->ses);
@@ -817,13 +781,6 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 				goto fail;
 			}
 
-			ret = ncr_data_item_size(odata, 0);
-			if (ret < 0) {
-				err();
-				goto fail;
-			}
-			odata_size = ret;
-
 			if (algo_is_hmac(sess->algorithm)) {
 				uint8_t vdigest[digest_size];
 				
@@ -832,8 +789,8 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 					err();
 					goto fail;
 				}
-
-				if (digest_size != odata_size ||
+				
+				if (digest_size != odata->data_size ||
 					memcmp(vdigest, digest, digest_size) != 0) {
 
 					op->err = NCR_VERIFICATION_FAILED;
@@ -872,15 +829,8 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 				goto fail;
 			}
 
-			ret = ncr_data_item_size(odata, 1);
-			if (ret < 0) {
-				err();
-				goto fail;
-			}
-			max_odata_size = ret;
-
 			digest_size = sess->hash.digestsize;
-			if (digest_size == 0 || max_odata_size < digest_size) {
+			if (digest_size == 0 || odata->max_data_size < digest_size) {
 				err();
 				ret = -EINVAL;
 				goto fail;
@@ -917,12 +867,7 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 					err();
 					goto fail;
 				}
-				
-				ret = ncr_data_item_set_size(odata, new_size);
-				if (ret < 0) {
-					err();
-					goto fail;
-				}
+				odata->data_size = new_size;
 			}
 
 			break;
