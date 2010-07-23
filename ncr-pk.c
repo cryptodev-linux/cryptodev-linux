@@ -45,7 +45,9 @@ static int tomerr(int err)
 
 void ncr_pk_clear(struct key_item_st* key)
 {
-	switch(key->algorithm) {
+	if (key->algorithm == NULL)
+		return;
+	switch(key->algorithm->algo) {
 		case NCR_ALG_RSA:
 			rsa_free(&key->key.pk.rsa);
 			break;
@@ -71,7 +73,7 @@ static int ncr_pk_make_public_and_id( struct key_item_st * private, struct key_i
 		return -ENOMEM;
 	}
 
-	switch(private->algorithm) {
+	switch(private->algorithm->algo) {
 		case NCR_ALG_RSA:
 			cret = rsa_export(tmp, &max_size, PK_PUBLIC, &private->key.pk.rsa);
 			if (cret != CRYPT_OK) {
@@ -135,7 +137,7 @@ int ncr_pk_pack( const struct key_item_st * key, uint8_t * packed, uint32_t * pa
 		return -EINVAL;
 	}
 
-	switch(key->algorithm) {
+	switch(key->algorithm->algo) {
 		case NCR_ALG_RSA:
 			cret = rsa_export(packed, &max_size, key->key.pk.rsa.type, (void*)&key->key.pk.rsa);
 			if (cret != CRYPT_OK) {
@@ -170,7 +172,7 @@ int ncr_pk_unpack( struct key_item_st * key, const void * packed, size_t packed_
 		return -EINVAL;
 	}
 
-	switch(key->algorithm) {
+	switch(key->algorithm->algo) {
 		case NCR_ALG_RSA:
 			cret = rsa_import(packed, packed_size, (void*)&key->key.pk.rsa);
 			if (cret != CRYPT_OK) {
@@ -253,7 +255,8 @@ int ncr_pk_generate(ncr_algorithm_t algo,
 int ret;
 struct keygen_st st;
 
-	private->algorithm = public->algorithm = algo;
+	private->algorithm = public->algorithm = _ncr_algo_to_properties(algo);
+	BUG_ON(private->algorithm == NULL);
 
 	st.algo = algo;
 	st.private = private;
@@ -334,7 +337,7 @@ int ret;
 
 	memset(ctx, 0, sizeof(*ctx));
 	
-	if (key->algorithm != algo) {
+	if (key->algorithm->algo != algo) {
 		err();
 		return -EINVAL;
 	}

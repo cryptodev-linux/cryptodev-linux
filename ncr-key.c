@@ -337,7 +337,12 @@ int ret;
 	}
 
 	item->type = data.type;
-	item->algorithm = data.algorithm;
+	item->algorithm = _ncr_algo_to_properties(data.algorithm);
+	if (item->algorithm == NULL) {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}
 	item->flags = data.flags;
 	/* if data cannot be exported then the flags above
 	 * should be overriden */
@@ -434,7 +439,8 @@ size_t size;
 	item->flags = gen.params.keyflags;
 	item->type = ncr_algorithm_to_key_type(gen.params.algorithm);
 	if (item->type == NCR_KEY_TYPE_SECRET) {
-		item->algorithm = /* arbitrary */ NCR_ALG_AES_CBC;
+		/* arbitrary */
+		item->algorithm = _ncr_algo_to_properties(NCR_ALG_AES_CBC);
 
 		size = gen.params.params.secret.bits/8;
 		if ((gen.params.params.secret.bits % 8 != 0) ||
@@ -485,7 +491,7 @@ int ret;
 
 	info.flags = item->flags;
 	info.type = item->type;
-	info.algorithm = item->algorithm;
+	info.algorithm = item->algorithm->algo;
 
 	_ncr_key_item_put( item);
 
@@ -523,7 +529,12 @@ int ret;
 	private->flags = public->flags = gen.params.keyflags;
 	public->type = ncr_algorithm_to_key_type(gen.params.algorithm);
 	private->type = NCR_KEY_TYPE_PRIVATE;
-	private->algorithm = public->algorithm = gen.params.algorithm;
+	private->algorithm = public->algorithm = _ncr_algo_to_properties(gen.params.algorithm);
+	if (private->algorithm == NULL) {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}
 	public->flags |= (NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE);
 	
 	if (public->type == NCR_KEY_TYPE_PUBLIC) {

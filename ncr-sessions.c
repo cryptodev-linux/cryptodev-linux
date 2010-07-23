@@ -163,7 +163,7 @@ static const struct algo_properties_st algo_properties[] = {
 
 };
 
-static const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo)
+const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo)
 {
 	ncr_algorithm_t a;
 	int i = 0;
@@ -367,7 +367,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				}
 
 			} else if (ns->key->type == NCR_KEY_TYPE_PRIVATE || ns->key->type == NCR_KEY_TYPE_PUBLIC) {
-				ret = ncr_key_params_get_sign_hash(ns->key->algorithm, &session->params);
+				ret = ncr_key_params_get_sign_hash(ns->key->algorithm->algo, &session->params);
 				if (ret < 0) {
 					err();
 					return ret;

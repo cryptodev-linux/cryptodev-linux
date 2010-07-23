@@ -52,7 +52,7 @@ int key_to_storage_data( uint8_t** sdata, size_t * sdata_size, const struct key_
 
 	pkey->type = key->type;
 	pkey->flags = key->flags;
-	pkey->algorithm = key->algorithm;
+	pkey->algorithm = key->algorithm->algo;
 	pkey->key_id_size = key->key_id_size;
 	memcpy(pkey->key_id, key->key_id, key->key_id_size);
 
@@ -95,7 +95,11 @@ int key_from_storage_data(struct key_item_st* key, const void* data, size_t data
 	key->type = pkey->type;
 	key->flags = pkey->flags;
 
-	key->algorithm = pkey->algorithm;
+	key->algorithm = _ncr_algo_to_properties(pkey->algorithm);
+	if (key->algorithm == NULL) {
+		err();
+		return -EINVAL;
+	}
 	key->key_id_size = pkey->key_id_size;
 	memcpy(key->key_id, pkey->key_id, pkey->key_id_size);
 

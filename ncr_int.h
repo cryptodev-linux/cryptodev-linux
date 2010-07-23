@@ -68,7 +68,7 @@ struct key_item_st {
 	 */
 	ncr_key_type_t type;
 	unsigned int flags;
-	ncr_algorithm_t algorithm; /* valid for public/private keys */
+	const struct algo_properties_st *algorithm; /* non-NULL for public/private keys */
 	uint8_t key_id[MAX_KEY_ID_SIZE];
 	size_t key_id_size;
 
@@ -203,6 +203,7 @@ inline static unsigned int data_flags_to_key(unsigned int data_flags)
 	return flags;
 }
 
+const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo);
 const char* _ncr_algo_to_str(ncr_algorithm_t algo);
 int _ncr_algo_digest_size(ncr_algorithm_t algo);
 int ncr_key_params_get_sign_hash(ncr_algorithm_t algo, struct ncr_key_params_st * params);
