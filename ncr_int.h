@@ -20,6 +20,10 @@ struct algo_properties_st {
 	unsigned can_encrypt:1;
 	unsigned is_symmetric:1;
 	int digest_size;
+	/* NCR_KEY_TYPE_SECRET if for a secret key algorithm or MAC,
+	 * NCR_KEY_TYPE_PUBLIC for a public key algorithm.
+	 */
+	ncr_key_type_t key_type;
 };
 
 struct session_item_st {
@@ -153,8 +157,6 @@ void ncr_limits_remove(uid_t uid, pid_t pid, limits_type_t type);
 int ncr_limits_add_and_check(uid_t uid, pid_t pid, limits_type_t type);
 void ncr_limits_init(void);
 void ncr_limits_deinit(void);
-
-ncr_key_type_t ncr_algorithm_to_key_type(const struct algo_properties_st *algo);
 
 int ncr_key_wrap(struct list_sem_st* keys, struct list_sem_st* data, void __user* arg);
 int ncr_key_unwrap(struct list_sem_st*, struct list_sem_st* data, void __user* arg);

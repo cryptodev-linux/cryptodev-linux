@@ -443,7 +443,7 @@ size_t size;
 		err();
 		return ret;
 	}
-	item->type = ncr_algorithm_to_key_type(algo);
+	item->type = algo->key_type;
 	if (item->type == NCR_KEY_TYPE_SECRET) {
 		/* arbitrary */
 		item->algorithm = _ncr_algo_to_properties(NCR_ALG_AES_CBC);
@@ -539,7 +539,7 @@ int ret;
 		ret = -EINVAL;
 		goto fail;
 	}
-	public->type = ncr_algorithm_to_key_type(public->algorithm);
+	public->type = public->algorithm->key_type;
 	private->type = NCR_KEY_TYPE_PRIVATE;
 	public->flags |= (NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE);
 	
