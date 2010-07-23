@@ -114,23 +114,23 @@ struct session_item_st* ncr_session_new(struct list_sem_st* lst)
 
 static const struct algo_properties_st algo_properties[] = {
 	{ .algo = NCR_ALG_NULL, .kstr = "ecb(cipher_null)", 
-		.needs_iv = 0, .symmetric=1, .can_encrypt=1 },
+		.needs_iv = 0, .is_symmetric=1, .can_encrypt=1 },
 	{ .algo = NCR_ALG_3DES_CBC, .kstr = "cbc(des3_ede)", 
-		.needs_iv = 1, .symmetric=1, .can_encrypt=1 },
+		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1 },
 	{ .algo = NCR_ALG_AES_CBC, .kstr = "cbc(aes)", 
-		.needs_iv = 1, .symmetric=1, .can_encrypt=1 },
+		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1 },
 	{ .algo = NCR_ALG_CAMELLIA_CBC, .kstr = "cbc(camelia)", 
-		.needs_iv = 1, .symmetric=1, .can_encrypt=1 },
+		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1 },
 	{ .algo = NCR_ALG_AES_CTR, .kstr = "ctr(aes)", 
-		.needs_iv = 1, .symmetric=1, .can_encrypt=1 },
+		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1 },
 	{ .algo = NCR_ALG_CAMELLIA_CTR, .kstr = "ctr(camelia)", 
-		.needs_iv = 1, .symmetric=1, .can_encrypt=1 },
+		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1 },
 	{ .algo = NCR_ALG_ARCFOUR, .kstr = NULL, 
-		.needs_iv = 0, .symmetric=1, .can_encrypt=1 },
+		.needs_iv = 0, .is_symmetric=1, .can_encrypt=1 },
 	{ .algo = NCR_ALG_AES_ECB, .kstr = "ecb(aes)", 
-		.needs_iv = 0, .symmetric=1, .can_encrypt=1 },
+		.needs_iv = 0, .is_symmetric=1, .can_encrypt=1 },
 	{ .algo = NCR_ALG_CAMELLIA_ECB, .kstr = "ecb(camelia)", 
-		.needs_iv = 0, .symmetric=1, .can_encrypt=1 },
+		.needs_iv = 0, .is_symmetric=1, .can_encrypt=1 },
 	{ .algo = NCR_ALG_SHA1, .kstr = "sha1", 
 		.digest_size = 20, .can_digest=1 },
 	{ .algo = NCR_ALG_MD5, .kstr = "md5", 
@@ -143,17 +143,17 @@ static const struct algo_properties_st algo_properties[] = {
 		.digest_size = 48, .can_digest=1 },
 	{ .algo = NCR_ALG_SHA2_512, .kstr = "sha512", 
 		.digest_size = 64, .can_digest=1 },
-	{ .algo = NCR_ALG_HMAC_SHA1, .hmac = 1, .kstr = "hmac(sha1)", 
+	{ .algo = NCR_ALG_HMAC_SHA1, .is_hmac = 1, .kstr = "hmac(sha1)", 
 		.digest_size = 20, .can_sign=1 },
-	{ .algo = NCR_ALG_HMAC_MD5, .hmac = 1, .kstr = "hmac(md5)", 
+	{ .algo = NCR_ALG_HMAC_MD5, .is_hmac = 1, .kstr = "hmac(md5)", 
 		.digest_size = 16, .can_sign=1 },
-	{ .algo = NCR_ALG_HMAC_SHA2_224, .hmac = 1, .kstr = "hmac(sha224)", 
+	{ .algo = NCR_ALG_HMAC_SHA2_224, .is_hmac = 1, .kstr = "hmac(sha224)", 
 		.digest_size = 28, .can_sign=1 },
-	{ .algo = NCR_ALG_HMAC_SHA2_256, .hmac = 1, .kstr = "hmac(sha256)", 
+	{ .algo = NCR_ALG_HMAC_SHA2_256, .is_hmac = 1, .kstr = "hmac(sha256)", 
 		.digest_size = 32, .can_sign=1 },
-	{ .algo = NCR_ALG_HMAC_SHA2_384, .hmac = 1, .kstr = "hmac(sha384)", 
+	{ .algo = NCR_ALG_HMAC_SHA2_384, .is_hmac = 1, .kstr = "hmac(sha384)", 
 		.digest_size = 48, .can_sign=1 },
-	{ .algo = NCR_ALG_HMAC_SHA2_512, .hmac = 1, .kstr = "hmac(sha512)", 
+	{ .algo = NCR_ALG_HMAC_SHA2_512, .is_hmac = 1, .kstr = "hmac(sha512)", 
 		.digest_size = 64, .can_sign=1 },
 	{ .algo = NCR_ALG_RSA, .kstr = NULL, 
 		.can_encrypt=1, .can_sign=1},
@@ -241,7 +241,7 @@ int i = 0;
 
 	while((a=algo_properties[i].algo)!=NCR_ALG_NONE) {
 		if (a == algo)
-			return algo_properties[i].hmac;
+			return algo_properties[i].is_hmac;
 		i++;
 	}
 
@@ -255,7 +255,7 @@ int i = 0;
 
 	while((a=algo_properties[i].algo)!=NCR_ALG_NONE) {
 		if (a == algo)
-			return algo_properties[i].symmetric;
+			return algo_properties[i].is_symmetric;
 		i++;
 	}
 

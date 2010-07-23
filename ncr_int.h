@@ -14,11 +14,11 @@ struct algo_properties_st {
 	ncr_algorithm_t algo;
 	const char *kstr;
 	unsigned needs_iv:1;
-	unsigned hmac:1;
+	unsigned is_hmac:1;
 	unsigned can_sign:1;
 	unsigned can_digest:1;
 	unsigned can_encrypt:1;
-	unsigned symmetric:1;
+	unsigned is_symmetric:1;
 	int digest_size;
 };
 
