@@ -152,6 +152,7 @@ int encrypt_data_ncr(int cfd, int algo, int chunksize)
 	buffer = malloc(chunksize);
 	memset(iv, 0x23, 32);
 
+	memset(&dinit, 0, sizeof(dinit));
 	dinit.max_object_size = chunksize;
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
 	dinit.initial_data = buffer;

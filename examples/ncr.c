@@ -114,7 +114,7 @@ test_ncr_key(int cfd)
 	}
 
 	/* now read data */
-	memset(data, 0, sizeof(data));
+	memset(&kdata, 0, sizeof(kdata));
 
 	kdata.desc = dinit.desc;
 	kdata.data = data;
@@ -434,7 +434,7 @@ test_ncr_wrap_key(int cfd)
 
 	if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_DATA_INIT)");
+		perror("ioctl(NCRIO_DATA_SET)");
 		return 1;
 	}
 
@@ -597,7 +597,7 @@ test_ncr_store_wrap_key(int cfd)
 
 	if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_DATA_INIT)");
+		perror("ioctl(NCRIO_DATA_SET)");
 		return 1;
 	}
 
@@ -781,7 +781,7 @@ test_ncr_aes(int cfd)
 
 		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_INIT)");
+			perror("ioctl(NCRIO_DATA_SET)");
 			return 1;
 		}
 
@@ -800,7 +800,7 @@ test_ncr_aes(int cfd)
 
 		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_INIT)");
+			perror("ioctl(NCRIO_DATA_SET)");
 			return 1;
 		}
 
@@ -855,7 +855,7 @@ test_ncr_aes(int cfd)
 
 		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_INIT)");
+			perror("ioctl(NCRIO_DATA_SET)");
 			return 1;
 		}
 
@@ -875,7 +875,7 @@ test_ncr_aes(int cfd)
 
 		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_INIT)");
+			perror("ioctl(NCRIO_DATA_SET)");
 			return 1;
 		}
 
@@ -1068,7 +1068,7 @@ test_ncr_hash(int cfd)
 
 			if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 				fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-				perror("ioctl(NCRIO_DATA_INIT)");
+				perror("ioctl(NCRIO_DATA_SET)");
 				return 1;
 			}
 
@@ -1088,7 +1088,7 @@ test_ncr_hash(int cfd)
 
 		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_INIT)");
+			perror("ioctl(NCRIO_DATA_SET)");
 			return 1;
 		}
 
@@ -1108,6 +1108,7 @@ test_ncr_hash(int cfd)
 		}
 
 		/* verify */
+		memset(&kdata, 0, sizeof(kdata));
 		kdata.desc = dd2;
 		kdata.data = data;
 		kdata.data_size = sizeof(data);
