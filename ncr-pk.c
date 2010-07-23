@@ -199,7 +199,7 @@ struct keygen_st {
 	struct work_struct pk_gen;
 	struct completion completed;
 	int ret;
-	ncr_algorithm_t algo;
+	const struct algo_properties_st *algo;
 	struct key_item_st* private;
 	struct key_item_st* public;
 	struct ncr_key_generate_params_st * params;
@@ -212,7 +212,7 @@ static void keygen_handler(struct work_struct *instance)
 	struct keygen_st *st =
 	    container_of(instance, struct keygen_st, pk_gen);
 
-	switch(st->algo) {
+	switch(st->algo->algo) {
 		case NCR_ALG_RSA:
 			e = st->params->params.rsa.e;
 			
@@ -248,15 +248,14 @@ static void keygen_handler(struct work_struct *instance)
 }
 
 
-int ncr_pk_generate(ncr_algorithm_t algo,
+int ncr_pk_generate(const struct algo_properties_st *algo,
 	struct ncr_key_generate_params_st * params,
 	struct key_item_st* private, struct key_item_st* public) 
 {
 int ret;
 struct keygen_st st;
 
-	private->algorithm = public->algorithm = _ncr_algo_to_properties(algo);
-	BUG_ON(private->algorithm == NULL);
+	private->algorithm = public->algorithm = algo;
 
 	st.algo = algo;
 	st.private = private;

@@ -544,7 +544,7 @@ int ret;
 	public->flags |= (NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE);
 	
 	if (public->type == NCR_KEY_TYPE_PUBLIC) {
-		ret = ncr_pk_generate(gen.params.algorithm, &gen.params, private, public);
+		ret = ncr_pk_generate(public->algorithm, &gen.params, private, public);
 		if (ret < 0) {
 			err();
 			goto fail;

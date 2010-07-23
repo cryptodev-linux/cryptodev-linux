@@ -19,7 +19,7 @@ struct ncr_pk_ctx {
 
 /* PK */
 void ncr_pk_clear(struct key_item_st* key);
-int ncr_pk_generate(ncr_algorithm_t algo,
+int ncr_pk_generate(const struct algo_properties_st *algo,
 	struct ncr_key_generate_params_st * params,
 	struct key_item_st* private, struct key_item_st* public);
 int ncr_pk_pack( const struct key_item_st * key, uint8_t * packed, uint32_t * packed_size);
