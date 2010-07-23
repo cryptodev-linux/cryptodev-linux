@@ -137,16 +137,12 @@ typedef enum {
 	RSA_PKCS1_PSS, /* for signatures only */
 } ncr_rsa_type_t;
 
-typedef enum {
-	NCR_KEY_PARAMS_CIPHER,
-	NCR_KEY_PARAMS_DH,
-	NCR_KEY_PARAMS_RSA
-} ncr_key_params_type_t;
-
 /* used in derivation/encryption
  */
 struct ncr_key_params_st {
-	ncr_key_params_type_t type;
+	/* this structure always corresponds to a key. Hence the
+	 * parameters of the union selected are based on the corresponding
+	 * key */
 	union {
 		struct {
 			uint8_t iv[NCR_CIPHER_MAX_BLOCK_LEN];
