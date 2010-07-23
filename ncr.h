@@ -73,7 +73,7 @@ struct ncr_data_init_st {
 
 struct ncr_data_st {
 	ncr_data_t desc;
-	void __user* data;
+	void __user *data;
 	size_t data_size; /* rw in get */
 	unsigned int append_flag; /* only when used with NCRIO_DATA_SET */
 };
