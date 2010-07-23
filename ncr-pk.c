@@ -329,7 +329,7 @@ void ncr_pk_cipher_deinit(struct ncr_pk_ctx* ctx)
 	}
 }
 
-int ncr_pk_cipher_init(ncr_algorithm_t algo, 
+int ncr_pk_cipher_init(const struct algo_properties_st *algo,
 	struct ncr_pk_ctx* ctx, struct ncr_key_params_st* params,
 	struct key_item_st *key)
 {
@@ -337,21 +337,21 @@ int ret;
 
 	memset(ctx, 0, sizeof(*ctx));
 	
-	if (key->algorithm->algo != algo) {
+	if (key->algorithm != algo) {
 		err();
 		return -EINVAL;
 	}
 
 	ctx->algorithm = algo;
 	ctx->key = key;
-	ret = ncr_key_params_get_sign_hash(algo, params);
+	ret = ncr_key_params_get_sign_hash(algo->algo, params);
 	if (ret < 0) {
 		err();
 		return ret;
 	}
 	ctx->sign_hash = ret;
 
-	switch(algo) {
+	switch(algo->algo) {
 		case NCR_ALG_RSA:
 			if (params->params.rsa.type == RSA_PKCS1_V1_5)
 				ctx->type = LTC_LTC_PKCS_1_V1_5;
@@ -382,7 +382,7 @@ int ncr_pk_cipher_encrypt(const struct ncr_pk_ctx* ctx,
 int cret;
 unsigned long osize = *output_size;
 
-	switch(ctx->algorithm) {
+	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
 			cret = rsa_encrypt_key_ex( input, input_size, output, &osize, 
 				NULL, 0, ctx->oaep_hash, ctx->type, &ctx->key->key.pk.rsa);
@@ -412,7 +412,7 @@ int cret;
 unsigned long osize = *output_size;
 int stat;
 
-	switch(ctx->algorithm) {
+	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
 			cret = rsa_decrypt_key_ex( input, input_size, output, &osize, 
 				NULL, 0, ctx->oaep_hash, ctx->type, &stat, &ctx->key->key.pk.rsa);
@@ -446,7 +446,7 @@ int ncr_pk_cipher_sign(const struct ncr_pk_ctx* ctx,
 int cret;
 unsigned long osize = *output_size;
 
-	switch(ctx->algorithm) {
+	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
 			cret = rsa_sign_hash_ex( input, input_size, output, &osize, 
 				ctx->type, ctx->sign_hash, ctx->salt_len, &ctx->key->key.pk.rsa);
@@ -482,7 +482,7 @@ int ncr_pk_cipher_verify(const struct ncr_pk_ctx* ctx,
 int cret;
 int stat;
 
-	switch(ctx->algorithm) {
+	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
 			cret = rsa_verify_hash_ex( signature, signature_size, 
 				hash, hash_size, ctx->type, ctx->sign_hash,

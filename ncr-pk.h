@@ -4,7 +4,7 @@
 #include <tomcrypt.h>
 
 struct ncr_pk_ctx {
-	ncr_algorithm_t algorithm; /* algorithm */
+	const struct algo_properties_st *algorithm; /* algorithm */
 	
 	ncr_algorithm_t sign_hash; /* for verification */
 	
@@ -30,7 +30,7 @@ int ncr_pk_queue_init(void);
 void ncr_pk_queue_deinit(void);
 
 /* encryption/decryption */
-int ncr_pk_cipher_init(ncr_algorithm_t algo, 
+int ncr_pk_cipher_init(const struct algo_properties_st *algo,
 	struct ncr_pk_ctx* ctx, struct ncr_key_params_st* params,
 	struct key_item_st *key);
 void ncr_pk_cipher_deinit(struct ncr_pk_ctx* ctx);

@@ -345,7 +345,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 					cryptodev_cipher_set_iv(&ns->cipher, session->params.params.cipher.iv, session->params.params.cipher.iv_size);
 				}
 			} else if (ns->key->type == NCR_KEY_TYPE_PRIVATE || ns->key->type == NCR_KEY_TYPE_PUBLIC) {
-				ret = ncr_pk_cipher_init(ns->algorithm->algo, &ns->pk, 
+				ret = ncr_pk_cipher_init(ns->algorithm, &ns->pk, 
 					&session->params, ns->key);
 				if (ret < 0) {
 					err();
@@ -407,7 +407,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 					goto fail;
 				}
 
-				ret = ncr_pk_cipher_init(ns->algorithm->algo, &ns->pk, 
+				ret = ncr_pk_cipher_init(ns->algorithm, &ns->pk, 
 					&session->params, ns->key);
 				if (ret < 0) {
 					err();
