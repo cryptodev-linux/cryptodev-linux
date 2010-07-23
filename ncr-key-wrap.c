@@ -44,23 +44,15 @@ static void val64_xor( val64_t val, uint32_t x)
 }
 
 static int rfc3394_wrap(val64_t R[], unsigned int n, struct cipher_data* ctx,
-	struct data_item_st* odata, const uint8_t iv[8])
+	struct data_item_st* output, const uint8_t iv[8])
 {
 val64_t A;
 uint8_t aes_block[16];
-int i,j, ret;
-uint8_t * output;
-size_t output_size = (n+1)*8;
+int i,j;
 
-	if (odata->max_data_size < output_size) {
+	if (output->max_data_size < (n+1)*8) {
 		err();
 		return -EINVAL;
-	}
-	
-	output = kmalloc(output_size, GFP_KERNEL);
-	if (output == NULL) {
-		err();
-		return -ENOMEM;
 	}
 
 	memcpy(A, iv, 8);
@@ -80,14 +72,12 @@ size_t output_size = (n+1)*8;
 		memcpy(R[n-1], &aes_block[8], 8); /* R[n-1] = LSB64(AES(A^{t-1}|R_{1}^{t-1})) */
 	}
 
-	memcpy(output, A, sizeof(A));
+	memcpy(output->data, A, sizeof(A));
 	for (j=0;j<n;j++)
-		memcpy(&output[(j+1)*8], R[j], 8);
-	
-	ret = ncr_data_item_setd( odata, output, output_size, odata->flags);
-	kfree(output);
-	
-	return ret;
+		memcpy(&output->data[(j+1)*8], R[j], 8);
+	output->data_size = (n+1)*8;
+
+	return 0;
 }
 
 static int rfc3394_unwrap(uint8_t *wrapped_key, val64_t R[], unsigned int n, val64_t A, struct cipher_data *ctx)
@@ -187,7 +177,7 @@ static int _unwrap_aes_rfc5649(void* kdata, size_t *kdata_size, struct key_item_
 	struct data_item_st *wrapped, const void* _iv, size_t iv_size)
 {
 size_t wrapped_key_size, n;
-uint8_t *wrapped_key = NULL;
+uint8_t *wrapped_key;
 int i, ret;
 struct cipher_data ctx;
 uint8_t iv[4];
@@ -206,20 +196,8 @@ size_t size;
 		return ret;
 	}
 
-	wrapped_key = kmalloc(wrapped->data_size, GFP_KERNEL);
-	if (wrapped_key == NULL) {
-		err();
-		ret = -ENOMEM;
-		goto cleanup;
-	}
-
+	wrapped_key = wrapped->data;
 	wrapped_key_size = wrapped->data_size;
-	
-	ret =  ncr_data_item_getd( wrapped, wrapped_key, wrapped->data_size, wrapped->flags);
-	if (ret < 0) {
-		err();
-		goto cleanup;
-	}
 
 	if (wrapped_key_size % 8 != 0) {
 		err();
@@ -278,7 +256,6 @@ size_t size;
 	ret = 0;
 
 cleanup:
-	kfree(wrapped_key);
 	cryptodev_cipher_deinit(&ctx);
 
 	return ret;
@@ -385,7 +362,7 @@ static int unwrap_aes(struct key_item_st* output, struct key_item_st *kek,
 	struct data_item_st* wrapped, const void* iv, size_t iv_size)
 {
 size_t wrapped_key_size, n;
-uint8_t *wrapped_key = NULL;
+uint8_t *wrapped_key;
 val64_t A;
 int i, ret;
 struct cipher_data ctx;
@@ -403,20 +380,8 @@ struct cipher_data ctx;
 
 	output->type = NCR_KEY_TYPE_SECRET;
 
-	wrapped_key = kmalloc(wrapped->data_size, GFP_KERNEL);
-	if (wrapped_key == NULL) {
-		err();
-		ret = -ENOMEM;
-		goto cleanup;
-	}
-
+	wrapped_key = wrapped->data;
 	wrapped_key_size = wrapped->data_size;
-	
-	ret =  ncr_data_item_getd( wrapped, wrapped_key, wrapped_key_size, wrapped->flags);
-	if (ret < 0) {
-		err();
-		goto cleanup;
-	}
 
 	if (wrapped_key_size % 8 != 0) {
 		err();
@@ -454,13 +419,13 @@ struct cipher_data ctx;
 		output->key.secret.size = n*8;
 		output->flags = NCR_KEY_FLAG_WRAPPABLE;
 		output->type = NCR_KEY_TYPE_SECRET;
+
 	}
 
 
 	ret = 0;
 
 cleanup:
-	kfree(wrapped_key);
 	cryptodev_cipher_deinit(&ctx);
 
 	return ret;

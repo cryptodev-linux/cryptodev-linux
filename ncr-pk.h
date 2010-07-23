@@ -34,20 +34,15 @@ int ncr_pk_cipher_init(ncr_algorithm_t algo,
 	struct ncr_pk_ctx* ctx, struct ncr_key_params_st* params,
 	struct key_item_st *key);
 void ncr_pk_cipher_deinit(struct ncr_pk_ctx* ctx);
-int ncr_pk_cipher_encrypt(const struct ncr_pk_ctx* ctx, 
-	const struct scatterlist* isg, unsigned int isg_cnt, size_t isg_size,
-	struct scatterlist *osg, unsigned int osg_cnt, size_t* osg_size);
+int ncr_pk_cipher_encrypt(const struct ncr_pk_ctx* ctx, const void* input, 
+	size_t input_size, void* output, size_t *output_size);
+int ncr_pk_cipher_decrypt(const struct ncr_pk_ctx* ctx, const void* input, 
+	size_t input_size, void* output, size_t *output_size);
+int ncr_pk_cipher_sign(const struct ncr_pk_ctx* ctx, const void* input, 
+	size_t input_size, void* output, size_t *output_size);
 
-int ncr_pk_cipher_decrypt(const struct ncr_pk_ctx* ctx,
- 	const struct scatterlist* isg, unsigned int isg_cnt, size_t isg_size,
-	struct scatterlist *osg, unsigned int osg_cnt, size_t* osg_size);
-
-int ncr_pk_cipher_sign(const struct ncr_pk_ctx* ctx, 
-	const struct scatterlist* isg, unsigned int isg_cnt, size_t isg_size,
-	struct scatterlist *osg, unsigned int osg_cnt, size_t* osg_size);
-	
 int ncr_pk_cipher_verify(const struct ncr_pk_ctx* ctx, 
-	const struct scatterlist* sign_sg, unsigned int sign_sg_cnt, size_t sign_sg_size,
-	const void* hash, size_t hash_size, ncr_error_t*  err);
+	const void* signature, size_t signature_size, 
+	const void* hash, size_t hash_size, ncr_error_t*);
 
 #endif

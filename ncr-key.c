@@ -238,9 +238,7 @@ struct ncr_key_data_st data;
 struct key_item_st* item = NULL;
 struct data_item_st* ditem = NULL;
 uint32_t size;
-uint32_t data_flags;
 int ret;
-uint8_t* tmp = NULL;
 
 	if (unlikely(copy_from_user(&data, arg, sizeof(data)))) {
 		err();
@@ -260,7 +258,7 @@ uint8_t* tmp = NULL;
 		goto fail;
 	}
 
-	data_flags = key_flags_to_data(item->flags);
+	ditem->flags = key_flags_to_data(item->flags);
 
 	switch (item->type) {
 		case NCR_KEY_TYPE_SECRET:
@@ -272,41 +270,21 @@ uint8_t* tmp = NULL;
 
 			/* found */
 			if (item->key.secret.size > 0) {
-				ret = ncr_data_item_setd( ditem, 
-					item->key.secret.data, item->key.secret.size,
-					data_flags);
-				if (ret < 0) {
-					err();
-					goto fail;
-				}
+				memcpy(ditem->data, item->key.secret.data, item->key.secret.size);
 			}
+			ditem->data_size = item->key.secret.size;
 			break;
 		case NCR_KEY_TYPE_PUBLIC:
 		case NCR_KEY_TYPE_PRIVATE:
 			size = ditem->max_data_size;
+			ret = ncr_pk_pack(item, ditem->data, &size);
 			
-			tmp = kmalloc(size, GFP_KERNEL);
-			if (tmp == NULL) {
-				err();
-				ret = -ENOMEM;
-				goto fail;
-			}
-
-			ret = ncr_pk_pack(item, tmp, &size);
 			ditem->data_size = size;
 			
 			if (ret < 0) {
 				err();
 				goto fail;
 			}
-			
-			ret = ncr_data_item_setd( ditem, tmp, size, data_flags);
-			if (ret < 0) {
-				err();		
-				goto fail;
-			}
-
-			kfree(tmp);
 			
 			break;
 		default:
@@ -321,7 +299,6 @@ uint8_t* tmp = NULL;
 	return 0;
 
 fail:
-	kfree(tmp);
 	if (item)
 		_ncr_key_item_put(item);
 	if (ditem)
@@ -339,7 +316,6 @@ int ncr_key_import(struct list_sem_st* data_lst,
 struct ncr_key_data_st data;
 struct key_item_st* item = NULL;
 struct data_item_st* ditem = NULL;
-uint8_t *tmp = NULL;
 int ret;
 
 	if (unlikely(copy_from_user(&data, arg, sizeof(data)))) {
@@ -381,39 +357,23 @@ int ret;
 
 	switch(item->type) {
 		case NCR_KEY_TYPE_SECRET:
+
 			if (ditem->data_size > NCR_CIPHER_MAX_KEY_LEN) {
 				err();
 				ret = -EINVAL;
 				goto fail;
 			}
 			
-			ret = ncr_data_item_getd(ditem, item->key.secret.data, ditem->data_size, item->flags);
-			if (ret < 0) {
-				err();
-				goto fail;
-			}
+			memcpy(item->key.secret.data, ditem->data, ditem->data_size);
 			item->key.secret.size = ditem->data_size;
 			break;
 		case NCR_KEY_TYPE_PRIVATE:
 		case NCR_KEY_TYPE_PUBLIC:
-			tmp = kmalloc(ditem->data_size, GFP_KERNEL);
-			if (tmp == NULL) {
-				err();
-				return -ENOMEM;
-			}
-
-			ret = ncr_data_item_getd(ditem, tmp, ditem->data_size, item->flags);
+			ret = ncr_pk_unpack( item, ditem->data, ditem->data_size);
 			if (ret < 0) {
 				err();
 				goto fail;
 			}
-
-			ret = ncr_pk_unpack( item, tmp, ditem->data_size);
-			if (ret < 0) {
-				err();
-				goto fail;
-			}
-			kfree(tmp);
 			break;
 
 		default:
@@ -428,7 +388,6 @@ int ret;
 	return 0;
 
 fail:
-	kfree(tmp);
 	if (item)
 		_ncr_key_item_put(item);
 	if (ditem)

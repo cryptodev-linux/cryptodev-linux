@@ -339,7 +339,6 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
 	dinit.initial_data = data;
 	dinit.initial_data_size = RSA_ENCRYPT_SIZE;
-	dinit.type = NCR_DATA_KERNEL;
 
 	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -352,7 +351,6 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 	memset(&dinit, 0, sizeof(dinit));
 	dinit.max_object_size = DATA_SIZE;
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
-	dinit.type = NCR_DATA_KERNEL;
 
 	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -439,7 +437,6 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
 	dinit.initial_data = data;
 	dinit.initial_data_size = sizeof(data);
-	dinit.type = NCR_DATA_KERNEL;
 
 	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -452,7 +449,6 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 	memset(&dinit, 0, sizeof(dinit));
 	dinit.max_object_size = DATA_SIZE;
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
-	dinit.type = NCR_DATA_KERNEL;
 
 	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -533,7 +529,6 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 	memset(&dinit, 0, sizeof(dinit));
 	dinit.max_object_size = DATA_SIZE;
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
-	dinit.type = NCR_DATA_KERNEL;
 
 	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -626,7 +621,6 @@ static int test_ncr_rsa(int cfd)
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
 	dinit.initial_data = NULL;
 	dinit.initial_data_size = 0;
-	dinit.type = NCR_DATA_KERNEL;
 
 	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -650,6 +644,7 @@ static int test_ncr_rsa(int cfd)
 	kdata.desc = dinit.desc;
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
+	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -681,6 +676,7 @@ static int test_ncr_rsa(int cfd)
 	kdata.desc = dinit.desc;
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
+	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -769,7 +765,6 @@ static int test_ncr_dsa(int cfd)
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
 	dinit.initial_data = NULL;
 	dinit.initial_data_size = 0;
-	dinit.type = NCR_DATA_KERNEL;
 
 	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -793,6 +788,7 @@ static int test_ncr_dsa(int cfd)
 	kdata.desc = dinit.desc;
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
+	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -824,6 +820,7 @@ static int test_ncr_dsa(int cfd)
 	kdata.desc = dinit.desc;
 	kdata.data = data;
 	kdata.data_size = sizeof(data);
+	kdata.append_flag = 0;
 
 	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);

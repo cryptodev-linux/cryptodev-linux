@@ -101,141 +101,9 @@ void _ncr_data_item_put( struct data_item_st* item)
 {
 	if (atomic_dec_and_test(&item->refcnt)) {
 			ncr_limits_remove(item->uid, item->pid, LIMIT_TYPE_DATA);
-			if (item->type == NCR_DATA_KERNEL)
-				kfree(item->data.kernel);
-			else if (item->type == NCR_DATA_USER)
-				ncr_data_item_put_sg(item); /* just in case */
+			kfree(item->data);
 			kfree(item);
 	}
-}
-
-int ncr_data_item_get_sg( struct data_item_st* item, struct scatterlist** sg, 
-	unsigned int *sg_cnt, size_t *data_size, size_t* max_data_size, unsigned int data_flags, int write)
-{
-	if (item->type == NCR_DATA_KERNEL) {
-		item->flags = data_flags;
-
-		sg_init_one(item->_sg, item->data.kernel, item->max_data_size);
-
-		if (data_size) *data_size = item->data_size;
-		if (max_data_size) *max_data_size = item->max_data_size;
-		*sg_cnt = 1;
-		*sg = item->_sg;
-		
-	} else if (item->type == NCR_DATA_USER) {
-		int ret;
-		size_t pagecount = PAGECOUNT(item->data.user.ptr, item->data_size);
-		
-		if (atomic_add_unless(&item->data.user.pg_used, 1, 1) == 0) {
-			err();
-			return -EBUSY;
-		}
-		
-		if (!(data_flags & NCR_DATA_FLAG_EXPORTABLE)) {
-			err();
-			return -EPERM;
-		}
-		
-		if (pagecount > MAX_DATA_PAGES) {
-			err();
-			return -EOVERFLOW;
-		}
-
-		ret = __get_userbuf(item->data.user.ptr, item->data_size, write,
-			pagecount, item->data.user.pg, item->_sg);
-		if (ret < 0) {
-			err();
-			return ret;
-		}
-
-		if (max_data_size) *max_data_size = item->data_size;
-		if (data_size) *data_size = item->data_size;
-		*sg = item->_sg;
-		*sg_cnt = item->data.user.pg_cnt = pagecount;
-	} else {
-		err();
-		return -EINVAL;
-	}
-
-	return 0;
-}
-
-void ncr_data_item_put_sg( struct data_item_st* item)
-{
-	if (item->type == NCR_DATA_USER && atomic_read(&item->data.user.pg_used) > 0) {
-		if (item->data.user.pg_cnt > 0) {
-			release_user_pages(item->data.user.pg, item->data.user.pg_cnt);
-			item->data.user.pg_cnt = 0;
-		}
-		atomic_dec(&item->data.user.pg_used);
-	}
-
-	return;
-}
-
-int ncr_data_item_setd( struct data_item_st* item, const void* data, size_t data_size, unsigned int data_flags)
-{
-struct scatterlist* sg;
-size_t sg_max_size;
-unsigned int sg_cnt;
-int ret;
-
-	ret = ncr_data_item_get_sg(item, &sg, &sg_cnt, NULL, &sg_max_size, data_flags, 1);
-	if (ret < 0) {
-		err();
-		return ret;
-	}
-	
-	if (data_size > sg_max_size) {
-		err();
-		ret = -EOVERFLOW;
-		goto fail;
-	}
-
-	ret = sg_copy_from_buffer(sg, sg_cnt, (void*)data, data_size);
-	if (ret != data_size) {
-		err();
-		ret = -EINVAL;
-		goto fail;
-	}
-	item->data_size = data_size;
-
-	ret = 0;
-fail:
-	ncr_data_item_put_sg(item);
-	return ret;
-}
-
-int ncr_data_item_getd( struct data_item_st* item, void* data, size_t data_size, unsigned int data_flags)
-{
-struct scatterlist* sg;
-size_t sg_size;
-unsigned int sg_cnt;
-int ret;
-
-	ret = ncr_data_item_get_sg(item, &sg, &sg_cnt, &sg_size, NULL, data_flags, 0);
-	if (ret < 0) {
-		err();
-		return ret;
-	}
-
-	if (data_size < sg_size) {
-		err();
-		ret = -EOVERFLOW;
-		goto fail;
-	}
-	
-	ret = sg_copy_to_buffer(sg, sg_cnt, data, data_size);
-	if (ret != data_size) {
-		err();
-		ret = -EINVAL;
-		goto fail;
-	}
-
-	ret = 0;
-fail:
-	ncr_data_item_put_sg(item);
-	return ret;
 }
 
 int ncr_data_init(struct list_sem_st* lst, void __user* arg)
@@ -271,33 +139,22 @@ int ncr_data_init(struct list_sem_st* lst, void __user* arg)
 
 	atomic_set(&data->refcnt, 1);
 
-	data->type = init.type;
-
-	if (init.type == NCR_DATA_KERNEL) {
-		data->data.kernel = data_alloc(init.max_object_size);
-		if (data->data.kernel == NULL) {
-			err();
-			ret = -ENOMEM;
-			goto err_data;
-		}
-		data->max_data_size = init.max_object_size;
-
-		if (init.initial_data != NULL) {
-			if (unlikely(copy_from_user(data->data.kernel, init.initial_data,
-						    init.initial_data_size))) {
-				err();
-				_ncr_data_item_put(data);
-				return -EFAULT;
-			}
-			data->data_size = init.initial_data_size;
-		}
-	} else if (init.type == NCR_DATA_USER) {
-		data->data.user.ptr = init.initial_data;
-		data->max_data_size = data->data_size = init.initial_data_size;
-		atomic_set(&data->data.user.pg_used, 0);
-	} else {
+	data->data = data_alloc(init.max_object_size);
+	if (data->data == NULL) {
 		err();
+		ret = -ENOMEM;
 		goto err_data;
+	}
+	data->max_data_size = init.max_object_size;
+
+	if (init.initial_data != NULL) {
+		if (unlikely(copy_from_user(data->data, init.initial_data,
+					    init.initial_data_size))) {
+			err();
+			_ncr_data_item_put(data);
+			return -EFAULT;
+		}
+		data->data_size = init.initial_data_size;
 	}
 
 	down(&lst->sem);
@@ -361,17 +218,12 @@ int ncr_data_get(struct list_sem_st* lst, void __user* arg)
 		err();
 		return -EFAULT;
 	}
-	
+
 	data = ncr_data_item_get( lst, get.desc);
+
 	if (data == NULL) {
 		err();
 		return -EINVAL;
-	}
-
-	if (data->type == NCR_DATA_USER) {
-		err();
-		ret = -EINVAL;
-		goto cleanup;
 	}
 
 	if (!(data->flags & NCR_DATA_FLAG_EXPORTABLE)) {
@@ -381,9 +233,10 @@ int ncr_data_get(struct list_sem_st* lst, void __user* arg)
 	}
 
 	len = min(get.data_size, data->data_size);
+
 	/* update length */
 	get.data_size = len;
-
+	
 	ret = copy_to_user(arg, &get, sizeof(get));
 	if (unlikely(ret)) {
 		err();
@@ -391,7 +244,7 @@ int ncr_data_get(struct list_sem_st* lst, void __user* arg)
 	}
 
 	if (ret == 0 && len > 0) {
-		ret = copy_to_user(get.data, data->data.kernel, len);
+		ret = copy_to_user(get.data, data->data, len);
 		if (unlikely(ret)) {
 			err();
 			ret = -EFAULT;
@@ -416,15 +269,10 @@ int ncr_data_set(struct list_sem_st* lst, void __user* arg)
 	}
 
 	data = ncr_data_item_get( lst, get.desc);
+
 	if (data == NULL) {
 		err();
 		return -EINVAL;
-	}
-
-	if (data->type == NCR_DATA_USER) {
-		err();
-		ret = -EINVAL;
-		goto cleanup;
 	}
 
 	if ((get.data_size > data->max_data_size) ||
@@ -434,16 +282,37 @@ int ncr_data_set(struct list_sem_st* lst, void __user* arg)
 		goto cleanup;
 	}
 
-	if (get.data != NULL) {
-		if (unlikely(copy_from_user(data->data.kernel, get.data,
-					    get.data_size))) {
+	if (!get.append_flag) {
+		if (get.data != NULL) {
+			if (unlikely(copy_from_user(data->data, get.data,
+						    get.data_size))) {
+				err();
+				ret = -EFAULT;
+				goto cleanup;
+			}
+		}
+		data->data_size = get.data_size;
+	} else {
+		size_t offset;
+
+		offset = data->data_size;
+		/* get.data_size <= data->max_data_size, which is limited in
+		   data_alloc(), so there is no integer overflow. */
+		if (get.data_size+offset > data->max_data_size) {
 			err();
-			ret = -EFAULT;
+			ret = -EINVAL;
 			goto cleanup;
 		}
+		if (get.data != NULL) {
+			if (unlikely(copy_from_user(&data->data[offset],
+						    get.data, get.data_size))) {
+				err();
+				ret = -EFAULT;
+				goto cleanup;
+			}		
+		}
+		data->data_size = offset + get.data_size;
 	}
-	data->data_size = get.data_size;
-
 	ret = 0;
 
 cleanup:
