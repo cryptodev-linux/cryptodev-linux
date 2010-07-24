@@ -88,7 +88,7 @@ int rsa_decrypt_key_ex(const unsigned char *in,       unsigned long  inlen,
 
   if (padding == LTC_LTC_PKCS_1_OAEP) {
     /* now OAEP decode the packet */
-    err = pkcs_1_oaep_decode(tmp, x, lparam, lparamlen, modulus_bitlen, hash->algo,
+    err = pkcs_1_oaep_decode(tmp, x, lparam, lparamlen, modulus_bitlen, hash,
                              out, outlen, stat);
   } else {
     /* now LTC_PKCS #1 v1.5 depad the packet */

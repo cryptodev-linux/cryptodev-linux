@@ -49,7 +49,7 @@ int pkcs_1_oaep_encode(const unsigned char *msg,    unsigned long msglen,
 
 int pkcs_1_oaep_decode(const unsigned char *msg,    unsigned long msglen,
                        const unsigned char *lparam, unsigned long lparamlen,
-                             unsigned long modulus_bitlen, int hash_idx,
+                             unsigned long modulus_bitlen, const struct algo_properties_st *hash,
                              unsigned char *out,    unsigned long *outlen,
                              int           *res);
 
