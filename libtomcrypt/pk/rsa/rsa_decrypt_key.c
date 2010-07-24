@@ -59,7 +59,7 @@ int rsa_decrypt_key_ex(const unsigned char *in,       unsigned long  inlen,
 
   if (padding == LTC_LTC_PKCS_1_OAEP) {
     /* valid hash ? */
-    if ((err = hash_is_valid(hash->algo)) != CRYPT_OK) {
+    if ((err = hash_is_valid(hash)) != CRYPT_OK) {
        return err;
     }
   }

@@ -44,7 +44,7 @@ int pkcs_1_oaep_encode(const unsigned char *msg,    unsigned long msglen,
    LTC_ARGCHK(outlen != NULL);
 
    /* test valid hash */
-   if ((err = hash_is_valid(hash->algo)) != CRYPT_OK) { 
+   if ((err = hash_is_valid(hash)) != CRYPT_OK) {
       return err;
    }
 

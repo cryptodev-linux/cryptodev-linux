@@ -40,7 +40,7 @@ int pkcs_1_mgf1(const struct algo_properties_st *hash,
    LTC_ARGCHK(mask != NULL);
 
    /* ensure valid hash */
-   if ((err = hash_is_valid(hash->algo)) != CRYPT_OK) {
+   if ((err = hash_is_valid(hash)) != CRYPT_OK) {
       return err;
    }
 

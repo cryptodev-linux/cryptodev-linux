@@ -58,7 +58,7 @@ int rsa_verify_hash_ex(const unsigned char *sig,      unsigned long siglen,
 
   if (padding == LTC_LTC_PKCS_1_PSS) {
     /* valid hash ? */
-    if ((err = hash_is_valid(hash_algo->algo)) != CRYPT_OK) {
+    if ((err = hash_is_valid(hash_algo)) != CRYPT_OK) {
        return err;
     }
   }

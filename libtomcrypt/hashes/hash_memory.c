@@ -36,7 +36,7 @@ int hash_memory(const struct algo_properties_st *hash, const unsigned char *in, 
     LTC_ARGCHK(out    != NULL);
     LTC_ARGCHK(outlen != NULL);
 
-    if ((err = hash_is_valid(hash->algo)) != CRYPT_OK) {
+    if ((err = hash_is_valid(hash)) != CRYPT_OK) {
         return err;
     }
 

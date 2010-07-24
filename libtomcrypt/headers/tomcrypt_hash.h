@@ -2,7 +2,7 @@
 
 struct algo_properties_st;
 
-int hash_is_valid(int idx);
+int hash_is_valid(const struct algo_properties_st *hash);
 
 int hash_memory(const struct algo_properties_st *hash,
                 const unsigned char *in,  unsigned long inlen, 

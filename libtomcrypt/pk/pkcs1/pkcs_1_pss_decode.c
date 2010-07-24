@@ -46,7 +46,7 @@ int pkcs_1_pss_decode(const unsigned char *msghash, unsigned long msghashlen,
    *res = 0;
 
    /* ensure hash is valid */
-   if ((err = hash_is_valid(hash_algo->algo)) != CRYPT_OK) {
+   if ((err = hash_is_valid(hash_algo)) != CRYPT_OK) {
       return err;
    }
 

@@ -43,7 +43,7 @@ int pkcs_1_pss_encode(const unsigned char *msghash, unsigned long msghashlen,
    LTC_ARGCHK(outlen  != NULL);
 
    /* ensure hash and PRNG are valid */
-   if ((err = hash_is_valid(hash_algo->algo)) != CRYPT_OK) {
+   if ((err = hash_is_valid(hash_algo)) != CRYPT_OK) {
       return err;
    }
 
