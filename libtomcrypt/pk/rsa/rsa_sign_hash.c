@@ -69,7 +69,7 @@ int rsa_sign_hash_ex(const unsigned char *in,       unsigned long  inlen,
     /* PSS pad the key */
     x = *outlen;
     if ((err = pkcs_1_pss_encode(in, inlen, saltlen, 
-                                 hash->algo, modulus_bitlen, out, &x)) != CRYPT_OK) {
+                                 hash, modulus_bitlen, out, &x)) != CRYPT_OK) {
        return err;
     }
   } else {

@@ -54,7 +54,7 @@ int pkcs_1_oaep_decode(const unsigned char *msg,    unsigned long msglen,
                              int           *res);
 
 int pkcs_1_pss_encode(const unsigned char *msghash, unsigned long msghashlen,
-                            unsigned long saltlen, int           hash_idx,
+                            unsigned long saltlen, const struct algo_properties_st *hash,
                             unsigned long modulus_bitlen,
                             unsigned char *out,     unsigned long *outlen);
 

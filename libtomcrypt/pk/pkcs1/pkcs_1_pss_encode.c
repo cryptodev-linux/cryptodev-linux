@@ -23,14 +23,14 @@
    @param msghash          The hash to encode
    @param msghashlen       The length of the hash (octets)
    @param saltlen          The length of the salt desired (octets)
-   @param hash_idx         The index of the hash desired
+   @param hash_algo        The desired hash
    @param modulus_bitlen   The bit length of the RSA modulus
    @param out              [out] The destination of the encoding
    @param outlen           [in/out] The max size and resulting size of the encoded data
    @return CRYPT_OK if successful
 */
 int pkcs_1_pss_encode(const unsigned char *msghash, unsigned long msghashlen,
-                            unsigned long saltlen,  int           hash_idx,
+                            unsigned long saltlen, const struct algo_properties_st *hash_algo,
                             unsigned long modulus_bitlen,
                             unsigned char *out,     unsigned long *outlen)
 {
@@ -43,11 +43,11 @@ int pkcs_1_pss_encode(const unsigned char *msghash, unsigned long msghashlen,
    LTC_ARGCHK(outlen  != NULL);
 
    /* ensure hash and PRNG are valid */
-   if ((err = hash_is_valid(hash_idx)) != CRYPT_OK) {
+   if ((err = hash_is_valid(hash_algo->algo)) != CRYPT_OK) {
       return err;
    }
 
-   hLen = _ncr_algo_digest_size(hash_idx);
+   hLen = _ncr_algo_digest_size(hash_algo->algo);
    modulus_len = (modulus_bitlen>>3) + (modulus_bitlen & 7 ? 1 : 0);
 
    /* check sizes */
@@ -83,7 +83,7 @@ int pkcs_1_pss_encode(const unsigned char *msghash, unsigned long msghashlen,
    }
 
    /* M = (eight) 0x00 || msghash || salt, hash = H(M) */
-   err = hash_memory_multi(hash_idx, hash, &hLen, DB, 8, msghash, (unsigned long)msghashlen, salt, (unsigned long)saltlen, NULL, 0);
+   err = hash_memory_multi(hash_algo->algo, hash, &hLen, DB, 8, msghash, (unsigned long)msghashlen, salt, (unsigned long)saltlen, NULL, 0);
    if (err != CRYPT_OK) {
       goto LBL_ERR;
    }
@@ -97,7 +97,7 @@ int pkcs_1_pss_encode(const unsigned char *msghash, unsigned long msghashlen,
    x += saltlen;
 
    /* generate mask of length modulus_len - hLen - 1 from hash */
-   if ((err = pkcs_1_mgf1(hash_idx, hash, hLen, mask, modulus_len - hLen - 1)) != CRYPT_OK) {
+   if ((err = pkcs_1_mgf1(hash_algo->algo, hash, hLen, mask, modulus_len - hLen - 1)) != CRYPT_OK) {
       goto LBL_ERR;
    }
 
