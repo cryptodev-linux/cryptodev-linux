@@ -420,7 +420,7 @@ int stat;
 	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
 			cret = rsa_decrypt_key_ex( input, input_size, output, &osize, 
-				NULL, 0, ctx->oaep_hash->algo, ctx->type, &stat, &ctx->key->key.pk.rsa);
+				NULL, 0, ctx->oaep_hash, ctx->type, &stat, &ctx->key->key.pk.rsa);
 
 			if (cret != CRYPT_OK) {
 				err();

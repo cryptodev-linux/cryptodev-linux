@@ -62,8 +62,8 @@ void rsa_free(rsa_key *key);
 #define rsa_encrypt_key(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash, _key) \
   rsa_encrypt_key_ex(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash, LTC_LTC_PKCS_1_OAEP, _key)
 
-#define rsa_decrypt_key(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash_idx, _stat, _key) \
-  rsa_decrypt_key_ex(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash_idx, LTC_LTC_PKCS_1_OAEP, _stat, _key)
+#define rsa_decrypt_key(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash, _stat, _key) \
+  rsa_decrypt_key_ex(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash, LTC_LTC_PKCS_1_OAEP, _stat, _key)
 
 #define rsa_sign_hash(_in, _inlen, _out, _outlen, _hash_idx, _saltlen, _key) \
   rsa_sign_hash_ex(_in, _inlen, _out, _outlen, LTC_LTC_PKCS_1_PSS, _hash_idx, _saltlen, _key)
@@ -80,7 +80,7 @@ int rsa_encrypt_key_ex(const unsigned char *in,     unsigned long inlen,
 int rsa_decrypt_key_ex(const unsigned char *in,       unsigned long  inlen,
                              unsigned char *out,      unsigned long *outlen,
                        const unsigned char *lparam,   unsigned long  lparamlen,
-                             int            hash_idx, int            padding,
+                       const struct algo_properties_st *hash, int padding,
                              int           *stat,     rsa_key       *key);
 
 int rsa_sign_hash_ex(const unsigned char *in,       unsigned long  inlen,
