@@ -25,14 +25,14 @@
    @param  sig             The signature data (encoded data)
    @param  siglen          The length of the signature data (octets)
    @param  saltlen         The length of the salt used (octets)
-   @param  hash_idx        The index of the hash desired
+   @param  hash_algo       The desired hash
    @param  modulus_bitlen  The bit length of the RSA modulus
    @param  res             [out] The result of the comparison, 1==valid, 0==invalid
    @return CRYPT_OK if successful (even if the comparison failed)
 */
 int pkcs_1_pss_decode(const unsigned char *msghash, unsigned long msghashlen,
                       const unsigned char *sig,     unsigned long siglen,
-                            unsigned long saltlen,  int           hash_idx,
+                            unsigned long saltlen, const struct algo_properties_st *hash_algo,
                             unsigned long modulus_bitlen, int    *res)
 {
    unsigned char *DB, *mask, *salt, *hash;
@@ -46,11 +46,11 @@ int pkcs_1_pss_decode(const unsigned char *msghash, unsigned long msghashlen,
    *res = 0;
 
    /* ensure hash is valid */
-   if ((err = hash_is_valid(hash_idx)) != CRYPT_OK) {
+   if ((err = hash_is_valid(hash_algo)) != CRYPT_OK) {
       return err;
    }
 
-   hLen = _ncr_algo_digest_size(hash_idx);
+   hLen = hash_algo->digest_size;
    modulus_len = (modulus_bitlen>>3) + (modulus_bitlen & 7 ? 1 : 0);
 
    /* check sizes */
@@ -102,7 +102,7 @@ int pkcs_1_pss_decode(const unsigned char *msghash, unsigned long msghashlen,
    }
 
    /* generate mask of length modulus_len - hLen - 1 from hash */
-   if ((err = pkcs_1_mgf1(hash_idx, hash, hLen, mask, modulus_len - hLen - 1)) != CRYPT_OK) {
+   if ((err = pkcs_1_mgf1(hash_algo, hash, hLen, mask, modulus_len - hLen - 1)) != CRYPT_OK) {
       goto LBL_ERR;
    }
 
@@ -131,7 +131,7 @@ int pkcs_1_pss_decode(const unsigned char *msghash, unsigned long msghashlen,
    }
 
    /* M = (eight) 0x00 || msghash || salt, mask = H(M) */
-   err = hash_memory_multi(hash_idx, mask, &hLen, mask, 8, msghash, (unsigned long)msghashlen, DB+x, (unsigned long)saltlen, NULL, 0);
+   err = hash_memory_multi(hash_algo, mask, &hLen, mask, 8, msghash, (unsigned long)msghashlen, DB+x, (unsigned long)saltlen, NULL, 0);
    if (err != CRYPT_OK) {
       goto LBL_ERR;
    }

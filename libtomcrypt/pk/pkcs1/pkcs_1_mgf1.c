@@ -22,12 +22,12 @@
    Perform LTC_PKCS #1 MGF1 (internal)
    @param seed        The seed for MGF1
    @param seedlen     The length of the seed
-   @param hash_idx    The index of the hash desired
+   @param hash        The desired hash
    @param mask        [out] The destination
    @param masklen     The length of the mask desired
    @return CRYPT_OK if successful
 */
-int pkcs_1_mgf1(int                  hash_idx,
+int pkcs_1_mgf1(const struct algo_properties_st *hash,
                 const unsigned char *seed, unsigned long seedlen,
                       unsigned char *mask, unsigned long masklen)
 {
@@ -40,12 +40,12 @@ int pkcs_1_mgf1(int                  hash_idx,
    LTC_ARGCHK(mask != NULL);
 
    /* ensure valid hash */
-   if ((err = hash_is_valid(hash_idx)) != CRYPT_OK) { 
+   if ((err = hash_is_valid(hash)) != CRYPT_OK) {
       return err;
    }
 
    /* get hash output size */
-   hLen = _ncr_algo_digest_size(hash_idx);
+   hLen = hash->digest_size;
 
    /* allocate memory */
    buf = XMALLOC(hLen);
@@ -61,7 +61,7 @@ int pkcs_1_mgf1(int                  hash_idx,
        STORE32H(counter, buf);
        ++counter;
 
-       err = hash_memory_multi(hash_idx, buf, &hLen, seed, seedlen, buf, (unsigned long) 4, NULL, 0);
+       err = hash_memory_multi(hash, buf, &hLen, seed, seedlen, buf, (unsigned long) 4, NULL, 0);
        if (err != CRYPT_OK) {
           goto LBL_ERR;
        }

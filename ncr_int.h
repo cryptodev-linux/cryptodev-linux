@@ -10,10 +10,26 @@
 
 #define err() printk(KERN_DEBUG"ncr: %s: %s: %d\n", __FILE__, __func__, __LINE__)
 
+struct algo_properties_st {
+	ncr_algorithm_t algo;
+	const char *kstr;
+	unsigned needs_iv:1;
+	unsigned is_hmac:1;
+	unsigned can_sign:1;
+	unsigned can_digest:1;
+	unsigned can_encrypt:1;
+	unsigned is_symmetric:1;
+	int digest_size;
+	/* NCR_KEY_TYPE_SECRET if for a secret key algorithm or MAC,
+	 * NCR_KEY_TYPE_PUBLIC for a public key algorithm.
+	 */
+	ncr_key_type_t key_type;
+};
+
 struct session_item_st {
 	struct list_head list;
 
-	ncr_algorithm_t algorithm;
+	const struct algo_properties_st *algorithm;
 	ncr_crypto_op_t op;
 
 	/* contexts for various options.
@@ -56,7 +72,7 @@ struct key_item_st {
 	 */
 	ncr_key_type_t type;
 	unsigned int flags;
-	ncr_algorithm_t algorithm; /* valid for public/private keys */
+	const struct algo_properties_st *algorithm; /* non-NULL for public/private keys */
 	uint8_t key_id[MAX_KEY_ID_SIZE];
 	size_t key_id_size;
 
@@ -142,8 +158,6 @@ int ncr_limits_add_and_check(uid_t uid, pid_t pid, limits_type_t type);
 void ncr_limits_init(void);
 void ncr_limits_deinit(void);
 
-ncr_key_type_t ncr_algorithm_to_key_type(ncr_algorithm_t algo);
-
 int ncr_key_wrap(struct list_sem_st* keys, struct list_sem_st* data, void __user* arg);
 int ncr_key_unwrap(struct list_sem_st*, struct list_sem_st* data, void __user* arg);
 int ncr_key_storage_wrap(struct list_sem_st* key_lst, struct list_sem_st* data_lst, void __user* arg);
@@ -191,8 +205,7 @@ inline static unsigned int data_flags_to_key(unsigned int data_flags)
 	return flags;
 }
 
-const char* _ncr_algo_to_str(ncr_algorithm_t algo);
-int _ncr_algo_digest_size(ncr_algorithm_t algo);
-int ncr_key_params_get_sign_hash(ncr_algorithm_t algo, struct ncr_key_params_st * params);
+const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo);
+const struct algo_properties_st *ncr_key_params_get_sign_hash(const struct algo_properties_st *algo, struct ncr_key_params_st * params);
 
 #endif

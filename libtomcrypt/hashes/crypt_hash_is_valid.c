@@ -17,10 +17,10 @@
 
 /*
    Test if a hash index is valid
-   @param idx   The index of the hash to search for
+   @param idx   The hash to search for
    @return CRYPT_OK if valid
 */
-int hash_is_valid(int idx)
+int hash_is_valid(const struct algo_properties_st *hash)
 {
    return CRYPT_OK;
 }

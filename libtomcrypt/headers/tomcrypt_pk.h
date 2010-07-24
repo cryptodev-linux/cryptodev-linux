@@ -1,5 +1,7 @@
 /* ---- NUMBER THEORY ---- */
 
+struct algo_properties_st;
+
 enum {
    PK_PUBLIC=0,
    PK_PRIVATE=1
@@ -57,40 +59,40 @@ int rsa_exptmod(const unsigned char *in,   unsigned long inlen,
 void rsa_free(rsa_key *key);
 
 /* These use LTC_PKCS #1 v2.0 padding */
-#define rsa_encrypt_key(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash_idx, _key) \
-  rsa_encrypt_key_ex(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash_idx, LTC_LTC_PKCS_1_OAEP, _key)
+#define rsa_encrypt_key(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash, _key) \
+  rsa_encrypt_key_ex(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash, LTC_LTC_PKCS_1_OAEP, _key)
 
-#define rsa_decrypt_key(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash_idx, _stat, _key) \
-  rsa_decrypt_key_ex(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash_idx, LTC_LTC_PKCS_1_OAEP, _stat, _key)
+#define rsa_decrypt_key(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash, _stat, _key) \
+  rsa_decrypt_key_ex(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash, LTC_LTC_PKCS_1_OAEP, _stat, _key)
 
-#define rsa_sign_hash(_in, _inlen, _out, _outlen, _hash_idx, _saltlen, _key) \
-  rsa_sign_hash_ex(_in, _inlen, _out, _outlen, LTC_LTC_PKCS_1_PSS, _hash_idx, _saltlen, _key)
+#define rsa_sign_hash(_in, _inlen, _out, _outlen, _hash, _saltlen, _key) \
+  rsa_sign_hash_ex(_in, _inlen, _out, _outlen, LTC_LTC_PKCS_1_PSS, _hash, _saltlen, _key)
 
-#define rsa_verify_hash(_sig, _siglen, _hash, _hashlen, _hash_idx, _saltlen, _stat, _key) \
-  rsa_verify_hash_ex(_sig, _siglen, _hash, _hashlen, LTC_LTC_PKCS_1_PSS, _hash_idx, _saltlen, _stat, _key)
+#define rsa_verify_hash(_sig, _siglen, _hash, _hashlen, _hash_algo, _saltlen, _stat, _key) \
+  rsa_verify_hash_ex(_sig, _siglen, _hash, _hashlen, LTC_LTC_PKCS_1_PSS, _hash_algo, _saltlen, _stat, _key)
 
 /* These can be switched between LTC_PKCS #1 v2.x and LTC_PKCS #1 v1.5 paddings */
 int rsa_encrypt_key_ex(const unsigned char *in,     unsigned long inlen,
                              unsigned char *out,    unsigned long *outlen,
                        const unsigned char *lparam, unsigned long lparamlen,
-                       int hash_idx, int padding, rsa_key *key);
+                       const struct algo_properties_st *hash, int padding, rsa_key *key);
 
 int rsa_decrypt_key_ex(const unsigned char *in,       unsigned long  inlen,
                              unsigned char *out,      unsigned long *outlen,
                        const unsigned char *lparam,   unsigned long  lparamlen,
-                             int            hash_idx, int            padding,
+                       const struct algo_properties_st *hash, int padding,
                              int           *stat,     rsa_key       *key);
 
 int rsa_sign_hash_ex(const unsigned char *in,       unsigned long  inlen,
                            unsigned char *out,      unsigned long *outlen,
                            int            padding,
-                           int            hash_idx, unsigned long  saltlen,
+                     const struct algo_properties_st *hash, unsigned long saltlen,
                            rsa_key *key);
 
 int rsa_verify_hash_ex(const unsigned char *sig,      unsigned long siglen,
                        const unsigned char *hash,     unsigned long hashlen,
                              int            padding,
-                             int            hash_idx, unsigned long saltlen,
+                       const struct algo_properties_st *hash_algo, unsigned long saltlen,
                              int           *stat,     rsa_key      *key);
 
 /* LTC_PKCS #1 import/export */

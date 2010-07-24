@@ -9,6 +9,7 @@
  * Tom St Denis, tomstdenis@gmail.com, http://libtom.org
  */
 #include "tomcrypt.h"
+#include "ncr_int.h"
 
 /**
   @file rsa_sign_hash.c
@@ -24,7 +25,7 @@
   @param out       [out] The signature
   @param outlen    [in/out] The max size and resulting size of the signature
   @param padding   Type of padding (LTC_LTC_PKCS_1_PSS or LTC_LTC_PKCS_1_V1_5)
-  @param hash_idx  The index of the hash desired
+  @param hash      The desired hash
   @param saltlen   The length of the salt desired (octets)
   @param key       The private RSA key to use
   @return CRYPT_OK if successful
@@ -32,7 +33,7 @@
 int rsa_sign_hash_ex(const unsigned char *in,       unsigned long  inlen,
                            unsigned char *out,      unsigned long *outlen,
                            int            padding,
-                           int            hash_idx, unsigned long  saltlen,
+                     const struct algo_properties_st *hash, unsigned long saltlen,
                            rsa_key *key)
 {
    unsigned long modulus_bitlen, modulus_bytelen, x, y;
@@ -49,7 +50,7 @@ int rsa_sign_hash_ex(const unsigned char *in,       unsigned long  inlen,
    }
 
    if (padding == LTC_LTC_PKCS_1_PSS) {
-     if ((err = hash_is_valid(hash_idx)) != CRYPT_OK) {
+     if ((err = hash_is_valid(hash)) != CRYPT_OK) {
         return err;
      }
    }
@@ -68,7 +69,7 @@ int rsa_sign_hash_ex(const unsigned char *in,       unsigned long  inlen,
     /* PSS pad the key */
     x = *outlen;
     if ((err = pkcs_1_pss_encode(in, inlen, saltlen, 
-                                 hash_idx, modulus_bitlen, out, &x)) != CRYPT_OK) {
+                                 hash, modulus_bitlen, out, &x)) != CRYPT_OK) {
        return err;
     }
   } else {
@@ -78,7 +79,7 @@ int rsa_sign_hash_ex(const unsigned char *in,       unsigned long  inlen,
     oid_st st;
 
     /* not all hashes have OIDs... so sad */
-    if (hash_get_oid(hash_idx, &st) != CRYPT_OK) {
+    if (hash_get_oid(hash, &st) != CRYPT_OK) {
        return CRYPT_INVALID_ARG;
     }
 

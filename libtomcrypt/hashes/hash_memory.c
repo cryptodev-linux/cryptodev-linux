@@ -19,18 +19,17 @@
 
 /**
   Hash a block of memory and store the digest.
-  @param hash   The index of the hash you wish to use
+  @param hash   The hash you wish to use
   @param in     The data you wish to hash
   @param inlen  The length of the data to hash (octets)
   @param out    [out] Where to store the digest
   @param outlen [in/out] Max size and resulting size of the digest
   @return CRYPT_OK if successful
 */
-int hash_memory(int hash, const unsigned char *in, unsigned long inlen, unsigned char *out, unsigned long *outlen)
+int hash_memory(const struct algo_properties_st *hash, const unsigned char *in, unsigned long inlen, unsigned char *out, unsigned long *outlen)
 {
     int err;
     struct hash_data hdata;
-    int digest_size;
 
     LTC_ARGCHK(in     != NULL);
     LTC_ARGCHK(out    != NULL);
@@ -40,13 +39,12 @@ int hash_memory(int hash, const unsigned char *in, unsigned long inlen, unsigned
         return err;
     }
 
-    digest_size = _ncr_algo_digest_size(hash);
-    if (*outlen < digest_size) {
-       *outlen = digest_size;
+    if (*outlen < hash->digest_size) {
+       *outlen = hash->digest_size;
        return CRYPT_BUFFER_OVERFLOW;
     }
 
-    err = cryptodev_hash_init( &hdata, _ncr_algo_to_str(hash), 0, NULL, 0);
+    err = cryptodev_hash_init( &hdata, hash->kstr, 0, NULL, 0);
     if (err < 0) {
        err = CRYPT_INVALID_HASH;
        goto LBL_ERR;
@@ -59,7 +57,7 @@ int hash_memory(int hash, const unsigned char *in, unsigned long inlen, unsigned
     
     err = cryptodev_hash_final(&hdata, out);
     
-    *outlen = digest_size;
+    *outlen = hash->digest_size;
 LBL_ERR:
     cryptodev_hash_deinit(&hdata);
 

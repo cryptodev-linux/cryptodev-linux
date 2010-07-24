@@ -45,7 +45,9 @@ static int tomerr(int err)
 
 void ncr_pk_clear(struct key_item_st* key)
 {
-	switch(key->algorithm) {
+	if (key->algorithm == NULL)
+		return;
+	switch(key->algorithm->algo) {
 		case NCR_ALG_RSA:
 			rsa_free(&key->key.pk.rsa);
 			break;
@@ -71,7 +73,7 @@ static int ncr_pk_make_public_and_id( struct key_item_st * private, struct key_i
 		return -ENOMEM;
 	}
 
-	switch(private->algorithm) {
+	switch(private->algorithm->algo) {
 		case NCR_ALG_RSA:
 			cret = rsa_export(tmp, &max_size, PK_PUBLIC, &private->key.pk.rsa);
 			if (cret != CRYPT_OK) {
@@ -109,7 +111,7 @@ static int ncr_pk_make_public_and_id( struct key_item_st * private, struct key_i
 	}
 
 	key_id_size = MAX_KEY_ID_SIZE;
-	cret = hash_memory(NCR_ALG_SHA1, tmp, max_size, private->key_id, &key_id_size);
+	cret = hash_memory(_ncr_algo_to_properties(NCR_ALG_SHA1), tmp, max_size, private->key_id, &key_id_size);
 	if (cret != CRYPT_OK) {
 		err();
 		ret = tomerr(cret);
@@ -135,7 +137,7 @@ int ncr_pk_pack( const struct key_item_st * key, uint8_t * packed, uint32_t * pa
 		return -EINVAL;
 	}
 
-	switch(key->algorithm) {
+	switch(key->algorithm->algo) {
 		case NCR_ALG_RSA:
 			cret = rsa_export(packed, &max_size, key->key.pk.rsa.type, (void*)&key->key.pk.rsa);
 			if (cret != CRYPT_OK) {
@@ -170,7 +172,7 @@ int ncr_pk_unpack( struct key_item_st * key, const void * packed, size_t packed_
 		return -EINVAL;
 	}
 
-	switch(key->algorithm) {
+	switch(key->algorithm->algo) {
 		case NCR_ALG_RSA:
 			cret = rsa_import(packed, packed_size, (void*)&key->key.pk.rsa);
 			if (cret != CRYPT_OK) {
@@ -197,7 +199,7 @@ struct keygen_st {
 	struct work_struct pk_gen;
 	struct completion completed;
 	int ret;
-	ncr_algorithm_t algo;
+	const struct algo_properties_st *algo;
 	struct key_item_st* private;
 	struct key_item_st* public;
 	struct ncr_key_generate_params_st * params;
@@ -210,7 +212,7 @@ static void keygen_handler(struct work_struct *instance)
 	struct keygen_st *st =
 	    container_of(instance, struct keygen_st, pk_gen);
 
-	switch(st->algo) {
+	switch(st->algo->algo) {
 		case NCR_ALG_RSA:
 			e = st->params->params.rsa.e;
 			
@@ -246,7 +248,7 @@ static void keygen_handler(struct work_struct *instance)
 }
 
 
-int ncr_pk_generate(ncr_algorithm_t algo,
+int ncr_pk_generate(const struct algo_properties_st *algo,
 	struct ncr_key_generate_params_st * params,
 	struct key_item_st* private, struct key_item_st* public) 
 {
@@ -303,16 +305,21 @@ void ncr_pk_queue_deinit(void)
 	destroy_workqueue(pk_wq);
 }
 
-int ncr_key_params_get_sign_hash(ncr_algorithm_t algo, struct ncr_key_params_st * params)
+const struct algo_properties_st *ncr_key_params_get_sign_hash(const struct algo_properties_st *algo, struct ncr_key_params_st * params)
 {
-	switch(algo) {
+	ncr_algorithm_t id;
+
+	switch(algo->algo) {
 		case NCR_ALG_RSA:
-			return params->params.rsa.sign_hash;
+			id = params->params.rsa.sign_hash;
+			break;
 		case NCR_ALG_DSA:
-			return params->params.dsa.sign_hash;
+			id = params->params.dsa.sign_hash;
+			break;
 		default:
-			return -EINVAL;
+			return ERR_PTR(-EINVAL);
 	}
+	return _ncr_algo_to_properties(id);
 }
 
 /* Encryption/Decryption
@@ -326,12 +333,10 @@ void ncr_pk_cipher_deinit(struct ncr_pk_ctx* ctx)
 	}
 }
 
-int ncr_pk_cipher_init(ncr_algorithm_t algo, 
+int ncr_pk_cipher_init(const struct algo_properties_st *algo,
 	struct ncr_pk_ctx* ctx, struct ncr_key_params_st* params,
-	struct key_item_st *key)
+	struct key_item_st *key, const struct algo_properties_st *sign_hash)
 {
-int ret;
-
 	memset(ctx, 0, sizeof(*ctx));
 	
 	if (key->algorithm != algo) {
@@ -341,23 +346,22 @@ int ret;
 
 	ctx->algorithm = algo;
 	ctx->key = key;
-	ret = ncr_key_params_get_sign_hash(algo, params);
-	if (ret < 0) {
-		err();
-		return ret;
-	}
-	ctx->sign_hash = ret;
+	ctx->sign_hash = sign_hash;
 
-	switch(algo) {
+	switch(algo->algo) {
 		case NCR_ALG_RSA:
 			if (params->params.rsa.type == RSA_PKCS1_V1_5)
 				ctx->type = LTC_LTC_PKCS_1_V1_5;
-			else if (params->params.rsa.type == RSA_PKCS1_OAEP)
+			else if (params->params.rsa.type == RSA_PKCS1_OAEP) {
 				ctx->type = LTC_LTC_PKCS_1_OAEP;
-			else if (params->params.rsa.type == RSA_PKCS1_PSS)
+				ctx->oaep_hash = _ncr_algo_to_properties(params->params.rsa.oaep_hash);
+				if (ctx->oaep_hash == NULL) {
+				  err();
+				  return -EINVAL;
+				}
+			} else if (params->params.rsa.type == RSA_PKCS1_PSS)
 				ctx->type = LTC_LTC_PKCS_1_PSS;
 			
-			ctx->oaep_hash = params->params.rsa.oaep_hash;
 			ctx->salt_len = params->params.rsa.pss_salt;
 			break;
 		case NCR_ALG_DSA:
@@ -379,7 +383,7 @@ int ncr_pk_cipher_encrypt(const struct ncr_pk_ctx* ctx,
 int cret;
 unsigned long osize = *output_size;
 
-	switch(ctx->algorithm) {
+	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
 			cret = rsa_encrypt_key_ex( input, input_size, output, &osize, 
 				NULL, 0, ctx->oaep_hash, ctx->type, &ctx->key->key.pk.rsa);
@@ -409,7 +413,7 @@ int cret;
 unsigned long osize = *output_size;
 int stat;
 
-	switch(ctx->algorithm) {
+	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
 			cret = rsa_decrypt_key_ex( input, input_size, output, &osize, 
 				NULL, 0, ctx->oaep_hash, ctx->type, &stat, &ctx->key->key.pk.rsa);
@@ -443,8 +447,12 @@ int ncr_pk_cipher_sign(const struct ncr_pk_ctx* ctx,
 int cret;
 unsigned long osize = *output_size;
 
-	switch(ctx->algorithm) {
+	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
+			if (ctx->sign_hash == NULL) {
+				err();
+				return -EINVAL;
+			}
 			cret = rsa_sign_hash_ex( input, input_size, output, &osize, 
 				ctx->type, ctx->sign_hash, ctx->salt_len, &ctx->key->key.pk.rsa);
 
@@ -479,8 +487,12 @@ int ncr_pk_cipher_verify(const struct ncr_pk_ctx* ctx,
 int cret;
 int stat;
 
-	switch(ctx->algorithm) {
+	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
+			if (ctx->sign_hash == NULL) {
+				err();
+				return -EINVAL;
+			}
 			cret = rsa_verify_hash_ex( signature, signature_size, 
 				hash, hash_size, ctx->type, ctx->sign_hash,
 				ctx->salt_len, &stat, &ctx->key->key.pk.rsa);

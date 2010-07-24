@@ -9,6 +9,7 @@
  * Tom St Denis, tomstdenis@gmail.com, http://libtom.org
  */
 #include "tomcrypt.h"
+#include "ncr_int.h"
 
 /**
   @file rsa_decrypt_key.c
@@ -25,7 +26,7 @@
    @param outlen      [in/out] The max size and resulting size of the plaintext (octets)
    @param lparam      The system "lparam" value
    @param lparamlen   The length of the lparam value (octets)
-   @param hash_idx    The index of the hash desired
+   @param hash        The desired hash
    @param padding     Type of padding (LTC_LTC_PKCS_1_OAEP or LTC_LTC_PKCS_1_V1_5)
    @param stat        [out] Result of the decryption, 1==valid, 0==invalid
    @param key         The corresponding private RSA key
@@ -34,7 +35,7 @@
 int rsa_decrypt_key_ex(const unsigned char *in,       unsigned long  inlen,
                              unsigned char *out,      unsigned long *outlen,
                        const unsigned char *lparam,   unsigned long  lparamlen,
-                             int            hash_idx, int            padding,
+                       const struct algo_properties_st *hash, int padding,
                              int           *stat,     rsa_key       *key)
 {
   unsigned long modulus_bitlen, modulus_bytelen, x;
@@ -58,7 +59,7 @@ int rsa_decrypt_key_ex(const unsigned char *in,       unsigned long  inlen,
 
   if (padding == LTC_LTC_PKCS_1_OAEP) {
     /* valid hash ? */
-    if ((err = hash_is_valid(hash_idx)) != CRYPT_OK) {
+    if ((err = hash_is_valid(hash)) != CRYPT_OK) {
        return err;
     }
   }
@@ -87,7 +88,7 @@ int rsa_decrypt_key_ex(const unsigned char *in,       unsigned long  inlen,
 
   if (padding == LTC_LTC_PKCS_1_OAEP) {
     /* now OAEP decode the packet */
-    err = pkcs_1_oaep_decode(tmp, x, lparam, lparamlen, modulus_bitlen, hash_idx,
+    err = pkcs_1_oaep_decode(tmp, x, lparam, lparamlen, modulus_bitlen, hash,
                              out, outlen, stat);
   } else {
     /* now LTC_PKCS #1 v1.5 depad the packet */

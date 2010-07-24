@@ -4,11 +4,11 @@
 #include <tomcrypt.h>
 
 struct ncr_pk_ctx {
-	ncr_algorithm_t algorithm; /* algorithm */
+	const struct algo_properties_st *algorithm; /* algorithm */
 	
-	ncr_algorithm_t sign_hash; /* for verification */
+	const struct algo_properties_st *sign_hash; /* for verification */
 	
-	ncr_algorithm_t oaep_hash;
+	const struct algo_properties_st *oaep_hash;
 	int salt_len; /* for RSA-PSS signatures */
 	
 	int type; /* libtomcrypt type */
@@ -19,7 +19,7 @@ struct ncr_pk_ctx {
 
 /* PK */
 void ncr_pk_clear(struct key_item_st* key);
-int ncr_pk_generate(ncr_algorithm_t algo,
+int ncr_pk_generate(const struct algo_properties_st *algo,
 	struct ncr_key_generate_params_st * params,
 	struct key_item_st* private, struct key_item_st* public);
 int ncr_pk_pack( const struct key_item_st * key, uint8_t * packed, uint32_t * packed_size);
@@ -30,9 +30,9 @@ int ncr_pk_queue_init(void);
 void ncr_pk_queue_deinit(void);
 
 /* encryption/decryption */
-int ncr_pk_cipher_init(ncr_algorithm_t algo, 
+int ncr_pk_cipher_init(const struct algo_properties_st *algo,
 	struct ncr_pk_ctx* ctx, struct ncr_key_params_st* params,
-	struct key_item_st *key);
+	struct key_item_st *key, const struct algo_properties_st *sign_hash);
 void ncr_pk_cipher_deinit(struct ncr_pk_ctx* ctx);
 int ncr_pk_cipher_encrypt(const struct ncr_pk_ctx* ctx, const void* input, 
 	size_t input_size, void* output, size_t *output_size);

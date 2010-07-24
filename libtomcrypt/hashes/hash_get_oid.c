@@ -46,9 +46,9 @@ static const oid_st sha512_oid = {
    .OID = { 2, 16, 840, 1, 101, 3, 4, 2, 3,  },
 };
 
-int hash_get_oid(int hash, oid_st *st)
+int hash_get_oid(const struct algo_properties_st *hash, oid_st *st)
 {
-   switch (hash) {
+   switch (hash->algo) {
       case NCR_ALG_SHA1:
          memcpy(st, &sha1_oid, sizeof(*st));
          break;

@@ -173,31 +173,3 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 			return -EINVAL;
 	}
 }
-
-/* Returns NCR_KEY_TYPE_SECRET if a secret key algorithm or MAC is given,
- * and NCR_KEY_TYPE_PUBLIC if a public key algorithm is given.
- */
-ncr_key_type_t ncr_algorithm_to_key_type(ncr_algorithm_t algo)
-{
-	switch(algo) {
-		case NCR_ALG_3DES_CBC:
-		case NCR_ALG_AES_CBC:
-		case NCR_ALG_CAMELLIA_CBC:
-		case NCR_ALG_ARCFOUR:
-		case NCR_ALG_HMAC_SHA1:
-		case NCR_ALG_HMAC_MD5:
-		case NCR_ALG_HMAC_SHA2_224:
-		case NCR_ALG_HMAC_SHA2_256:
-		case NCR_ALG_HMAC_SHA2_384:
-		case NCR_ALG_HMAC_SHA2_512:
-			return NCR_KEY_TYPE_SECRET;
-		case NCR_ALG_RSA:
-		case NCR_ALG_DSA:
-			return NCR_KEY_TYPE_PUBLIC;
-		default:
-			return NCR_KEY_TYPE_INVALID;
-	}
-	
-}
-
-

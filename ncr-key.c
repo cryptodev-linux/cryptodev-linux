@@ -337,7 +337,12 @@ int ret;
 	}
 
 	item->type = data.type;
-	item->algorithm = data.algorithm;
+	item->algorithm = _ncr_algo_to_properties(data.algorithm);
+	if (item->algorithm == NULL) {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}
 	item->flags = data.flags;
 	/* if data cannot be exported then the flags above
 	 * should be overriden */
@@ -414,6 +419,7 @@ int ncr_key_generate(struct list_sem_st* lst, void __user* arg)
 {
 struct ncr_key_generate_st gen;
 struct key_item_st* item = NULL;
+const struct algo_properties_st *algo;
 int ret;
 size_t size;
 
@@ -432,9 +438,15 @@ size_t size;
 
 	/* we generate only secret keys */
 	item->flags = gen.params.keyflags;
-	item->type = ncr_algorithm_to_key_type(gen.params.algorithm);
+	algo = _ncr_algo_to_properties(gen.params.algorithm);
+	if (algo == NULL) {
+		err();
+		return ret;
+	}
+	item->type = algo->key_type;
 	if (item->type == NCR_KEY_TYPE_SECRET) {
-		item->algorithm = /* arbitrary */ NCR_ALG_AES_CBC;
+		/* arbitrary */
+		item->algorithm = _ncr_algo_to_properties(NCR_ALG_AES_CBC);
 
 		size = gen.params.params.secret.bits/8;
 		if ((gen.params.params.secret.bits % 8 != 0) ||
@@ -485,7 +497,7 @@ int ret;
 
 	info.flags = item->flags;
 	info.type = item->type;
-	info.algorithm = item->algorithm;
+	info.algorithm = item->algorithm->algo;
 
 	_ncr_key_item_put( item);
 
@@ -521,13 +533,18 @@ int ret;
 
 	/* we generate only secret keys */
 	private->flags = public->flags = gen.params.keyflags;
-	public->type = ncr_algorithm_to_key_type(gen.params.algorithm);
+	private->algorithm = public->algorithm = _ncr_algo_to_properties(gen.params.algorithm);
+	if (private->algorithm == NULL) {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}
+	public->type = public->algorithm->key_type;
 	private->type = NCR_KEY_TYPE_PRIVATE;
-	private->algorithm = public->algorithm = gen.params.algorithm;
 	public->flags |= (NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE);
 	
 	if (public->type == NCR_KEY_TYPE_PUBLIC) {
-		ret = ncr_pk_generate(gen.params.algorithm, &gen.params, private, public);
+		ret = ncr_pk_generate(public->algorithm, &gen.params, private, public);
 		if (ret < 0) {
 			err();
 			goto fail;
