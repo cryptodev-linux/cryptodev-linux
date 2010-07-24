@@ -1,5 +1,7 @@
 /* ---- HASH FUNCTIONS ---- */
 
+struct algo_properties_st;
+
 int hash_is_valid(int idx);
 
 int hash_memory(int hash, 
@@ -8,5 +10,5 @@ int hash_memory(int hash,
 int hash_memory_multi(int hash, unsigned char *out, unsigned long *outlen,
                       const unsigned char *in, unsigned long inlen, ...);
 
-int hash_get_oid(int hash, oid_st* st);
+int hash_get_oid(const struct algo_properties_st *hash, oid_st* st);
 

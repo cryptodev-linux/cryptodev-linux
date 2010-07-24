@@ -79,7 +79,7 @@ int rsa_sign_hash_ex(const unsigned char *in,       unsigned long  inlen,
     oid_st st;
 
     /* not all hashes have OIDs... so sad */
-    if (hash_get_oid(hash->algo, &st) != CRYPT_OK) {
+    if (hash_get_oid(hash, &st) != CRYPT_OK) {
        return CRYPT_INVALID_ARG;
     }
 

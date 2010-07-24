@@ -103,7 +103,7 @@ int rsa_verify_hash_ex(const unsigned char *sig,      unsigned long siglen,
     oid_st st;
 
     /* not all hashes have OIDs... so sad */
-    if (hash_get_oid(hash_algo->algo, &st) != CRYPT_OK) {
+    if (hash_get_oid(hash_algo, &st) != CRYPT_OK) {
        err = CRYPT_INVALID_ARG;
        goto bail_2;
     }
