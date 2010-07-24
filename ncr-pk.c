@@ -305,16 +305,21 @@ void ncr_pk_queue_deinit(void)
 	destroy_workqueue(pk_wq);
 }
 
-int ncr_key_params_get_sign_hash(ncr_algorithm_t algo, struct ncr_key_params_st * params)
+const struct algo_properties_st *ncr_key_params_get_sign_hash(const struct algo_properties_st *algo, struct ncr_key_params_st * params)
 {
-	switch(algo) {
+	ncr_algorithm_t id;
+
+	switch(algo->algo) {
 		case NCR_ALG_RSA:
-			return params->params.rsa.sign_hash;
+			id = params->params.rsa.sign_hash;
+			break;
 		case NCR_ALG_DSA:
-			return params->params.dsa.sign_hash;
+			id = params->params.dsa.sign_hash;
+			break;
 		default:
-			return -EINVAL;
+			return ERR_PTR(-EINVAL);
 	}
+	return _ncr_algo_to_properties(id);
 }
 
 /* Encryption/Decryption
@@ -332,8 +337,6 @@ int ncr_pk_cipher_init(const struct algo_properties_st *algo,
 	struct ncr_pk_ctx* ctx, struct ncr_key_params_st* params,
 	struct key_item_st *key)
 {
-int ret;
-
 	memset(ctx, 0, sizeof(*ctx));
 	
 	if (key->algorithm != algo) {
@@ -343,12 +346,11 @@ int ret;
 
 	ctx->algorithm = algo;
 	ctx->key = key;
-	ret = ncr_key_params_get_sign_hash(algo->algo, params);
-	if (ret < 0) {
+	ctx->sign_hash = ncr_key_params_get_sign_hash(algo, params);
+	if (IS_ERR(ctx->sign_hash)) {
 		err();
-		return ret;
+		return PTR_ERR(ctx->sign_hash);
 	}
-	ctx->sign_hash = _ncr_algo_to_properties(ret);
 
 	switch(algo->algo) {
 		case NCR_ALG_RSA:

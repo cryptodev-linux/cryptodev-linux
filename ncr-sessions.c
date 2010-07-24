@@ -286,7 +286,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 {
 	struct session_item_st* ns = NULL;
 	int ret;
-	ncr_algorithm_t sign_hash;
+	const struct algo_properties_st *sign_hash;
 	const char* str = NULL;
 
 	ns = ncr_session_new(&lists->sessions);
@@ -388,19 +388,18 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				}
 
 			} else if (ns->key->type == NCR_KEY_TYPE_PRIVATE || ns->key->type == NCR_KEY_TYPE_PUBLIC) {
-				ret = ncr_key_params_get_sign_hash(ns->key->algorithm->algo, &session->params);
-				if (ret < 0) {
+				sign_hash = ncr_key_params_get_sign_hash(ns->key->algorithm, &session->params);
+				if (IS_ERR(sign_hash)) {
 					err();
-					return ret;
+					return PTR_ERR(sign_hash);
 				}
-				sign_hash = ret;
 
-				if (algo_can_digest(sign_hash) == 0) {
+				if (algo_can_digest(sign_hash->algo) == 0) {
 					err();
 					ret = -EINVAL;
 					goto fail;
 				}
-				str = _ncr_algo_to_str(sign_hash);
+				str = _ncr_algo_to_str(sign_hash->algo);
 				if (str == NULL) {
 					err();
 					ret = -EINVAL;

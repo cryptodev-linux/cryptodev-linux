@@ -208,6 +208,6 @@ inline static unsigned int data_flags_to_key(unsigned int data_flags)
 const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo);
 const char* _ncr_algo_to_str(ncr_algorithm_t algo);
 int _ncr_algo_digest_size(ncr_algorithm_t algo);
-int ncr_key_params_get_sign_hash(ncr_algorithm_t algo, struct ncr_key_params_st * params);
+const struct algo_properties_st *ncr_key_params_get_sign_hash(const struct algo_properties_st *algo, struct ncr_key_params_st * params);
 
 #endif
