@@ -197,26 +197,11 @@ const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo)
 	return NULL;
 }
 
-const char* _ncr_algo_to_str(ncr_algorithm_t algo)
-{
-ncr_algorithm_t a;
-int i = 0;
-
-	while((a=algo_properties[i].algo)!=NCR_ALG_NONE) {
-		if (a == algo)
-			return algo_properties[i].kstr;
-		i++;
-	}
-
-	return NULL;
-}
-
 static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* session)
 {
 	struct session_item_st* ns = NULL;
 	int ret;
 	const struct algo_properties_st *sign_hash;
-	const char* str = NULL;
 
 	ns = ncr_session_new(&lists->sessions);
 	if (ns == NULL) {
@@ -252,13 +237,12 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				if (session->algorithm == NCR_ALG_NULL)
 				  keysize = 0;
 				
-				str = _ncr_algo_to_str(session->algorithm);
-				if (str == NULL) {
+				if (ns->algorithm->kstr == NULL) {
 					err();
 					return -EINVAL;
 				}
 
-				ret = cryptodev_cipher_init(&ns->cipher, str, 
+				ret = cryptodev_cipher_init(&ns->cipher, ns->algorithm->kstr,
 					ns->key->key.secret.data, keysize);
 				if (ret < 0) {
 					err();
@@ -303,13 +287,12 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 			}
 
 			if (ns->key->type == NCR_KEY_TYPE_SECRET) {
-				str = _ncr_algo_to_str(session->algorithm);
-				if (str == NULL) {
+				if (ns->algorithm->kstr == NULL) {
 					err();
 					return -EINVAL;
 				}
 
-				ret = cryptodev_hash_init(&ns->hash, str, 1, 
+				ret = cryptodev_hash_init(&ns->hash, ns->algorithm->kstr, 1,
 					ns->key->key.secret.data, ns->key->key.secret.size);
 				if (ret < 0) {
 					err();
@@ -328,8 +311,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 					ret = -EINVAL;
 					goto fail;
 				}
-				str = _ncr_algo_to_str(sign_hash->algo);
-				if (str == NULL) {
+				if (sign_hash->kstr == NULL) {
 					err();
 					ret = -EINVAL;
 					goto fail;
@@ -342,7 +324,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 					goto fail;
 				}
 
-				ret = cryptodev_hash_init(&ns->hash, str, 0, NULL, 0);
+				ret = cryptodev_hash_init(&ns->hash, sign_hash->kstr, 0, NULL, 0);
 				if (ret < 0) {
 					err();
 					goto fail;
@@ -360,14 +342,13 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				ret = -EINVAL;
 				goto fail;
 			}
-			str = _ncr_algo_to_str(session->algorithm);
-			if (str == NULL) {
+			if (ns->algorithm->kstr == NULL) {
 				err();
 				ret = -EINVAL;
 				goto fail;
 			}
 
-			ret = cryptodev_hash_init(&ns->hash, str, 0, NULL, 0);
+			ret = cryptodev_hash_init(&ns->hash, ns->algorithm->kstr, 0, NULL, 0);
 			if (ret < 0) {
 				err();
 				goto fail;

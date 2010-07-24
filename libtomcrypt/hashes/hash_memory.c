@@ -44,7 +44,7 @@ int hash_memory(const struct algo_properties_st *hash, const unsigned char *in, 
        return CRYPT_BUFFER_OVERFLOW;
     }
 
-    err = cryptodev_hash_init( &hdata, _ncr_algo_to_str(hash->algo), 0, NULL, 0);
+    err = cryptodev_hash_init( &hdata, hash->kstr, 0, NULL, 0);
     if (err < 0) {
        err = CRYPT_INVALID_HASH;
        goto LBL_ERR;
