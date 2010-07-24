@@ -30,7 +30,6 @@ int hash_memory(const struct algo_properties_st *hash, const unsigned char *in, 
 {
     int err;
     struct hash_data hdata;
-    int digest_size;
 
     LTC_ARGCHK(in     != NULL);
     LTC_ARGCHK(out    != NULL);
@@ -40,9 +39,8 @@ int hash_memory(const struct algo_properties_st *hash, const unsigned char *in, 
         return err;
     }
 
-    digest_size = _ncr_algo_digest_size(hash->algo);
-    if (*outlen < digest_size) {
-       *outlen = digest_size;
+    if (*outlen < hash->digest_size) {
+       *outlen = hash->digest_size;
        return CRYPT_BUFFER_OVERFLOW;
     }
 
@@ -59,7 +57,7 @@ int hash_memory(const struct algo_properties_st *hash, const unsigned char *in, 
     
     err = cryptodev_hash_final(&hdata, out);
     
-    *outlen = digest_size;
+    *outlen = hash->digest_size;
 LBL_ERR:
     cryptodev_hash_deinit(&hdata);
 

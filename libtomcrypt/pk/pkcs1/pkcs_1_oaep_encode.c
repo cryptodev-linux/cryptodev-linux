@@ -48,7 +48,7 @@ int pkcs_1_oaep_encode(const unsigned char *msg,    unsigned long msglen,
       return err;
    }
 
-   hLen = _ncr_algo_digest_size(hash->algo);
+   hLen = hash->digest_size;
    modulus_len = (modulus_bitlen >> 3) + (modulus_bitlen & 7 ? 1 : 0);
 
    /* test message size */

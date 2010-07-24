@@ -211,20 +211,6 @@ int i = 0;
 	return NULL;
 }
 
-int _ncr_algo_digest_size(ncr_algorithm_t algo)
-{
-ncr_algorithm_t a;
-int i = 0;
-
-	while((a=algo_properties[i].algo)!=NCR_ALG_NONE) {
-		if (a == algo)
-			return algo_properties[i].digest_size;
-		i++;
-	}
-
-	return 0;
-}
-
 static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* session)
 {
 	struct session_item_st* ns = NULL;

@@ -45,7 +45,7 @@ int pkcs_1_mgf1(const struct algo_properties_st *hash,
    }
 
    /* get hash output size */
-   hLen = _ncr_algo_digest_size(hash->algo);
+   hLen = hash->digest_size;
 
    /* allocate memory */
    buf = XMALLOC(hLen);

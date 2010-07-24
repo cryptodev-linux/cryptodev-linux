@@ -50,7 +50,7 @@ int pkcs_1_pss_decode(const unsigned char *msghash, unsigned long msghashlen,
       return err;
    }
 
-   hLen = _ncr_algo_digest_size(hash_algo->algo);
+   hLen = hash_algo->digest_size;
    modulus_len = (modulus_bitlen>>3) + (modulus_bitlen & 7 ? 1 : 0);
 
    /* check sizes */
