@@ -390,7 +390,7 @@ unsigned long osize = *output_size;
 	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
 			cret = rsa_encrypt_key_ex( input, input_size, output, &osize, 
-				NULL, 0, ctx->oaep_hash->algo, ctx->type, &ctx->key->key.pk.rsa);
+				NULL, 0, ctx->oaep_hash, ctx->type, &ctx->key->key.pk.rsa);
 
 			if (cret != CRYPT_OK) {
 				printk("cret: %d type: %d\n", cret, ctx->type);

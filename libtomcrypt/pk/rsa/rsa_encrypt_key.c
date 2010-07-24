@@ -9,6 +9,7 @@
  * Tom St Denis, tomstdenis@gmail.com, http://libtom.org
  */
 #include "tomcrypt.h"
+#include "ncr_int.h"
 
 /**
   @file rsa_encrypt_key.c
@@ -25,7 +26,7 @@
     @param outlen      [in/out] The max size and resulting size of the ciphertext
     @param lparam      The system "lparam" for the encryption
     @param lparamlen   The length of lparam (octets)
-    @param hash_idx    The index of the desired hash
+    @param hash        The desired hash
     @param padding     Type of padding (LTC_LTC_PKCS_1_OAEP or LTC_LTC_PKCS_1_V1_5)
     @param key         The RSA key to encrypt to
     @return CRYPT_OK if successful
@@ -33,7 +34,7 @@
 int rsa_encrypt_key_ex(const unsigned char *in,     unsigned long inlen,
                              unsigned char *out,    unsigned long *outlen,
                        const unsigned char *lparam, unsigned long lparamlen,
-                       int hash_idx, int padding, rsa_key *key)
+                       const struct algo_properties_st *hash, int padding, rsa_key *key)
 {
   unsigned long modulus_bitlen, modulus_bytelen, x;
   int           err;
@@ -51,7 +52,7 @@ int rsa_encrypt_key_ex(const unsigned char *in,     unsigned long inlen,
 
   if (padding == LTC_LTC_PKCS_1_OAEP) {
     /* valid hash? */
-    if ((err = hash_is_valid(hash_idx)) != CRYPT_OK) {
+    if ((err = hash_is_valid(hash->algo)) != CRYPT_OK) {
        return err;
     }
   }
@@ -70,7 +71,7 @@ int rsa_encrypt_key_ex(const unsigned char *in,     unsigned long inlen,
     /* OAEP pad the key */
     x = *outlen;
     if ((err = pkcs_1_oaep_encode(in, inlen, lparam,
-                                  lparamlen, modulus_bitlen, hash_idx,
+                                  lparamlen, modulus_bitlen, hash->algo,
                                   out, &x)) != CRYPT_OK) {
        return err;
     }

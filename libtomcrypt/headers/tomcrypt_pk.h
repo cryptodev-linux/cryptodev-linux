@@ -1,5 +1,7 @@
 /* ---- NUMBER THEORY ---- */
 
+struct algo_properties_st;
+
 enum {
    PK_PUBLIC=0,
    PK_PRIVATE=1
@@ -57,8 +59,8 @@ int rsa_exptmod(const unsigned char *in,   unsigned long inlen,
 void rsa_free(rsa_key *key);
 
 /* These use LTC_PKCS #1 v2.0 padding */
-#define rsa_encrypt_key(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash_idx, _key) \
-  rsa_encrypt_key_ex(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash_idx, LTC_LTC_PKCS_1_OAEP, _key)
+#define rsa_encrypt_key(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash, _key) \
+  rsa_encrypt_key_ex(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash, LTC_LTC_PKCS_1_OAEP, _key)
 
 #define rsa_decrypt_key(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash_idx, _stat, _key) \
   rsa_decrypt_key_ex(_in, _inlen, _out, _outlen, _lparam, _lparamlen, _hash_idx, LTC_LTC_PKCS_1_OAEP, _stat, _key)
@@ -73,7 +75,7 @@ void rsa_free(rsa_key *key);
 int rsa_encrypt_key_ex(const unsigned char *in,     unsigned long inlen,
                              unsigned char *out,    unsigned long *outlen,
                        const unsigned char *lparam, unsigned long lparamlen,
-                       int hash_idx, int padding, rsa_key *key);
+                       const struct algo_properties_st *hash, int padding, rsa_key *key);
 
 int rsa_decrypt_key_ex(const unsigned char *in,       unsigned long  inlen,
                              unsigned char *out,      unsigned long *outlen,
