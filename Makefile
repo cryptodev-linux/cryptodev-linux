@@ -75,22 +75,22 @@ cryptodev-objs = cryptodev_main.o cryptodev_cipher.o ncr.o \
 obj-m += cryptodev.o
 
 build:
-	@make version.h
-	make -C $(KERNEL_DIR) SUBDIRS=`pwd` modules
+	@$(MAKE) version.h
+	$(MAKE) -C $(KERNEL_DIR) SUBDIRS=`pwd` modules
 
 install:
-	make -C $(KERNEL_DIR) SUBDIRS=`pwd` modules_install
+	$(MAKE) -C $(KERNEL_DIR) SUBDIRS=`pwd` modules_install
 	@echo "Installing cryptodev.h in /usr/include/crypto ..."
 	@install -D cryptodev.h /usr/include/crypto/cryptodev.h
 	@install -D ncr.h /usr/include/crypto/ncr.h
 
 clean:
-	make -C $(KERNEL_DIR) SUBDIRS=`pwd` clean
+	$(MAKE) -C $(KERNEL_DIR) SUBDIRS=`pwd` clean
 	rm -f $(hostprogs)
-	KERNEL_DIR=$(KERNEL_DIR) make -C examples clean
+	KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C examples clean
 
 check:
-	KERNEL_DIR=$(KERNEL_DIR) make -C examples check
+	KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C examples check
 
 FILEBASE = cryptodev-linux-$(VERSION)
 TMPDIR ?= /tmp
