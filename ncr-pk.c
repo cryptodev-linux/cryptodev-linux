@@ -335,7 +335,7 @@ void ncr_pk_cipher_deinit(struct ncr_pk_ctx* ctx)
 
 int ncr_pk_cipher_init(const struct algo_properties_st *algo,
 	struct ncr_pk_ctx* ctx, struct ncr_key_params_st* params,
-	struct key_item_st *key)
+	struct key_item_st *key, const struct algo_properties_st *sign_hash)
 {
 	memset(ctx, 0, sizeof(*ctx));
 	
@@ -346,11 +346,7 @@ int ncr_pk_cipher_init(const struct algo_properties_st *algo,
 
 	ctx->algorithm = algo;
 	ctx->key = key;
-	ctx->sign_hash = ncr_key_params_get_sign_hash(algo, params);
-	if (IS_ERR(ctx->sign_hash)) {
-		err();
-		return PTR_ERR(ctx->sign_hash);
-	}
+	ctx->sign_hash = sign_hash;
 
 	switch(algo->algo) {
 		case NCR_ALG_RSA:

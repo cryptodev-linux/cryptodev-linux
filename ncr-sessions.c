@@ -259,7 +259,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				}
 			} else if (ns->key->type == NCR_KEY_TYPE_PRIVATE || ns->key->type == NCR_KEY_TYPE_PUBLIC) {
 				ret = ncr_pk_cipher_init(ns->algorithm, &ns->pk, 
-					&session->params, ns->key);
+					&session->params, ns->key, NULL);
 				if (ret < 0) {
 					err();
 					goto fail;
@@ -318,7 +318,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				}
 
 				ret = ncr_pk_cipher_init(ns->algorithm, &ns->pk, 
-					&session->params, ns->key);
+					&session->params, ns->key, sign_hash);
 				if (ret < 0) {
 					err();
 					goto fail;

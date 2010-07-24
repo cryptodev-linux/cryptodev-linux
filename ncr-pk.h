@@ -32,7 +32,7 @@ void ncr_pk_queue_deinit(void);
 /* encryption/decryption */
 int ncr_pk_cipher_init(const struct algo_properties_st *algo,
 	struct ncr_pk_ctx* ctx, struct ncr_key_params_st* params,
-	struct key_item_st *key);
+	struct key_item_st *key, const struct algo_properties_st *sign_hash);
 void ncr_pk_cipher_deinit(struct ncr_pk_ctx* ctx);
 int ncr_pk_cipher_encrypt(const struct ncr_pk_ctx* ctx, const void* input, 
 	size_t input_size, void* output, size_t *output_size);
