@@ -458,7 +458,7 @@ unsigned long osize = *output_size;
 				return -EINVAL;
 			}
 			cret = rsa_sign_hash_ex( input, input_size, output, &osize, 
-				ctx->type, ctx->sign_hash->algo, ctx->salt_len, &ctx->key->key.pk.rsa);
+				ctx->type, ctx->sign_hash, ctx->salt_len, &ctx->key->key.pk.rsa);
 
 			if (cret != CRYPT_OK) {
 				err();
