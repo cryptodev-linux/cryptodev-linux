@@ -211,63 +211,6 @@ int i = 0;
 	return NULL;
 }
 
-static int algo_needs_iv(ncr_algorithm_t algo)
-{
-ncr_algorithm_t a;
-int i = 0;
-
-	while((a=algo_properties[i].algo)!=NCR_ALG_NONE) {
-		if (a == algo)
-			return algo_properties[i].needs_iv;
-		i++;
-	}
-
-	return 0;
-}
-
-static int algo_can_sign(ncr_algorithm_t algo)
-{
-ncr_algorithm_t a;
-int i = 0;
-
-	while((a=algo_properties[i].algo)!=NCR_ALG_NONE) {
-		if (a == algo)
-			return algo_properties[i].can_sign;
-		i++;
-	}
-
-	return 0;
-}
-
-static int algo_can_encrypt(ncr_algorithm_t algo)
-{
-ncr_algorithm_t a;
-int i = 0;
-
-	while((a=algo_properties[i].algo)!=NCR_ALG_NONE) {
-		if (a == algo)
-			return algo_properties[i].can_encrypt;
-		i++;
-	}
-
-	return 0;
-}
-
-static int algo_can_digest(ncr_algorithm_t algo)
-{
-ncr_algorithm_t a;
-int i = 0;
-
-	while((a=algo_properties[i].algo)!=NCR_ALG_NONE) {
-		if (a == algo)
-			return algo_properties[i].can_digest;
-		i++;
-	}
-
-	return 0;
-}
-
-
 int _ncr_algo_digest_size(ncr_algorithm_t algo)
 {
 ncr_algorithm_t a;
@@ -305,7 +248,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 	switch(session->op) {
 		case NCR_OP_ENCRYPT:
 		case NCR_OP_DECRYPT:
-			if (algo_can_encrypt(session->algorithm)==0) {
+			if (!ns->algorithm->can_encrypt) {
 				err();
 				ret = -EINVAL;
 				goto fail;
@@ -336,7 +279,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 					goto fail;
 				}
 
-				if (algo_needs_iv(session->algorithm)) {
+				if (ns->algorithm->needs_iv) {
 					if (session->params.params.cipher.iv_size > sizeof(session->params.params.cipher.iv)) {
 						err();
 						ret = -EINVAL;
@@ -360,7 +303,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 
 		case NCR_OP_SIGN:
 		case NCR_OP_VERIFY:
-			if (algo_can_sign(session->algorithm)==0) {
+			if (!ns->algorithm->can_sign) {
 				err();
 				ret = -EINVAL;
 				goto fail;
@@ -394,7 +337,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 					return PTR_ERR(sign_hash);
 				}
 
-				if (algo_can_digest(sign_hash->algo) == 0) {
+				if (!sign_hash->can_digest) {
 					err();
 					ret = -EINVAL;
 					goto fail;
@@ -426,7 +369,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 
 			break;
 		case NCR_OP_DIGEST:
-			if (algo_can_digest(session->algorithm)==0) {
+			if (!ns->algorithm->can_digest) {
 				err();
 				ret = -EINVAL;
 				goto fail;
