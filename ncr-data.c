@@ -146,6 +146,8 @@ int ncr_data_init(struct list_sem_st* lst, void __user* arg)
 		goto err_data;
 	}
 	data->max_data_size = init.max_object_size;
+	
+	sg_init_one(&data->sg, data->data, data->max_data_size);
 
 	if (init.initial_data != NULL) {
 		if (unlikely(copy_from_user(data->data, init.initial_data,

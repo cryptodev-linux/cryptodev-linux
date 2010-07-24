@@ -41,6 +41,14 @@ struct session_item_st {
 	struct ncr_pk_ctx pk;
 	struct hash_data hash;
 
+	struct scatterlist *sg;
+	struct page **pages;
+	unsigned array_size;
+	unsigned available_pages;
+	struct semaphore mem_mutex; /* down when the
+		* values above are changed.
+		*/
+
 	struct key_item_st* key;
 
 	atomic_t refcnt;
@@ -53,6 +61,7 @@ struct data_item_st {
 	 * I see no reason to allow concurrent writes (reads are
 	 * not an issue).
 	 */
+	struct scatterlist sg; /* points to data */
 
 	uint8_t* data;
 	size_t data_size;

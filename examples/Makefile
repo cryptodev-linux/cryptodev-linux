@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -g -O2
 
-progs := cipher hmac ncr pk speed
+progs := cipher hmac ncr pk speed ncr-direct
 
 all: $(progs)
 
@@ -17,15 +17,19 @@ hmac: hmac.c
 ncr: ncr.c
 	$(CC) $(CFLAGS) $< -o $@
 
+ncr-direct: ncr-direct.c
+	$(CC) $(CFLAGS) $< -o $@
+
 pk: pk.c
 	$(CC) $(CFLAGS) $< -o $@ -L/usr/local/lib -lgnutls
 
 check: $(progs)
 	./ncr
+	./ncr-direct
 	./pk
 	./cipher
 	./hmac
 	./speed
 
 clean:
-	rm -f *.o *~ hmac cipher ncr pk speed
+	rm -f *.o *~ hmac cipher ncr pk speed ncr-direct

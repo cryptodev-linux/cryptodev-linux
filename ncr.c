@@ -161,6 +161,7 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 			return ncr_session_final(lst, arg);
 		case NCRIO_SESSION_ONCE:
 			return ncr_session_once(lst, arg);
+
 		case NCRIO_MASTER_KEY_SET:
 			return ncr_master_key_set(arg);
 		case NCRIO_KEY_GENERATE_PAIR:

@@ -10,6 +10,7 @@ modules.order
 examples/cipher
 examples/hmac
 examples/ncr
+examples/ncr-direct
 examples/pk
 examples/speed
 releases

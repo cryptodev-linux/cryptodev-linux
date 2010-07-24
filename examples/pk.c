@@ -371,8 +371,9 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 		nop.init.params.params.rsa.type = RSA_PKCS1_V1_5;
 	}
 	nop.init.op = NCR_OP_ENCRYPT;
-	nop.op.input = datad;
-	nop.op.output = encd;
+	nop.op.data.ndata.input = datad;
+	nop.op.data.ndata.output = encd;
+	nop.op.type = NCR_DATA;
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -391,8 +392,9 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 	} else {
 		nop.init.params.params.rsa.type = RSA_PKCS1_V1_5;
 	}
-	nop.op.input = encd;
-	nop.op.output = encd;
+	nop.op.data.ndata.input = encd;
+	nop.op.data.ndata.output = encd;
+	nop.op.type = NCR_DATA;
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -466,8 +468,9 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 	nop.init.params.params.rsa.sign_hash = NCR_ALG_SHA1;
 
 	nop.init.op = NCR_OP_SIGN;
-	nop.op.input = datad;
-	nop.op.output = signd;
+	nop.op.data.ndata.input = datad;
+	nop.op.data.ndata.output = signd;
+	nop.op.type = NCR_DATA;
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -483,8 +486,9 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 	nop.init.params.params.rsa.sign_hash = NCR_ALG_SHA1;
 
 	nop.init.op = NCR_OP_VERIFY;
-	nop.op.input = datad;
-	nop.op.output = signd;
+	nop.op.data.ndata.input = datad;
+	nop.op.data.ndata.output = signd;
+	nop.op.type = NCR_DATA;
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -545,8 +549,9 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 	nop.init.params.params.dsa.sign_hash = NCR_ALG_SHA1;
 
 	nop.init.op = NCR_OP_SIGN;
-	nop.op.input = datad;
-	nop.op.output = signd;
+	nop.op.data.ndata.input = datad;
+	nop.op.data.ndata.output = signd;
+	nop.op.type = NCR_DATA;
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -561,8 +566,9 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 	nop.init.params.params.dsa.sign_hash = NCR_ALG_SHA1;
 
 	nop.init.op = NCR_OP_VERIFY;
-	nop.op.input = datad;
-	nop.op.output = signd;
+	nop.op.data.ndata.input = datad;
+	nop.op.data.ndata.output = signd;
+	nop.op.type = NCR_DATA;
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);

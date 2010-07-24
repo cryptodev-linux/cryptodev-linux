@@ -188,24 +188,24 @@ struct scatterlist sg, sg2;
 }
 
 
-ssize_t cryptodev_cipher_encrypt( struct cipher_data* cdata, struct scatterlist *sg1, struct scatterlist *sg2, size_t len)
+ssize_t cryptodev_cipher_encrypt( struct cipher_data* cdata, const struct scatterlist *sg1, struct scatterlist *sg2, size_t len)
 {
 	int ret;
 
 	INIT_COMPLETION(cdata->async.result->completion);
-	ablkcipher_request_set_crypt(cdata->async.request, sg1, sg2,
+	ablkcipher_request_set_crypt(cdata->async.request, (struct scatterlist*)sg1, sg2,
 			len, cdata->async.iv);
 	ret = crypto_ablkcipher_encrypt(cdata->async.request);
 
 	return waitfor(cdata->async.result,ret);
 }
 
-ssize_t cryptodev_cipher_decrypt( struct cipher_data* cdata, struct scatterlist *sg1, struct scatterlist *sg2, size_t len)
+ssize_t cryptodev_cipher_decrypt( struct cipher_data* cdata, const struct scatterlist *sg1, struct scatterlist *sg2, size_t len)
 {
 	int ret;
 
 	INIT_COMPLETION(cdata->async.result->completion);
-	ablkcipher_request_set_crypt(cdata->async.request, sg1, sg2,
+	ablkcipher_request_set_crypt(cdata->async.request, (struct scatterlist*)sg1, sg2,
 			len, cdata->async.iv);
 	ret = crypto_ablkcipher_decrypt(cdata->async.request);
 

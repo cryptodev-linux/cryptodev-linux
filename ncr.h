@@ -276,14 +276,30 @@ typedef enum {
 	NCR_VERIFICATION_FAILED = -2,
 } ncr_error_t;
 
+typedef enum {
+	NCR_DATA,
+	NCR_DIRECT_DATA,
+} ncr_data_type_t;
+
 struct ncr_session_op_st {
 	/* input */
 	ncr_session_t ses;
 
-	ncr_data_t input;
-	ncr_data_t output; /* when verifying signature this is
-			    * the place of the signature.
-			    */
+	union {
+		struct {
+			ncr_data_t input;
+			ncr_data_t output; /* when verifying signature this is
+					* the place of the signature.
+					*/
+		} ndata;
+		struct {
+			void* input;
+			size_t input_size;
+			void* output;
+			size_t output_size;
+		} udata;
+	} data;
+	ncr_data_type_t type;
 
 	/* output of verification */
 	ncr_error_t err;
@@ -296,7 +312,7 @@ struct ncr_session_once_op_st {
 
 #define NCRIO_SESSION_INIT        _IOR ('c', 300, struct ncr_session_st)
 #define NCRIO_SESSION_UPDATE        _IOWR ('c', 301, struct ncr_session_op_st)
-#define NCRIO_SESSION_FINAL        _IOR ('c', 302, struct ncr_session_op_st)
+#define NCRIO_SESSION_FINAL        _IOWR ('c', 302, struct ncr_session_op_st)
 
 /* everything in one call */
 #define NCRIO_SESSION_ONCE        _IOWR ('c', 303, struct ncr_session_once_op_st)

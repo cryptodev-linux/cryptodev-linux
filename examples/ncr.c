@@ -809,8 +809,9 @@ test_ncr_aes(int cfd)
 		nop.init.algorithm = NCR_ALG_AES_ECB;
 		nop.init.key = key;
 		nop.init.op = NCR_OP_ENCRYPT;
-		nop.op.input = dd;
-		nop.op.output = dd2;
+		nop.op.data.ndata.input = dd;
+		nop.op.data.ndata.output = dd2;
+		nop.op.type = NCR_DATA;
 
 		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -884,8 +885,9 @@ test_ncr_aes(int cfd)
 		nop.init.algorithm = NCR_ALG_AES_ECB;
 		nop.init.key = key;
 		nop.init.op = NCR_OP_DECRYPT;
-		nop.op.input = dd;
-		nop.op.output = dd2;
+		nop.op.data.ndata.input = dd;
+		nop.op.data.ndata.output = dd2;
+		nop.op.type = NCR_DATA;
 
 		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -1098,8 +1100,9 @@ test_ncr_hash(int cfd)
 		if (hash_vectors[i].key != NULL)
 			nop.init.key = key;
 		nop.init.op = hash_vectors[i].op;
-		nop.op.input = dd;
-		nop.op.output = dd2;
+		nop.op.data.ndata.input = dd;
+		nop.op.data.ndata.output = dd2;
+		nop.op.type = NCR_DATA;
 
 		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
