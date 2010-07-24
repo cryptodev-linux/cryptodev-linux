@@ -3,6 +3,8 @@
 /* ===> LTC_PKCS #1 -- RSA Cryptography <=== */
 #ifdef LTC_PKCS_1
 
+struct algo_properties_st;
+
 enum ltc_pkcs_1_v1_5_blocks
 {
   LTC_LTC_PKCS_1_EMSA   = 1,        /* Block type 1 (LTC_PKCS #1 v1.5 signature padding) */
@@ -42,7 +44,7 @@ int pkcs_1_v1_5_decode(const unsigned char *msg,
 /* *** v2.1 padding */
 int pkcs_1_oaep_encode(const unsigned char *msg,    unsigned long msglen,
                        const unsigned char *lparam, unsigned long lparamlen,
-                             unsigned long modulus_bitlen, int  hash_idx,
+                             unsigned long modulus_bitlen, const struct algo_properties_st *hash,
                              unsigned char *out,    unsigned long *outlen);
 
 int pkcs_1_oaep_decode(const unsigned char *msg,    unsigned long msglen,

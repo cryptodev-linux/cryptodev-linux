@@ -71,8 +71,8 @@ int rsa_encrypt_key_ex(const unsigned char *in,     unsigned long inlen,
     /* OAEP pad the key */
     x = *outlen;
     if ((err = pkcs_1_oaep_encode(in, inlen, lparam,
-                                  lparamlen, modulus_bitlen, hash->algo,
-                                  out, &x)) != CRYPT_OK) {
+                                  lparamlen, modulus_bitlen, hash,
+				  out, &x)) != CRYPT_OK) {
        return err;
     }
   } else {

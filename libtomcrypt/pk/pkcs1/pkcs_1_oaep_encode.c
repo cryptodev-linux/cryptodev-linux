@@ -25,14 +25,14 @@
   @param lparam          A session or system parameter (can be NULL)
   @param lparamlen       The length of the lparam data
   @param modulus_bitlen  The bit length of the RSA modulus
-  @param hash_idx        The index of the hash desired
+  @param hash            The desired hash
   @param out             [out] The destination for the encoded data
   @param outlen          [in/out] The max size and resulting size of the encoded data
   @return CRYPT_OK if successful
 */
 int pkcs_1_oaep_encode(const unsigned char *msg,    unsigned long msglen,
                        const unsigned char *lparam, unsigned long lparamlen,
-                             unsigned long modulus_bitlen, int  hash_idx,
+                             unsigned long modulus_bitlen, const struct algo_properties_st *hash,
                              unsigned char *out,    unsigned long *outlen)
 {
    unsigned char *DB, *seed, *mask;
@@ -44,11 +44,11 @@ int pkcs_1_oaep_encode(const unsigned char *msg,    unsigned long msglen,
    LTC_ARGCHK(outlen != NULL);
 
    /* test valid hash */
-   if ((err = hash_is_valid(hash_idx)) != CRYPT_OK) { 
+   if ((err = hash_is_valid(hash->algo)) != CRYPT_OK) { 
       return err;
    }
 
-   hLen = _ncr_algo_digest_size(hash_idx);
+   hLen = _ncr_algo_digest_size(hash->algo);
    modulus_len = (modulus_bitlen >> 3) + (modulus_bitlen & 7 ? 1 : 0);
 
    /* test message size */
@@ -77,12 +77,12 @@ int pkcs_1_oaep_encode(const unsigned char *msg,    unsigned long msglen,
    /* DB == lhash || PS || 0x01 || M, PS == k - mlen - 2hlen - 2 zeroes */
    x = modulus_len;
    if (lparam != NULL) {
-      if ((err = hash_memory(hash_idx, lparam, lparamlen, DB, &x)) != CRYPT_OK) {
+      if ((err = hash_memory(hash->algo, lparam, lparamlen, DB, &x)) != CRYPT_OK) {
          goto LBL_ERR;
       }
    } else {
       /* can't pass hash_memory a NULL so use DB with zero length */
-      if ((err = hash_memory(hash_idx, DB, 0, DB, &x)) != CRYPT_OK) {
+      if ((err = hash_memory(hash->algo, DB, 0, DB, &x)) != CRYPT_OK) {
          goto LBL_ERR;
       }
    }
@@ -104,7 +104,7 @@ int pkcs_1_oaep_encode(const unsigned char *msg,    unsigned long msglen,
    get_random_bytes(seed, hLen);
 
    /* compute MGF1 of seed (k - hlen - 1) */
-   if ((err = pkcs_1_mgf1(hash_idx, seed, hLen, mask, modulus_len - hLen - 1)) != CRYPT_OK) {
+   if ((err = pkcs_1_mgf1(hash->algo, seed, hLen, mask, modulus_len - hLen - 1)) != CRYPT_OK) {
       goto LBL_ERR;
    }
 
@@ -114,7 +114,7 @@ int pkcs_1_oaep_encode(const unsigned char *msg,    unsigned long msglen,
    }
 
    /* compute MGF1 of maskedDB (hLen) */ 
-   if ((err = pkcs_1_mgf1(hash_idx, DB, modulus_len - hLen - 1, mask, hLen)) != CRYPT_OK) {
+   if ((err = pkcs_1_mgf1(hash->algo, DB, modulus_len - hLen - 1, mask, hLen)) != CRYPT_OK) {
       goto LBL_ERR;
    }
 
