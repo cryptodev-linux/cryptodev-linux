@@ -93,7 +93,7 @@ int rsa_verify_hash_ex(const unsigned char *sig,      unsigned long siglen,
 
   if (padding == LTC_LTC_PKCS_1_PSS) {
     /* PSS decode and verify it */
-    err = pkcs_1_pss_decode(hash, hashlen, tmpbuf, x, saltlen, hash_algo->algo, modulus_bitlen, stat);
+    err = pkcs_1_pss_decode(hash, hashlen, tmpbuf, x, saltlen, hash_algo, modulus_bitlen, stat);
   } else {
     /* LTC_PKCS #1 v1.5 decode it */
     unsigned char *out;

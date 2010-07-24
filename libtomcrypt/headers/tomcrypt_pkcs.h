@@ -60,7 +60,7 @@ int pkcs_1_pss_encode(const unsigned char *msghash, unsigned long msghashlen,
 
 int pkcs_1_pss_decode(const unsigned char *msghash, unsigned long msghashlen,
                       const unsigned char *sig,     unsigned long siglen,
-                            unsigned long saltlen,  int           hash_idx,
+                            unsigned long saltlen, const struct algo_properties_st *hash,
                             unsigned long modulus_bitlen, int    *res);
 
 #endif /* LTC_PKCS_1 */
