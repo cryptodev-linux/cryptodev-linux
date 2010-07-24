@@ -18,7 +18,7 @@ enum ltc_pkcs_1_paddings
   LTC_LTC_PKCS_1_PSS    = 3         /* LTC_PKCS #1 v2.1 signature padding */
 };
 
-int pkcs_1_mgf1(      int            hash_idx,
+int pkcs_1_mgf1(const struct algo_properties_st *hash,
                 const unsigned char *seed, unsigned long seedlen,
                       unsigned char *mask, unsigned long masklen);
 
