@@ -809,8 +809,8 @@ test_ncr_aes(int cfd)
 		nop.init.algorithm = NCR_ALG_AES_ECB;
 		nop.init.key = key;
 		nop.init.op = NCR_OP_ENCRYPT;
-		nop.op.data.cipher.plaintext = dd;
-		nop.op.data.cipher.ciphertext = dd2;
+		nop.op.input = dd;
+		nop.op.output = dd2;
 
 		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -884,8 +884,8 @@ test_ncr_aes(int cfd)
 		nop.init.algorithm = NCR_ALG_AES_ECB;
 		nop.init.key = key;
 		nop.init.op = NCR_OP_DECRYPT;
-		nop.op.data.cipher.ciphertext = dd;
-		nop.op.data.cipher.plaintext = dd2;
+		nop.op.input = dd;
+		nop.op.output = dd2;
 
 		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -946,7 +946,7 @@ struct hash_vectors_st {
 		.plaintext_size = sizeof("what do ya want for nothing?")-1,
 		.output = (uint8_t*)"\x8f\x82\x03\x94\xf9\x53\x35\x18\x20\x45\xda\x24\xf3\x4d\xe5\x2b\xf8\xbc\x34\x32",
 		.output_size = 20,
-		.op = NCR_OP_DIGEST,
+		.op = NCR_OP_SIGN,
 	},
 	{
 		.name = "HMAC-MD5",
@@ -1098,8 +1098,8 @@ test_ncr_hash(int cfd)
 		if (hash_vectors[i].key != NULL)
 			nop.init.key = key;
 		nop.init.op = hash_vectors[i].op;
-		nop.op.data.sign.text = dd;
-		nop.op.data.sign.output = dd2;
+		nop.op.input = dd;
+		nop.op.output = dd2;
 
 		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);

@@ -189,8 +189,8 @@ int encrypt_data_ncr(int cfd, int algo, int chunksize)
 		nop.init.algorithm = algo;
 		nop.init.key = key;
 		nop.init.op = NCR_OP_ENCRYPT;
-		nop.op.data.cipher.plaintext = dd;
-		nop.op.data.cipher.ciphertext = dd;
+		nop.op.input = dd;
+		nop.op.output = dd;
 
 		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);

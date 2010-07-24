@@ -19,6 +19,7 @@ struct algo_properties_st {
 	unsigned can_digest:1;
 	unsigned can_encrypt:1;
 	unsigned is_symmetric:1;
+	unsigned is_pk:1;
 	int digest_size;
 	/* NCR_KEY_TYPE_SECRET if for a secret key algorithm or MAC,
 	 * NCR_KEY_TYPE_PUBLIC for a public key algorithm.

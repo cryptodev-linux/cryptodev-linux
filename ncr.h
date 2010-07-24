@@ -250,7 +250,6 @@ struct ncr_key_storage_wrap_st {
 typedef enum {
 	NCR_OP_ENCRYPT=1,
 	NCR_OP_DECRYPT,
-	NCR_OP_DIGEST,
 	NCR_OP_SIGN,
 	NCR_OP_VERIFY,
 } ncr_crypto_op_t;
@@ -281,20 +280,10 @@ struct ncr_session_op_st {
 	/* input */
 	ncr_session_t ses;
 
-	union {
-		struct {
-			ncr_data_t plaintext;
-			ncr_data_t ciphertext;
-		} cipher;
-		struct {
-			ncr_data_t text;
-			ncr_data_t output;
-		} sign; /* mac/hash/sign */
-		struct {
-			ncr_data_t text;
-			ncr_data_t signature;
-		} verify; /* mac/sign */
-	} data;
+	ncr_data_t input;
+	ncr_data_t output; /* when verifying signature this is
+			    * the place of the signature.
+			    */
 
 	/* output of verification */
 	ncr_error_t err;
