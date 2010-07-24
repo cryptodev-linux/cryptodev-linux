@@ -77,12 +77,12 @@ int pkcs_1_oaep_encode(const unsigned char *msg,    unsigned long msglen,
    /* DB == lhash || PS || 0x01 || M, PS == k - mlen - 2hlen - 2 zeroes */
    x = modulus_len;
    if (lparam != NULL) {
-      if ((err = hash_memory(hash->algo, lparam, lparamlen, DB, &x)) != CRYPT_OK) {
+      if ((err = hash_memory(hash, lparam, lparamlen, DB, &x)) != CRYPT_OK) {
          goto LBL_ERR;
       }
    } else {
       /* can't pass hash_memory a NULL so use DB with zero length */
-      if ((err = hash_memory(hash->algo, DB, 0, DB, &x)) != CRYPT_OK) {
+      if ((err = hash_memory(hash, DB, 0, DB, &x)) != CRYPT_OK) {
          goto LBL_ERR;
       }
    }

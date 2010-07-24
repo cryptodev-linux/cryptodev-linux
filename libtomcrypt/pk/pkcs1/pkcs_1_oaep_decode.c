@@ -127,12 +127,12 @@ int pkcs_1_oaep_decode(const unsigned char *msg,    unsigned long msglen,
    /* compute lhash and store it in seed [reuse temps!] */
    x = modulus_len;
    if (lparam != NULL) {
-      if ((err = hash_memory(hash->algo, lparam, lparamlen, seed, &x)) != CRYPT_OK) {
+      if ((err = hash_memory(hash, lparam, lparamlen, seed, &x)) != CRYPT_OK) {
          goto LBL_ERR;
       }
    } else {
       /* can't pass hash_memory a NULL so use DB with zero length */
-      if ((err = hash_memory(hash->algo, DB, 0, seed, &x)) != CRYPT_OK) {
+      if ((err = hash_memory(hash, DB, 0, seed, &x)) != CRYPT_OK) {
          goto LBL_ERR;
       }
    }
