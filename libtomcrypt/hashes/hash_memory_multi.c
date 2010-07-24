@@ -20,7 +20,7 @@
 
 /**
   Hash multiple (non-adjacent) blocks of memory at once.  
-  @param hash   The index of the hash you wish to use
+  @param hash   The hash you wish to use
   @param out    [out] Where to store the digest
   @param outlen [in/out] Max size and resulting size of the digest
   @param in     The data you wish to hash
@@ -28,7 +28,7 @@
   @param ...    tuples of (data,len) pairs to hash, terminated with a (NULL,x) (x=don't care)
   @return CRYPT_OK if successful
 */  
-int hash_memory_multi(int hash, unsigned char *out, unsigned long *outlen,
+int hash_memory_multi(const struct algo_properties_st *hash, unsigned char *out, unsigned long *outlen,
                       const unsigned char *in, unsigned long inlen, ...)
 {
     struct hash_data hdata;
@@ -42,17 +42,17 @@ int hash_memory_multi(int hash, unsigned char *out, unsigned long *outlen,
     LTC_ARGCHK(out    != NULL);
     LTC_ARGCHK(outlen != NULL);
 
-    if ((err = hash_is_valid(hash)) != CRYPT_OK) {
+    if ((err = hash_is_valid(hash->algo)) != CRYPT_OK) {
         return err;
     }
 
-    digest_size = _ncr_algo_digest_size(hash);
+    digest_size = _ncr_algo_digest_size(hash->algo);
     if (*outlen < digest_size) {
        *outlen = digest_size;
        return CRYPT_BUFFER_OVERFLOW;
     }
 
-    err = cryptodev_hash_init( &hdata, _ncr_algo_to_str(hash), 0, NULL, 0);
+    err = cryptodev_hash_init( &hdata, _ncr_algo_to_str(hash->algo), 0, NULL, 0);
     if (err < 0) {
        err = CRYPT_INVALID_HASH;
        goto LBL_ERR;

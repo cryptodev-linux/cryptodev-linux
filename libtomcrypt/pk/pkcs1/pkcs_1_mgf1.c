@@ -61,7 +61,7 @@ int pkcs_1_mgf1(const struct algo_properties_st *hash,
        STORE32H(counter, buf);
        ++counter;
 
-       err = hash_memory_multi(hash->algo, buf, &hLen, seed, seedlen, buf, (unsigned long) 4, NULL, 0);
+       err = hash_memory_multi(hash, buf, &hLen, seed, seedlen, buf, (unsigned long) 4, NULL, 0);
        if (err != CRYPT_OK) {
           goto LBL_ERR;
        }
