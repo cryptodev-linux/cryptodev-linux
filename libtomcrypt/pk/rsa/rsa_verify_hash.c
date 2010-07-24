@@ -9,6 +9,7 @@
  * Tom St Denis, tomstdenis@gmail.com, http://libtom.org
  */
 #include "tomcrypt.h"
+#include "ncr_int.h"
 
 /**
   @file rsa_verify_hash.c
@@ -24,7 +25,7 @@
   @param hash             The hash of the message that was signed
   @param hashlen          The length of the hash of the message that was signed (octets)
   @param padding          Type of padding (LTC_LTC_PKCS_1_PSS or LTC_LTC_PKCS_1_V1_5)
-  @param hash_idx         The index of the desired hash
+  @param hash_algo        The desired hash
   @param saltlen          The length of the salt used during signature
   @param stat             [out] The result of the signature comparison, 1==valid, 0==invalid
   @param key              The public RSA key corresponding to the key that performed the signature
@@ -33,7 +34,7 @@
 int rsa_verify_hash_ex(const unsigned char *sig,      unsigned long siglen,
                        const unsigned char *hash,     unsigned long hashlen,
                              int            padding,
-                             int            hash_idx, unsigned long saltlen,
+                       const struct algo_properties_st *hash_algo, unsigned long saltlen,
                              int           *stat,     rsa_key      *key)
 {
   unsigned long modulus_bitlen, modulus_bytelen, x;
@@ -57,7 +58,7 @@ int rsa_verify_hash_ex(const unsigned char *sig,      unsigned long siglen,
 
   if (padding == LTC_LTC_PKCS_1_PSS) {
     /* valid hash ? */
-    if ((err = hash_is_valid(hash_idx)) != CRYPT_OK) {
+    if ((err = hash_is_valid(hash_algo->algo)) != CRYPT_OK) {
        return err;
     }
   }
@@ -92,7 +93,7 @@ int rsa_verify_hash_ex(const unsigned char *sig,      unsigned long siglen,
 
   if (padding == LTC_LTC_PKCS_1_PSS) {
     /* PSS decode and verify it */
-    err = pkcs_1_pss_decode(hash, hashlen, tmpbuf, x, saltlen, hash_idx, modulus_bitlen, stat);
+    err = pkcs_1_pss_decode(hash, hashlen, tmpbuf, x, saltlen, hash_algo->algo, modulus_bitlen, stat);
   } else {
     /* LTC_PKCS #1 v1.5 decode it */
     unsigned char *out;
@@ -102,7 +103,7 @@ int rsa_verify_hash_ex(const unsigned char *sig,      unsigned long siglen,
     oid_st st;
 
     /* not all hashes have OIDs... so sad */
-    if (hash_get_oid(hash_idx, &st) != CRYPT_OK) {
+    if (hash_get_oid(hash_algo->algo, &st) != CRYPT_OK) {
        err = CRYPT_INVALID_ARG;
        goto bail_2;
     }

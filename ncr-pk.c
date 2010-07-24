@@ -498,7 +498,7 @@ int stat;
 				return -EINVAL;
 			}
 			cret = rsa_verify_hash_ex( signature, signature_size, 
-				hash, hash_size, ctx->type, ctx->sign_hash->algo,
+				hash, hash_size, ctx->type, ctx->sign_hash,
 				ctx->salt_len, &stat, &ctx->key->key.pk.rsa);
 
 			if (cret != CRYPT_OK) {
