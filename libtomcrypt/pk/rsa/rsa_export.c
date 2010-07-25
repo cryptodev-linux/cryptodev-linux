@@ -9,7 +9,7 @@
  * Tom St Denis, tomstdenis@gmail.com, http://libtom.org
  */
 #include "tomcrypt.h"
-#include <ncr_int.h>
+#include <ncr-int.h>
 /**
   @file rsa_export.c
   Export RSA LTC_PKCS keys, Tom St Denis

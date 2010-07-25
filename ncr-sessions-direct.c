@@ -22,7 +22,7 @@
 #include <linux/crypto.h>
 #include "cryptodev.h"
 #include "ncr.h"
-#include "ncr_int.h"
+#include "ncr-int.h"
 #include <linux/mm_types.h>
 #include <linux/scatterlist.h>
 #include <ncr-sessions.h>

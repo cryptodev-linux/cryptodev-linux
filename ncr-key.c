@@ -26,7 +26,7 @@
 #include <asm/ioctl.h>
 #include <linux/scatterlist.h>
 #include "ncr.h"
-#include "ncr_int.h"
+#include "ncr-int.h"
 
 static void ncr_key_clear(struct key_item_st* item);
 

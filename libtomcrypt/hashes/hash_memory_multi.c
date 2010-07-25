@@ -10,7 +10,7 @@
  */
 #include "tomcrypt.h"
 #include <stdarg.h>
-#include <ncr_int.h>
+#include <ncr-int.h>
 #include <cryptodev_int.h>
 
 /**

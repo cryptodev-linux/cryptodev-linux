@@ -30,7 +30,7 @@
 #include <linux/cred.h>  
 #include <linux/capability.h>
 #include "ncr.h"
-#include "ncr_int.h"
+#include "ncr-int.h"
 #include <linux/workqueue.h>
 
 /* This is the master wrapping key for storage of keys

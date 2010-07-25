@@ -41,7 +41,7 @@
 #include <asm/ioctl.h>
 #include <linux/scatterlist.h>
 #include "cryptodev_int.h"
-#include "ncr_int.h"
+#include "ncr-int.h"
 #include <linux/version.h>
 #include "version.h"
 

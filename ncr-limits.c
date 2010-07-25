@@ -29,7 +29,7 @@
 #include <linux/file.h>
 #include <linux/cred.h>
 #include "ncr.h"
-#include "ncr_int.h"
+#include "ncr-int.h"
 
 /* arbitrary now */
 static unsigned int max_per_user[] = {

@@ -26,7 +26,7 @@
 #include <asm/ioctl.h>
 #include <linux/scatterlist.h>
 #include "ncr.h"
-#include "ncr_int.h"
+#include "ncr-int.h"
 #include <tomcrypt.h>
 
 static struct workqueue_struct * pk_wq = NULL;
