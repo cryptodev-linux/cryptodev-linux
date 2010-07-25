@@ -297,68 +297,20 @@ int pubkey_info(void* data, int data_size, int verbose)
 	return 0;
 }
 
-static int data_get(int cfd, ncr_data_t dd, void* data, size_t data_size)
-{
-struct ncr_data_st kdata;
-
-	memset(&kdata, 0, sizeof(kdata));
-	kdata.desc = dd;
-	kdata.data = data;
-	kdata.data_size = data_size;
-
-	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_DATA_GET)");
-		return -1;
-	}
-
-	return 0;
-}
-
 #define RSA_ENCRYPT_SIZE 32
 
 static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oaep)
 {
-	struct ncr_data_init_st dinit;
-	ncr_data_t datad;
-	ncr_data_t encd;
 	struct ncr_session_once_op_st nop;
 	uint8_t data[DATA_SIZE];
 	uint8_t vdata[RSA_ENCRYPT_SIZE];
-	int ret;
+	int enc_size;
 
 	fprintf(stdout, "Tests on RSA (%s) key encryption:", (oaep!=0)?"OAEP":"PKCS V1.5");
 	fflush(stdout);
 
 	memset(data, 0x3, sizeof(data));
 	memset(vdata, 0x0, sizeof(vdata));
-
-	/* data to sign */
-	memset(&dinit, 0, sizeof(dinit));
-	dinit.max_object_size = DATA_SIZE;
-	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
-	dinit.initial_data = data;
-	dinit.initial_data_size = RSA_ENCRYPT_SIZE;
-
-	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_DATA_INIT)");
-		return 1;
-	}
-	
-	datad = dinit.desc;
-
-	memset(&dinit, 0, sizeof(dinit));
-	dinit.max_object_size = DATA_SIZE;
-	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
-
-	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_DATA_INIT)");
-		return 1;
-	}
-
-	encd = dinit.desc;
 
 	/* do encryption */
 	memset(&nop, 0, sizeof(nop));
@@ -371,15 +323,19 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 		nop.init.params.params.rsa.type = RSA_PKCS1_V1_5;
 	}
 	nop.init.op = NCR_OP_ENCRYPT;
-	nop.op.data.ndata.input = datad;
-	nop.op.data.ndata.output = encd;
-	nop.op.type = NCR_DATA;
+	nop.op.data.udata.input = data;
+	nop.op.data.udata.input_size = RSA_ENCRYPT_SIZE;
+	nop.op.data.udata.output = vdata;
+	nop.op.data.udata.output_size = sizeof(vdata);
+	nop.op.type = NCR_DIRECT_DATA;
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_SESSION_ONCE)");
 		return 1;
 	}
+	
+	enc_size = nop.op.data.udata.output_size;
 
 	/* decrypt data */
 	memset(&nop, 0, sizeof(nop));
@@ -392,19 +348,16 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 	} else {
 		nop.init.params.params.rsa.type = RSA_PKCS1_V1_5;
 	}
-	nop.op.data.ndata.input = encd;
-	nop.op.data.ndata.output = encd;
-	nop.op.type = NCR_DATA;
+	nop.op.data.udata.input = vdata;
+	nop.op.data.udata.input_size = enc_size;
+	nop.op.data.udata.output = vdata;
+	nop.op.data.udata.output_size = sizeof(vdata);
+	nop.op.type = NCR_DIRECT_DATA;
+
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_SESSION_ONCE)");
-		return 1;
-	}
-	
-	ret = data_get(cfd, encd, vdata, sizeof(vdata));
-	if (ret < 0) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		return 1;
 	}
 	
@@ -422,43 +375,15 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 
 static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int pss)
 {
-	struct ncr_data_init_st dinit;
-	ncr_data_t datad;
-	ncr_data_t signd;
 	struct ncr_session_once_op_st nop;
 	uint8_t data[DATA_SIZE];
+	uint8_t sig[DATA_SIZE];
+	int sig_size;
 
 	fprintf(stdout, "Tests on RSA (%s) key signature:", (pss!=0)?"PSS":"PKCS V1.5");
 	fflush(stdout);
 
 	memset(data, 0x3, sizeof(data));
-
-	/* data to sign */
-	memset(&dinit, 0, sizeof(dinit));
-	dinit.max_object_size = DATA_SIZE;
-	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
-	dinit.initial_data = data;
-	dinit.initial_data_size = sizeof(data);
-
-	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_DATA_INIT)");
-		return 1;
-	}
-	
-	datad = dinit.desc;
-
-	memset(&dinit, 0, sizeof(dinit));
-	dinit.max_object_size = DATA_SIZE;
-	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
-
-	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_DATA_INIT)");
-		return 1;
-	}
-	
-	signd = dinit.desc;
 
 	/* sign datad */
 	memset(&nop, 0, sizeof(nop));
@@ -468,15 +393,19 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 	nop.init.params.params.rsa.sign_hash = NCR_ALG_SHA1;
 
 	nop.init.op = NCR_OP_SIGN;
-	nop.op.data.ndata.input = datad;
-	nop.op.data.ndata.output = signd;
-	nop.op.type = NCR_DATA;
+	nop.op.data.udata.input = data;
+	nop.op.data.udata.input_size = sizeof(data);
+	nop.op.data.udata.output = sig;
+	nop.op.data.udata.output_size = sizeof(sig);
+	nop.op.type = NCR_DIRECT_DATA;
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_SESSION_ONCE)");
 		return 1;
 	}
+	
+	sig_size = nop.op.data.udata.output_size;
 
 	/* verify signature */
 	memset(&nop, 0, sizeof(nop));
@@ -486,9 +415,11 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 	nop.init.params.params.rsa.sign_hash = NCR_ALG_SHA1;
 
 	nop.init.op = NCR_OP_VERIFY;
-	nop.op.data.ndata.input = datad;
-	nop.op.data.ndata.output = signd;
-	nop.op.type = NCR_DATA;
+	nop.op.data.udata.input = data;
+	nop.op.data.udata.input_size = sizeof(data);
+	nop.op.data.udata.output = sig;
+	nop.op.data.udata.output_size = sig_size;
+	nop.op.type = NCR_DIRECT_DATA;
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -496,7 +427,10 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 		return 1;
 	}
 
-	fprintf(stdout, " Success\n");
+	if (nop.op.err == NCR_SUCCESS)
+		fprintf(stdout, " Success\n");
+	else
+		fprintf(stdout, " Verification Failed!\n");
 
 	return 0;
 
@@ -504,43 +438,15 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 
 static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 {
-	struct ncr_data_init_st dinit;
-	ncr_data_t datad;
-	ncr_data_t signd;
 	struct ncr_session_once_op_st nop;
 	uint8_t data[DATA_SIZE];
+	uint8_t sig[DATA_SIZE];
+	int sig_size;
 
 	fprintf(stdout, "Tests on DSA key signature:");
 	fflush(stdout);
 
 	memset(data, 0x3, sizeof(data));
-
-	/* data to sign */
-	memset(&dinit, 0, sizeof(dinit));
-	dinit.max_object_size = DATA_SIZE;
-	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
-	dinit.initial_data = data;
-	dinit.initial_data_size = sizeof(data);
-
-	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_DATA_INIT)");
-		return 1;
-	}
-	
-	datad = dinit.desc;
-
-	memset(&dinit, 0, sizeof(dinit));
-	dinit.max_object_size = DATA_SIZE;
-	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
-
-	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_DATA_INIT)");
-		return 1;
-	}
-	
-	signd = dinit.desc;
 
 	/* sign datad */
 	memset(&nop, 0, sizeof(nop));
@@ -549,15 +455,19 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 	nop.init.params.params.dsa.sign_hash = NCR_ALG_SHA1;
 
 	nop.init.op = NCR_OP_SIGN;
-	nop.op.data.ndata.input = datad;
-	nop.op.data.ndata.output = signd;
-	nop.op.type = NCR_DATA;
+	nop.op.data.udata.input = data;
+	nop.op.data.udata.input_size = sizeof(data);
+	nop.op.data.udata.output = sig;
+	nop.op.data.udata.output_size = sizeof(sig);
+	nop.op.type = NCR_DIRECT_DATA;
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_SESSION_ONCE)");
 		return 1;
 	}
+	
+	sig_size = nop.op.data.udata.output_size;
 
 	/* verify signature */
 	memset(&nop, 0, sizeof(nop));
@@ -566,9 +476,11 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 	nop.init.params.params.dsa.sign_hash = NCR_ALG_SHA1;
 
 	nop.init.op = NCR_OP_VERIFY;
-	nop.op.data.ndata.input = datad;
-	nop.op.data.ndata.output = signd;
-	nop.op.type = NCR_DATA;
+	nop.op.data.udata.input = data;
+	nop.op.data.udata.input_size = sizeof(data);
+	nop.op.data.udata.output = sig;
+	nop.op.data.udata.output_size = sizeof(sig);
+	nop.op.type = NCR_DIRECT_DATA;
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -576,7 +488,10 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 		return 1;
 	}
 
-	fprintf(stdout, " Success\n");
+	if (nop.op.err == NCR_SUCCESS)
+		fprintf(stdout, " Success\n");
+	else
+		fprintf(stdout, " Verification Failed!\n");
 
 	return 0;
 

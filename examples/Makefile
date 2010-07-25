@@ -17,9 +17,6 @@ hmac: hmac.c
 ncr: ncr.c
 	$(CC) $(CFLAGS) $< -o $@
 
-ncr-direct: ncr-direct.c
-	$(CC) $(CFLAGS) $< -o $@
-
 pk: pk.c
 	$(CC) $(CFLAGS) $< -o $@ -L/usr/local/lib -lgnutls
 

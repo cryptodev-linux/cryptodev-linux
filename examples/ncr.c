@@ -734,6 +734,7 @@ test_ncr_aes(int cfd)
 	uint8_t data[KEY_DATA_SIZE];
 	int i, j;
 	struct ncr_session_once_op_st nop;
+	int data_size;
 
 	dinit.max_object_size = KEY_DATA_SIZE;
 	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
@@ -791,26 +792,17 @@ test_ncr_aes(int cfd)
 			perror("ioctl(NCRIO_KEY_IMPORT)");
 			return 1;
 		}
-		/* import data */
-
-		kdata.data = (void*)aes_vectors[i].plaintext;
-		kdata.data_size = 16;
-		kdata.desc = dd;
-
-		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
-			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_SET)");
-			return 1;
-		}
 
 		/* encrypt */
 		memset(&nop, 0, sizeof(nop));
 		nop.init.algorithm = NCR_ALG_AES_ECB;
 		nop.init.key = key;
 		nop.init.op = NCR_OP_ENCRYPT;
-		nop.op.data.ndata.input = dd;
-		nop.op.data.ndata.output = dd2;
-		nop.op.type = NCR_DATA;
+		nop.op.data.udata.input = (void*)aes_vectors[i].plaintext;
+		nop.op.data.udata.input_size = 16;
+		nop.op.data.udata.output = data;
+		nop.op.data.udata.output_size = sizeof(data);
+		nop.op.type = NCR_DIRECT_DATA;
 
 		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -818,22 +810,14 @@ test_ncr_aes(int cfd)
 			return 1;
 		}
 
+		data_size = nop.op.data.udata.output_size;
 		/* verify */
-		kdata.desc = dd2;
-		kdata.data = data;
-		kdata.data_size = sizeof(data);
 
-		if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
-			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_GET)");
-			return 1;
-		}
-
-		if (kdata.data_size != 16 || memcmp(kdata.data, aes_vectors[i].ciphertext, 16) != 0) {
+		if (data_size != 16 || memcmp(data, aes_vectors[i].ciphertext, 16) != 0) {
 			fprintf(stderr, "AES test vector %d failed!\n", i);
 
-			fprintf(stderr, "Cipher[%d]: ", (int)kdata.data_size);
-			for(j=0;j<kdata.data_size;j++)
+			fprintf(stderr, "Cipher[%d]: ", (int)data_size);
+			for(j=0;j<data_size;j++)
 			  fprintf(stderr, "%.2x:", (int)data[j]);
 			fprintf(stderr, "\n");
 
@@ -867,49 +851,31 @@ test_ncr_aes(int cfd)
 			return 1;
 		}
 
-		/* import ciphertext */
-
-		kdata.data = (void*)aes_vectors[i].ciphertext;
-		kdata.data_size = 16;
-		kdata.desc = dd;
-
-		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
-			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_SET)");
-			return 1;
-		}
-
 		/* decrypt */
 		memset(&nop, 0, sizeof(nop));
 		nop.init.algorithm = NCR_ALG_AES_ECB;
 		nop.init.key = key;
 		nop.init.op = NCR_OP_DECRYPT;
-		nop.op.data.ndata.input = dd;
-		nop.op.data.ndata.output = dd2;
-		nop.op.type = NCR_DATA;
+		nop.op.data.udata.input = (void*)aes_vectors[i].ciphertext;
+		nop.op.data.udata.input_size = 16;
+		nop.op.data.udata.output = data;
+		nop.op.data.udata.output_size = sizeof(data);
+		nop.op.type = NCR_DIRECT_DATA;
 
 		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 			perror("ioctl(NCRIO_SESSION_ONCE)");
 			return 1;
 		}
+		
+		data_size = nop.op.data.udata.output_size;
 
-		/* verify */
-		kdata.desc = dd2;
-		kdata.data = data;
-		kdata.data_size = sizeof(data);
 
-		if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
-			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_GET)");
-			return 1;
-		}
-
-		if (kdata.data_size != 16 || memcmp(kdata.data, aes_vectors[i].plaintext, 16) != 0) {
+		if (data_size != 16 || memcmp(data, aes_vectors[i].plaintext, 16) != 0) {
 			fprintf(stderr, "AES test vector %d failed!\n", i);
 
-			fprintf(stderr, "Plain[%d]: ", (int)kdata.data_size);
-			for(j=0;j<kdata.data_size;j++)
+			fprintf(stderr, "Plain[%d]: ", (int)data_size);
+			for(j=0;j<data_size;j++)
 			  fprintf(stderr, "%.2x:", (int)data[j]);
 			fprintf(stderr, "\n");
 
@@ -1019,7 +985,7 @@ test_ncr_hash(int cfd)
 	struct ncr_data_st kdata;
 	ncr_data_t dd, dd2;
 	uint8_t data[HASH_DATA_SIZE];
-	int i, j;
+	int i, j, data_size;
 	struct ncr_session_once_op_st nop;
 
 	dinit.max_object_size = HASH_DATA_SIZE;
@@ -1081,17 +1047,6 @@ test_ncr_hash(int cfd)
 				return 1;
 			}
 		}
-		/* import data */
-
-		kdata.data = (void*)hash_vectors[i].plaintext;
-		kdata.data_size = hash_vectors[i].plaintext_size;
-		kdata.desc = dd;
-
-		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
-			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_SET)");
-			return 1;
-		}
 
 		/* encrypt */
 		memset(&nop, 0, sizeof(nop));
@@ -1099,34 +1054,27 @@ test_ncr_hash(int cfd)
 		if (hash_vectors[i].key != NULL)
 			nop.init.key = key;
 		nop.init.op = hash_vectors[i].op;
-		nop.op.data.ndata.input = dd;
-		nop.op.data.ndata.output = dd2;
-		nop.op.type = NCR_DATA;
+		nop.op.data.udata.input = (void*)hash_vectors[i].plaintext;
+		nop.op.data.udata.input_size = hash_vectors[i].plaintext_size;
+		nop.op.data.udata.output = data;
+		nop.op.data.udata.output_size = sizeof(data);
+		nop.op.type = NCR_DIRECT_DATA;
 
 		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 			perror("ioctl(NCRIO_SESSION_ONCE)");
 			return 1;
 		}
+		
+		data_size = nop.op.data.udata.output_size;
 
-		/* verify */
-		memset(&kdata, 0, sizeof(kdata));
-		kdata.desc = dd2;
-		kdata.data = data;
-		kdata.data_size = sizeof(data);
 
-		if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
-			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_GET)");
-			return 1;
-		}
-
-		if (kdata.data_size != hash_vectors[i].output_size ||
-			memcmp(kdata.data, hash_vectors[i].output, hash_vectors[i].output_size) != 0) {
+		if (data_size != hash_vectors[i].output_size ||
+			memcmp(data, hash_vectors[i].output, hash_vectors[i].output_size) != 0) {
 			fprintf(stderr, "HASH test vector %d failed!\n", i);
 
-			fprintf(stderr, "Output[%d]: ", (int)kdata.data_size);
-			for(j=0;j<kdata.data_size;j++)
+			fprintf(stderr, "Output[%d]: ", (int)data_size);
+			for(j=0;j<data_size;j++)
 			  fprintf(stderr, "%.2x:", (int)data[j]);
 			fprintf(stderr, "\n");
 

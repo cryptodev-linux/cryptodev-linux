@@ -281,7 +281,7 @@ typedef enum {
 } ncr_error_t;
 
 typedef enum {
-	NCR_DATA,
+	NCR_KEY_DATA,
 	NCR_DIRECT_DATA,
 } ncr_data_type_t;
 
@@ -291,11 +291,12 @@ struct ncr_session_op_st {
 
 	union {
 		struct {
-			ncr_data_t input;
-			ncr_data_t output; /* when verifying signature this is
+			ncr_key_t input;
+			void* output;  /* when verifying signature this is
 					* the place of the signature.
 					*/
-		} ndata;
+			size_t output_size;
+		} kdata;
 		struct {
 			void* input;
 			size_t input_size;
