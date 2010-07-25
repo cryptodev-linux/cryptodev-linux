@@ -383,7 +383,7 @@ test_ncr_wrap_key(int cfd)
 	struct ncr_data_st kdata;
 	struct ncr_key_wrap_st kwrap;
 	uint8_t data[WRAPPED_KEY_DATA_SIZE];
-
+	int data_size;
 
 	fprintf(stdout, "Tests on Keys:\n");
 
@@ -465,29 +465,23 @@ test_ncr_wrap_key(int cfd)
 	kwrap.algorithm = NCR_WALG_AES_RFC3394;
 	kwrap.keytowrap = key2;
 	kwrap.key = key;
-	kwrap.data = kdata.desc;
+	kwrap.io = data;
+	kwrap.io_size = sizeof(data);
 
 	if (ioctl(cfd, NCRIO_KEY_WRAP, &kwrap)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_WRAP)");
 		return 1;
 	}
+	
+	data_size = kwrap.io_size;
 
-	kdata.data = data;
-	kdata.data_size = sizeof(data);
-
-	if (ioctl(cfd, NCRIO_DATA_GET, &kdata)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_DATA_GET)");
-		return 1;
-	}
-
-	if (kdata.data_size != 24 || memcmp(kdata.data,
+	if (kwrap.io_size != 24 || memcmp(data,
 		"\x1F\xA6\x8B\x0A\x81\x12\xB4\x47\xAE\xF3\x4B\xD8\xFB\x5A\x7B\x82\x9D\x3E\x86\x23\x71\xD2\xCF\xE5", 24) != 0) {
 		fprintf(stderr, "Wrapped data do not match.\n");
 
-		fprintf(stderr, "Data[%d]: ",(int) kdata.data_size);
-		for(i=0;i<kdata.data_size;i++)
+		fprintf(stderr, "Data[%d]: ",(int) kwrap.io_size);
+		for(i=0;i<kwrap.io_size;i++)
 			fprintf(stderr, "%.2x:", data[i]);
 		fprintf(stderr, "\n");
 		return 1;
@@ -514,7 +508,8 @@ test_ncr_wrap_key(int cfd)
 	kwrap.algorithm = NCR_WALG_AES_RFC3394;
 	kwrap.keytowrap = key2;
 	kwrap.key = key;
-	kwrap.data = kdata.desc;
+	kwrap.io = data;
+	kwrap.io_size = data_size;
 
 	if (ioctl(cfd, NCRIO_KEY_UNWRAP, &kwrap)) {
 		perror("ioctl(NCRIO_KEY_UNWRAP)");
@@ -568,6 +563,7 @@ test_ncr_store_wrap_key(int cfd)
 	struct ncr_key_storage_wrap_st kwrap;
 	uint8_t data[DATA_SIZE];
 	int dd;
+	int data_size;
 
 	fprintf(stdout, "Tests on Key storage:\n");
 
@@ -626,7 +622,8 @@ test_ncr_store_wrap_key(int cfd)
 	/* now try wrapping key2 using key */
 	memset(&kwrap, 0, sizeof(kwrap));
 	kwrap.keytowrap = key2;
-	kwrap.data = dd;
+	kwrap.io = data;
+	kwrap.io_size = sizeof(data);
 
 	if (ioctl(cfd, NCRIO_KEY_STORAGE_WRAP, &kwrap)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -635,6 +632,7 @@ test_ncr_store_wrap_key(int cfd)
 	}
 
 	/* test unwrapping */
+	data_size = kwrap.io_size;
 	fprintf(stdout, "\tKey Storage Unwrap test...\n");
 
 	/* reset key2 */
@@ -652,7 +650,8 @@ test_ncr_store_wrap_key(int cfd)
 
 	memset(&kwrap, 0, sizeof(kwrap));
 	kwrap.keytowrap = key2;
-	kwrap.data = dd;
+	kwrap.io = data;
+	kwrap.io_size = data_size;
 
 	if (ioctl(cfd, NCRIO_KEY_STORAGE_UNWRAP, &kwrap)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);

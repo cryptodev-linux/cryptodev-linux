@@ -146,13 +146,13 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 		case NCRIO_KEY_GET_INFO:
 			return ncr_key_info(&lst->key, arg);
 		case NCRIO_KEY_WRAP:
-			return ncr_key_wrap(&lst->key, &lst->data, arg);
+			return ncr_key_wrap(&lst->key, arg);
 		case NCRIO_KEY_UNWRAP:
-			return ncr_key_unwrap(&lst->key, &lst->data, arg);
+			return ncr_key_unwrap(&lst->key, arg);
 		case NCRIO_KEY_STORAGE_WRAP:
-			return ncr_key_storage_wrap(&lst->key, &lst->data, arg);
+			return ncr_key_storage_wrap(&lst->key, arg);
 		case NCRIO_KEY_STORAGE_UNWRAP:
-			return ncr_key_storage_unwrap(&lst->key, &lst->data, arg);
+			return ncr_key_storage_unwrap(&lst->key, arg);
 		case NCRIO_SESSION_INIT:
 			return ncr_session_init(lst, arg);
 		case NCRIO_SESSION_UPDATE:

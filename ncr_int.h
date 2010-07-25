@@ -168,10 +168,10 @@ int ncr_limits_add_and_check(uid_t uid, pid_t pid, limits_type_t type);
 void ncr_limits_init(void);
 void ncr_limits_deinit(void);
 
-int ncr_key_wrap(struct list_sem_st* keys, struct list_sem_st* data, void __user* arg);
-int ncr_key_unwrap(struct list_sem_st*, struct list_sem_st* data, void __user* arg);
-int ncr_key_storage_wrap(struct list_sem_st* key_lst, struct list_sem_st* data_lst, void __user* arg);
-int ncr_key_storage_unwrap(struct list_sem_st*, struct list_sem_st* data, void __user* arg);
+int ncr_key_wrap(struct list_sem_st* keys, void __user* arg);
+int ncr_key_unwrap(struct list_sem_st*, void __user* arg);
+int ncr_key_storage_wrap(struct list_sem_st* key_lst, void __user* arg);
+int ncr_key_storage_unwrap(struct list_sem_st*, void __user* arg);
 
 /* sessions */
 struct session_item_st* ncr_session_new(struct list_sem_st* lst);

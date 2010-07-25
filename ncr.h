@@ -212,7 +212,7 @@ struct ncr_key_data_st {
 
 #define NCRIO_KEY_DEINIT       _IOR ('c', 215, ncr_key_t)
 
-/* FIXME key wrap ioctls
+/* Key wrap ioctls
  */
 struct ncr_key_wrap_st {
 	ncr_wrap_algorithm_t algorithm;
@@ -220,10 +220,12 @@ struct ncr_key_wrap_st {
 
 	ncr_key_t key;
 	struct ncr_key_params_st params;
-	ncr_data_t data; /* encrypted keytowrap */
+
+	void* io; /* encrypted keytowrap */
+	size_t io_size; /* this will be updated by the actual size on wrap */
 };
 
-#define NCRIO_KEY_WRAP        _IOR ('c', 250, struct ncr_key_wrap_st)
+#define NCRIO_KEY_WRAP        _IOWR ('c', 250, struct ncr_key_wrap_st)
 #define NCRIO_KEY_UNWRAP        _IOR ('c', 251, struct ncr_key_wrap_st)
 
 /* Internal ops  */
@@ -238,10 +240,12 @@ struct ncr_master_key_st {
  * fields to be able to recover a key */
 struct ncr_key_storage_wrap_st {
 	ncr_key_t keytowrap;
-	ncr_data_t data; /* encrypted keytowrap */
+
+	void* io; /* encrypted keytowrap */
+	size_t io_size; /* this will be updated by the actual size on wrap */
 };
 
-#define NCRIO_KEY_STORAGE_WRAP        _IOR ('c', 261, struct ncr_key_storage_wrap_st)
+#define NCRIO_KEY_STORAGE_WRAP        _IOWR ('c', 261, struct ncr_key_storage_wrap_st)
 #define NCRIO_KEY_STORAGE_UNWRAP        _IOR ('c', 262, struct ncr_key_storage_wrap_st)
 
 /* Crypto Operations ioctls
