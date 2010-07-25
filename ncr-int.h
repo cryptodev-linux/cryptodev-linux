@@ -55,27 +55,6 @@ struct session_item_st {
 	ncr_session_t desc;
 };
 
-struct data_item_st {
-	struct list_head list;
-	/* This object is not protected from concurrent access.
-	 * I see no reason to allow concurrent writes (reads are
-	 * not an issue).
-	 */
-	struct scatterlist sg; /* points to data */
-
-	uint8_t* data;
-	size_t data_size;
-	size_t max_data_size;
-	unsigned int flags;
-	atomic_t refcnt;
-
-	/* owner. The one charged with this */
-	uid_t uid;
-	pid_t pid;
-
-	ncr_data_t desc;
-};
-
 struct key_item_st {
 	struct list_head list;
 	/* This object is also not protected from concurrent access.
@@ -129,20 +108,10 @@ void ncr_deinit_lists(struct ncr_lists *lst);
 int ncr_ioctl(struct ncr_lists*, struct file *filp,
 		unsigned int cmd, unsigned long arg);
 		
-int ncr_data_set(struct list_sem_st*, void __user* arg);
-int ncr_data_get(struct list_sem_st*, void __user* arg);
-int ncr_data_deinit(struct list_sem_st*, void __user* arg);
-int ncr_data_init(struct list_sem_st*, void __user* arg);
-void ncr_data_list_deinit(struct list_sem_st*);
-struct data_item_st* ncr_data_item_get( struct list_sem_st* lst, ncr_data_t desc);
-void _ncr_data_item_put( struct data_item_st* item);
-
 int ncr_key_init(struct list_sem_st*, void __user* arg);
 int ncr_key_deinit(struct list_sem_st*, void __user* arg);
-int ncr_key_export(struct list_sem_st* data_lst,
-	struct list_sem_st* key_lst,void __user* arg);
-int ncr_key_import(struct list_sem_st* data_lst,
-	struct list_sem_st* key_lst,void __user* arg);
+int ncr_key_export(struct list_sem_st* key_lst,void __user* arg);
+int ncr_key_import(struct list_sem_st* key_lst,void __user* arg);
 void ncr_key_list_deinit(struct list_sem_st* lst);
 int ncr_key_generate(struct list_sem_st* data_lst, void __user* arg);
 int ncr_key_info(struct list_sem_st*, void __user* arg);
@@ -160,7 +129,6 @@ void _ncr_key_item_put( struct key_item_st* item);
 
 typedef enum {
 	LIMIT_TYPE_KEY,
-	LIMIT_TYPE_DATA
 } limits_type_t;
 
 void ncr_limits_remove(uid_t uid, pid_t pid, limits_type_t type);
@@ -195,25 +163,6 @@ int key_to_storage_data( uint8_t** data, size_t * data_size, const struct key_it
 
 
 /* misc helper macros */
-inline static unsigned int key_flags_to_data(unsigned int key_flags)
-{
-	unsigned int flags = 0;
-
-	if (key_flags & NCR_KEY_FLAG_EXPORTABLE)
-		flags |= NCR_DATA_FLAG_EXPORTABLE;
-
-	return flags;
-}
-
-inline static unsigned int data_flags_to_key(unsigned int data_flags)
-{
-	unsigned int flags = 0;
-
-	if (data_flags & NCR_DATA_FLAG_EXPORTABLE)
-		flags |= NCR_KEY_FLAG_EXPORTABLE;
-
-	return flags;
-}
 
 const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo);
 const struct algo_properties_st *ncr_key_params_get_sign_hash(const struct algo_properties_st *algo, struct ncr_key_params_st * params);

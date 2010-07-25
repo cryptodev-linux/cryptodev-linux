@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -g -O2
 
-progs := cipher hmac ncr pk speed ncr-direct
+progs := cipher hmac ncr pk speed
 
 all: $(progs)
 
@@ -22,11 +22,10 @@ pk: pk.c
 
 check: $(progs)
 	./ncr
-	./ncr-direct
 	./pk
 	./cipher
 	./hmac
 	./speed
 
 clean:
-	rm -f *.o *~ hmac cipher ncr pk speed ncr-direct
+	rm -f *.o *~ hmac cipher ncr pk speed 

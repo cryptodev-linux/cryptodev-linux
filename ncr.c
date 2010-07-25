@@ -64,7 +64,6 @@ void* ncr_init_lists(void)
 void ncr_deinit_lists(struct ncr_lists *lst)
 {
 	if(lst) {
-		ncr_data_list_deinit(&lst->data);
 		ncr_key_list_deinit(&lst->key);
 		ncr_sessions_list_deinit(&lst->sessions);
 		kfree(lst);
@@ -124,15 +123,6 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 		BUG();
 
 	switch (cmd) {
-		case NCRIO_DATA_INIT:
-			return ncr_data_init(&lst->data, arg);
-		case NCRIO_DATA_GET:
-			return ncr_data_get(&lst->data, arg);
-		case NCRIO_DATA_SET:
-			return ncr_data_set(&lst->data, arg);
-		case NCRIO_DATA_DEINIT:
-			return ncr_data_deinit(&lst->data, arg);
-
 		case NCRIO_KEY_INIT:
 			return ncr_key_init(&lst->key, arg);
 		case NCRIO_KEY_DEINIT:
@@ -140,9 +130,9 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 		case NCRIO_KEY_GENERATE:
 			return ncr_key_generate(&lst->key, arg);
 		case NCRIO_KEY_EXPORT:
-			return ncr_key_export(&lst->data, &lst->key, arg);
+			return ncr_key_export(&lst->key, arg);
 		case NCRIO_KEY_IMPORT:
-			return ncr_key_import(&lst->data, &lst->key, arg);
+			return ncr_key_import(&lst->key, arg);
 		case NCRIO_KEY_GET_INFO:
 			return ncr_key_info(&lst->key, arg);
 		case NCRIO_KEY_WRAP:

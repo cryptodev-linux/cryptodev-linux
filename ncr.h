@@ -55,34 +55,6 @@ typedef enum {
 	NCR_KEY_TYPE_PRIVATE=3,
 } ncr_key_type_t;
 
-/* Data Handling
- */
-#define NCR_DATA_FLAG_EXPORTABLE 1
-#define NCR_DATA_FLAG_SIGN_ONLY 2 /* this object can only be used with hash/sign operations */
-
-typedef int ncr_data_t;
-#define NCR_DATA_INVALID (ncr_data_t)(0)
-
-struct ncr_data_init_st {
-	ncr_data_t desc;
-	size_t max_object_size;
-	unsigned int flags;
-	void __user *initial_data; /* can be null */
-	size_t initial_data_size;
-};
-
-struct ncr_data_st {
-	ncr_data_t desc;
-	void __user *data;
-	size_t data_size; /* rw in get */
-	unsigned int append_flag; /* only when used with NCRIO_DATA_SET */
-};
-
-#define NCRIO_DATA_INIT         _IOWR('c', 200, struct ncr_data_init_st)
-#define NCRIO_DATA_GET         _IOWR('c', 201, struct ncr_data_st)
-#define NCRIO_DATA_SET         _IOR('c', 202, struct ncr_data_st)
-#define NCRIO_DATA_DEINIT         _IOR('c', 203, ncr_data_t)
-
 /* Key handling
  */
 
@@ -187,7 +159,10 @@ struct ncr_key_info_st {
 
 struct ncr_key_data_st {
 	ncr_key_t key;
-	ncr_data_t data;
+
+	void __user *idata;
+	size_t idata_size; /* rw in get */
+
 	/* in case of import this will be used as key id */
 	uint8_t key_id[MAX_KEY_ID_SIZE];
 	size_t key_id_size;

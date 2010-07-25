@@ -537,12 +537,13 @@ static int get_userbuf2(struct session_item_st* ses,
 		unsigned *src_cnt, struct scatterlist **dst_sg, unsigned *dst_cnt)
 {
 	int src_pagecount, dst_pagecount = 0, pagecount, write_src = 1;
+	size_t input_size = op->data.udata.input_size;
 
 	if (op->data.udata.input == NULL) {
 		return -EINVAL;
 	}
 
-	src_pagecount = PAGECOUNT(op->data.udata.input, op->data.udata.input_size);
+	src_pagecount = PAGECOUNT(op->data.udata.input, input_size);
 
 	if (op->data.udata.input != op->data.udata.output) {	/* non-in-situ transformation */
 		if (op->data.udata.output != NULL) {
@@ -551,6 +552,10 @@ static int get_userbuf2(struct session_item_st* ses,
 		} else {
 			dst_pagecount = 0;
 		}
+	} else {
+		src_pagecount = max((int)(PAGECOUNT(op->data.udata.output, op->data.udata.output_size)),
+			src_pagecount);
+		input_size = max(input_size, (size_t)op->data.udata.output_size);
 	}
 
 	ses->available_pages = pagecount = src_pagecount + dst_pagecount;
@@ -571,7 +576,7 @@ static int get_userbuf2(struct session_item_st* ses,
 		}
 	}
 
-	if (__get_userbuf(op->data.udata.input, op->data.udata.input_size, write_src,
+	if (__get_userbuf(op->data.udata.input, input_size, write_src,
 			src_pagecount, ses->pages, ses->sg)) {
 		dprintk(1, KERN_ERR, "failed to get user pages for data input\n");
 		return -EINVAL;
@@ -639,7 +644,7 @@ int _ncr_session_direct_update(struct ncr_lists* lists, struct ncr_session_op_st
 				ret = -EINVAL;
 				goto fail;
 			}
-			
+
 			ret = _ncr_session_encrypt(sess, isg, isg_cnt, isg_size, 
 				osg, osg_cnt, &osg_size);
 			if (ret < 0) {
@@ -716,7 +721,6 @@ int _ncr_session_direct_final(struct ncr_lists* lists, struct ncr_session_op_st*
 {
 	int ret;
 	struct session_item_st* sess;
-	struct data_item_st* odata = NULL;
 	int digest_size;
 	uint8_t digest[NCR_HASH_MAX_OUTPUT_SIZE];
 	uint8_t vdigest[NCR_HASH_MAX_OUTPUT_SIZE];
@@ -776,7 +780,7 @@ int _ncr_session_direct_final(struct ncr_lists* lists, struct ncr_session_op_st*
 					goto fail;
 				}
 				
-				if (digest_size != odata->data_size ||
+				if (digest_size != osg_size ||
 					memcmp(vdigest, digest, digest_size) != 0) {
 						
 					op->err = NCR_VERIFICATION_FAILED;

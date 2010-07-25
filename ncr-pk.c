@@ -359,9 +359,13 @@ int ncr_pk_cipher_init(const struct algo_properties_st *algo,
 				  err();
 				  return -EINVAL;
 				}
-			} else if (params->params.rsa.type == RSA_PKCS1_PSS)
+			} else if (params->params.rsa.type == RSA_PKCS1_PSS) {
 				ctx->type = LTC_LTC_PKCS_1_PSS;
-			
+			} else {
+				err();
+				return -EINVAL;
+			}
+
 			ctx->salt_len = params->params.rsa.pss_salt;
 			break;
 		case NCR_ALG_DSA:
@@ -534,7 +538,6 @@ void * input, *output;
 		case NCR_ALG_RSA:
 			cret = rsa_sign_hash_ex( input, isg_size, output, &osize, 
 				ctx->type, ctx->sign_hash, ctx->salt_len, &ctx->key->key.pk.rsa);
-
 			if (cret != CRYPT_OK) {
 				err();
 				return tomerr(cret);
@@ -575,7 +578,7 @@ int ncr_pk_cipher_verify(const struct ncr_pk_ctx* ctx,
 	const void* hash, size_t hash_size, ncr_error_t*  err)
 {
 int cret, ret;
-int stat;
+int stat = 0;
 uint8_t* sig;
 
 	sig = kmalloc(sign_sg_size, GFP_KERNEL);
@@ -596,13 +599,12 @@ uint8_t* sig;
 			cret = rsa_verify_hash_ex( sig, sign_sg_size, 
 				hash, hash_size, ctx->type, ctx->sign_hash,
 				ctx->salt_len, &stat, &ctx->key->key.pk.rsa);
-
 			if (cret != CRYPT_OK) {
 				err();
 				ret = tomerr(cret);
 				goto fail;
 			}
-			
+
 			if (stat == 1)
 				*err = 0;
 			else
