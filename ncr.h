@@ -271,13 +271,13 @@ struct ncr_session_op_st {
 					* the place of the signature.
 					*/
 			size_t output_size;
-		} kdata;
+		} kdata; /* NCR_KEY_DATA */
 		struct {
 			void* input;
 			size_t input_size;
 			void* output;
 			size_t output_size;
-		} udata;
+		} udata; /* NCR_DIRECT_DATA */
 	} data;
 	ncr_data_type_t type;
 

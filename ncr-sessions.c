@@ -25,9 +25,9 @@
 #include "ncr-int.h"
 #include <linux/mm_types.h>
 #include <linux/scatterlist.h>
-#include <ncr-sessions.h>
 
-static int _ncr_session_direct_update_key(struct ncr_lists* lists, struct ncr_session_op_st* op);
+static int _ncr_session_update_key(struct ncr_lists* lists, struct ncr_session_op_st* op);
+static void _ncr_session_remove(struct list_sem_st* lst, ncr_session_t desc);
 
 void ncr_sessions_list_deinit(struct list_sem_st* lst)
 {
@@ -491,16 +491,15 @@ void _ncr_session_remove(struct list_sem_st* lst, ncr_session_t desc)
 
 /* Only the output buffer is given as scatterlist */
 static int get_userbuf1(struct session_item_st* ses,
-		struct ncr_session_op_st* op, struct scatterlist **dst_sg, unsigned *dst_cnt)
+		void __user * udata, size_t udata_size, struct scatterlist **dst_sg, unsigned *dst_cnt)
 {
 	int pagecount = 0;
 
-	if (op->data.udata.output == NULL) {
+	if (udata == NULL) {
 		return -EINVAL;
 	}
 
-	pagecount = PAGECOUNT(op->data.udata.output, op->data.udata.output_size);
-
+	pagecount = PAGECOUNT(udata, udata_size);
 
 	ses->available_pages = pagecount;
 
@@ -520,7 +519,7 @@ static int get_userbuf1(struct session_item_st* ses,
 		}
 	}
 
-	if (__get_userbuf(op->data.udata.output, op->data.udata.output_size, 1,
+	if (__get_userbuf(udata, udata_size, 1,
 			pagecount, ses->pages, ses->sg)) {
 		dprintk(1, KERN_ERR, "failed to get user pages for data input\n");
 		return -EINVAL;
@@ -608,7 +607,7 @@ static int get_userbuf2(struct session_item_st* ses,
 }
 
 /* Called when userspace buffers are used */
-int _ncr_session_direct_update(struct ncr_lists* lists, struct ncr_session_op_st* op)
+int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st* op)
 {
 	int ret;
 	struct session_item_st* sess;
@@ -704,20 +703,20 @@ fail:
 	return ret;
 }
 
-static int try_session_direct_update(struct ncr_lists* lists, struct ncr_session_op_st* op)
+static int try_session_update(struct ncr_lists* lists, struct ncr_session_op_st* op)
 {
 	if (op->type == NCR_KEY_DATA) {
 		if (op->data.kdata.input != NCR_KEY_INVALID)
-			return _ncr_session_direct_update_key(lists, op);
+			return _ncr_session_update_key(lists, op);
 	} else if (op->type == NCR_DIRECT_DATA) {
 		if (op->data.udata.input != NULL)
-			return _ncr_session_direct_update(lists, op);
+			return _ncr_session_update(lists, op);
 	}
 
 	return 0;
 }
 
-int _ncr_session_direct_final(struct ncr_lists* lists, struct ncr_session_op_st* op)
+int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st* op)
 {
 	int ret;
 	struct session_item_st* sess;
@@ -728,6 +727,8 @@ int _ncr_session_direct_final(struct ncr_lists* lists, struct ncr_session_op_st*
 	unsigned osg_cnt=0;
 	size_t osg_size = 0;
 	size_t orig_osg_size;
+	void __user * udata = NULL;
+	size_t *udata_size;
 
 	sess = ncr_sessions_item_get( &lists->sessions, op->ses);
 	if (sess == NULL) {
@@ -735,7 +736,7 @@ int _ncr_session_direct_final(struct ncr_lists* lists, struct ncr_session_op_st*
 		return -EINVAL;
 	}
 
-	ret = try_session_direct_update(lists, op);
+	ret = try_session_update(lists, op);
 	if (ret < 0) {
 		err();
 		_ncr_sessions_item_put(sess);
@@ -747,18 +748,30 @@ int _ncr_session_direct_final(struct ncr_lists* lists, struct ncr_session_op_st*
 		_ncr_sessions_item_put(sess);
 		return -ERESTARTSYS;
 	}
+	
+	if (op->type == NCR_DIRECT_DATA) {
+		udata = op->data.udata.output;
+		udata_size = &op->data.udata.output_size;
+	} else if (op->type == NCR_KEY_DATA) {
+		udata = op->data.kdata.output;
+		udata_size = &op->data.kdata.output_size;
+	} else {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}
 
 	switch(sess->op) {
 		case NCR_OP_ENCRYPT:
 		case NCR_OP_DECRYPT:
 			break;
 		case NCR_OP_VERIFY:
-			ret = get_userbuf1(sess, op, &osg, &osg_cnt);
+			ret = get_userbuf1(sess, udata, *udata_size, &osg, &osg_cnt);
 			if (ret < 0) {
 				err();
 				goto fail;
 			}
-			orig_osg_size = osg_size = op->data.udata.output_size;
+			orig_osg_size = osg_size = *udata_size;
 
 			digest_size = sess->hash.digestsize;
 			if (digest_size == 0 || sizeof(digest) < digest_size) {
@@ -799,12 +812,12 @@ int _ncr_session_direct_final(struct ncr_lists* lists, struct ncr_session_op_st*
 			break;
 
 		case NCR_OP_SIGN:
-			ret = get_userbuf1(sess, op, &osg, &osg_cnt);
+			ret = get_userbuf1(sess, udata, *udata_size, &osg, &osg_cnt);
 			if (ret < 0) {
 				err();
 				goto fail;
 			}
-			orig_osg_size = osg_size = op->data.udata.output_size;
+			orig_osg_size = osg_size = *udata_size;
 
 			digest_size = sess->hash.digestsize;
 			if (digest_size == 0 || osg_size < digest_size) {
@@ -848,7 +861,7 @@ int _ncr_session_direct_final(struct ncr_lists* lists, struct ncr_session_op_st*
 	}
 
 	if (osg_size > 0)
-		op->data.udata.output_size = osg_size;
+		*udata_size = osg_size;
 
 	ret = 0;
 
@@ -874,7 +887,7 @@ fail:
 
 /* Direct with key: Allows to hash a key */
 /* Called when userspace buffers are used */
-static int _ncr_session_direct_update_key(struct ncr_lists* lists, struct ncr_session_op_st* op)
+static int _ncr_session_update_key(struct ncr_lists* lists, struct ncr_session_op_st* op)
 {
 	int ret;
 	struct session_item_st* sess;
@@ -908,7 +921,8 @@ static int _ncr_session_direct_update_key(struct ncr_lists* lists, struct ncr_se
 		return -ERESTARTSYS;
 	}
 
-	ret = get_userbuf1(sess, op, &osg, &osg_cnt);
+	ret = get_userbuf1(sess, op->data.kdata.output, op->data.kdata.output_size, 
+		&osg, &osg_cnt);
 	if (ret < 0) {
 		err();
 		goto fail;
@@ -962,9 +976,9 @@ int ncr_session_update(struct ncr_lists* lists, void __user* arg)
 	}
 
 	if (op.type == NCR_DIRECT_DATA)
-		ret = _ncr_session_direct_update(lists, &op);
+		ret = _ncr_session_update(lists, &op);
 	else if (op.type == NCR_KEY_DATA)
-		ret = _ncr_session_direct_update_key(lists, &op);
+		ret = _ncr_session_update_key(lists, &op);
 	else
 		ret = -EINVAL;
 
@@ -991,7 +1005,7 @@ int ncr_session_final(struct ncr_lists* lists, void __user* arg)
 		return -EFAULT;
 	}
 
-	ret = _ncr_session_direct_final(lists, &op);
+	ret = _ncr_session_final(lists, &op);
 	if (unlikely(ret)) {
 		err();
 		return ret;
@@ -1021,7 +1035,7 @@ int ncr_session_once(struct ncr_lists* lists, void __user* arg)
 	}
 	kop.op.ses = kop.init.ses;
 
-	ret = _ncr_session_direct_final(lists, &kop.op);
+	ret = _ncr_session_final(lists, &kop.op);
 	if (ret < 0) {
 		err();
 		return ret;
