@@ -427,7 +427,7 @@ int ret;
 			return ret;
 		}
 		/* FIXME: handle ciphers that do not require that */
-
+		*output_size = input_size;
 	} else { /* public key */
 		ret = ncr_pk_cipher_encrypt(&sess->pk, input, input_cnt, input_size,
 			output, output_cnt, output_size);
@@ -456,7 +456,7 @@ int ret;
 			return ret;
 		}
 		/* FIXME: handle ciphers that do not require equality */
-
+		*output_size = input_size;
 	} else { /* public key */
 		ret = ncr_pk_cipher_decrypt(&sess->pk, input, input_cnt, input_size,
 			output, output_cnt, output_size);
