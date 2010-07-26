@@ -489,6 +489,27 @@ static void _ncr_session_remove(struct list_sem_st* lst, ncr_session_t desc)
 	return;
 }
 
+static int _ncr_session_grow_pages(struct session_item_st *ses, int pagecount)
+{
+	if (pagecount < ses->array_size)
+		return 0;
+
+	while (ses->array_size < pagecount)
+		ses->array_size *= 2;
+
+	dprintk(2, KERN_DEBUG, "%s: reallocating to %d elements\n",
+		__func__, ses->array_size);
+	ses->pages = krealloc(ses->pages, ses->array_size *
+			      sizeof(struct page *), GFP_KERNEL);
+	ses->sg = krealloc(ses->sg, ses->array_size *
+			   sizeof(struct scatterlist), GFP_KERNEL);
+
+	if (unlikely(ses->sg == NULL || ses->pages == NULL)) {
+		return -ENOMEM;
+	}
+	return 0;
+}
+
 /* Only the output buffer is given as scatterlist */
 static int get_userbuf1(struct session_item_st* ses,
 		void __user * udata, size_t udata_size, struct scatterlist **dst_sg, unsigned *dst_cnt)
@@ -506,22 +527,7 @@ static int get_userbuf1(struct session_item_st* ses,
 	}
 
 	pagecount = PAGECOUNT(udata, udata_size);
-
-	if (pagecount > ses->array_size) {
-		while (ses->array_size < pagecount)
-			ses->array_size *= 2;
-
-		dprintk(2, KERN_DEBUG, "%s: reallocating to %d elements\n",
-				__func__, ses->array_size);
-		ses->pages = krealloc(ses->pages, ses->array_size *
-				sizeof(struct page *), GFP_KERNEL);
-		ses->sg = krealloc(ses->sg, ses->array_size *
-				sizeof(struct scatterlist), GFP_KERNEL);
-
-		if (unlikely(ses->sg == NULL || ses->pages == NULL)) {
-			return -ENOMEM;
-		}
-	}
+	_ncr_session_grow_pages(ses, pagecount);
 
 	if (__get_userbuf(udata, udata_size, 1,
 			pagecount, ses->pages, ses->sg)) {
@@ -570,22 +576,7 @@ static int get_userbuf2(struct session_item_st* ses,
 	}
 
 	pagecount = src_pagecount + dst_pagecount;
-
-	if (pagecount > ses->array_size) {
-		while (ses->array_size < pagecount)
-			ses->array_size *= 2;
-
-		dprintk(2, KERN_DEBUG, "%s: reallocating to %d elements\n",
-				__func__, ses->array_size);
-		ses->pages = krealloc(ses->pages, ses->array_size *
-				sizeof(struct page *), GFP_KERNEL);
-		ses->sg = krealloc(ses->sg, ses->array_size *
-				sizeof(struct scatterlist), GFP_KERNEL);
-
-		if (ses->sg == NULL || ses->pages == NULL) {
-			return -ENOMEM;
-		}
-	}
+	_ncr_session_grow_pages(ses, pagecount);
 
 	if (__get_userbuf(op->data.udata.input, input_size, write_src,
 			src_pagecount, ses->pages, ses->sg)) {
