@@ -222,7 +222,7 @@ size_t size;
 		if (ret < 0) {
 			err();
 			kfree(R);
-			return ret;
+			goto cleanup;
 		}
 
 		if (memcmp(A, iv, 4)!= 0) {
