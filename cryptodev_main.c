@@ -447,7 +447,7 @@ static int
 __crypto_run_std(struct csession *ses_ptr, struct crypt_op *cop)
 {
 	char *data;
-	char __user *src, __user *dst;
+	char __user *src, *dst;
 	struct scatterlist sg;
 	size_t nbytes, bufsize;
 	int ret = 0;
@@ -509,7 +509,7 @@ void release_user_pages(struct page **pg, int pagecount)
 #define PAGEOFFSET(buf) ((unsigned long)buf & ~PAGE_MASK)
 
 /* fetch the pages addr resides in into pg and initialise sg with them */
-int __get_userbuf(uint8_t *addr, uint32_t len, int write,
+int __get_userbuf(uint8_t __user *addr, uint32_t len, int write,
 		int pgcount, struct page **pg, struct scatterlist *sg)
 {
 	int ret, pglen, i = 0;

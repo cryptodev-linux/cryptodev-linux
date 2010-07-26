@@ -25,7 +25,7 @@
 extern int cryptodev_verbosity;
 
 /* For zero copy */
-int __get_userbuf(uint8_t *addr, uint32_t len, int write,
+int __get_userbuf(uint8_t __user *addr, uint32_t len, int write,
 		int pgcount, struct page **pg, struct scatterlist *sg);
 void release_user_pages(struct page **pg, int pagecount);
 
