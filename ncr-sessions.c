@@ -659,6 +659,12 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 				goto fail;
 			}
 
+			if (osg_size < isg_size) {
+				err();
+				ret = -EINVAL;
+				goto fail;
+			}
+
 			ret = _ncr_session_encrypt(sess, isg, isg_cnt, isg_size, 
 				osg, osg_cnt, &osg_size);
 			if (ret < 0) {
