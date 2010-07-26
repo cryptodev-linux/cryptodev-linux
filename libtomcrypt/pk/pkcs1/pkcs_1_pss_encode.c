@@ -81,9 +81,11 @@ int pkcs_1_pss_encode(const unsigned char *msghash, unsigned long msghashlen,
    if (saltlen > 0) {
       get_random_bytes(salt, saltlen);
    }
+   
+   zeromem(DB, 8);
 
    /* M = (eight) 0x00 || msghash || salt, hash = H(M) */
-   err = hash_memory_multi(hash_algo, hash, &hLen, DB, 8, msghash, (unsigned long)msghashlen, salt, (unsigned long)saltlen, NULL, 0);
+   err = hash_memory_multi(hash_algo, hash, &hLen, DB, (unsigned long)8, msghash, (unsigned long)msghashlen, salt, (unsigned long)saltlen, NULL, 0);
    if (err != CRYPT_OK) {
       goto LBL_ERR;
    }
