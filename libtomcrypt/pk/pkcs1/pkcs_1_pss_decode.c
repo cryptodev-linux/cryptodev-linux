@@ -9,7 +9,7 @@
  * Tom St Denis, tomstdenis@gmail.com, http://libtom.org
  */
 #include "tomcrypt.h"
-#include <ncr_int.h>
+#include <ncr-int.h>
 
 /** 
   @file pkcs_1_pss_decode.c
@@ -130,8 +130,10 @@ int pkcs_1_pss_decode(const unsigned char *msghash, unsigned long msghashlen,
       goto LBL_ERR;
    }
 
+   zeromem(mask, 8);
+
    /* M = (eight) 0x00 || msghash || salt, mask = H(M) */
-   err = hash_memory_multi(hash_algo, mask, &hLen, mask, 8, msghash, (unsigned long)msghashlen, DB+x, (unsigned long)saltlen, NULL, 0);
+   err = hash_memory_multi(hash_algo, mask, &hLen, mask, (unsigned long)8, msghash, (unsigned long)msghashlen, DB+x, (unsigned long)saltlen, NULL, 0);
    if (err != CRYPT_OK) {
       goto LBL_ERR;
    }

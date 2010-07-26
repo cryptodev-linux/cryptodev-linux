@@ -116,7 +116,8 @@ int encrypt_data(struct session_op *sess, int fdc, int chunksize)
 	return 0;
 }
 
-int encrypt_data_ncr(int cfd, int algo, int chunksize)
+
+int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 {
 	char *buffer, iv[32];
 	static int val = 23;
@@ -126,10 +127,7 @@ int encrypt_data_ncr(int cfd, int algo, int chunksize)
 	char metric[16];
 	ncr_key_t key;
 	struct ncr_key_generate_st kgen;
-	struct ncr_data_init_st dinit;
-	struct ncr_data_st kdata;
 	struct ncr_session_once_op_st nop;
-	ncr_data_t dd;
 
 	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -152,19 +150,6 @@ int encrypt_data_ncr(int cfd, int algo, int chunksize)
 	buffer = malloc(chunksize);
 	memset(iv, 0x23, 32);
 
-	memset(&dinit, 0, sizeof(dinit));
-	dinit.max_object_size = chunksize;
-	dinit.flags = NCR_DATA_FLAG_EXPORTABLE;
-	dinit.initial_data = buffer;
-	dinit.initial_data_size = chunksize;
-
-	if (ioctl(cfd, NCRIO_DATA_INIT, &dinit)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_DATA_INIT)");
-		return 1;
-	}
-	dd = dinit.desc;
-
 	printf("\tEncrypting in chunks of %d bytes: ", chunksize);
 	fflush(stdout);
 
@@ -175,22 +160,15 @@ int encrypt_data_ncr(int cfd, int algo, int chunksize)
 
 	gettimeofday(&start, NULL);
 	do {
-		kdata.data = buffer;
-		kdata.data_size = chunksize;
-		kdata.desc = dd;
-
-		if (ioctl(cfd, NCRIO_DATA_SET, &kdata)) {
-			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			perror("ioctl(NCRIO_DATA_INIT)");
-			return 1;
-		}
-		
 		memset(&nop, 0, sizeof(nop));
 		nop.init.algorithm = algo;
 		nop.init.key = key;
 		nop.init.op = NCR_OP_ENCRYPT;
-		nop.op.data.cipher.plaintext = dd;
-		nop.op.data.cipher.ciphertext = dd;
+		nop.op.data.udata.input = buffer;
+		nop.op.data.udata.input_size = chunksize;
+		nop.op.data.udata.output = buffer;
+		nop.op.data.udata.output_size = chunksize;
+		nop.op.type = NCR_DIRECT_DATA;
 
 		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -201,12 +179,6 @@ int encrypt_data_ncr(int cfd, int algo, int chunksize)
 		total+=chunksize;
 	} while(must_finish==0);
 	gettimeofday(&end, NULL);
-
-	if (ioctl(cfd, NCRIO_DATA_DEINIT, &dd)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_DATA_INIT)");
-		return 1;
-	}
 
 	secs = udifftimeval(start, end)/ 1000000.0;
 	
@@ -249,6 +221,13 @@ int main(void)
 			break;
 	}
 
+	fprintf(stderr, "\nTesting NCR-DIRECT with NULL cipher: \n");
+	for (i = 256; i <= (64 * 1024); i *= 2) {
+		if (encrypt_data_ncr_direct(fdc, NCR_ALG_NULL, i))
+			break;
+	}
+
+
 	fprintf(stderr, "\nTesting AES-128-CBC cipher: \n");
 	memset(&sess, 0, sizeof(sess));
 	sess.cipher = CRYPTO_AES_CBC;
@@ -265,15 +244,9 @@ int main(void)
 			break;
 	}
 
-	fprintf(stderr, "\nTesting NCR with NULL cipher: \n");
+	fprintf(stderr, "\nTesting NCR-DIRECT with AES-128-CBC cipher: \n");
 	for (i = 256; i <= (64 * 1024); i *= 2) {
-		if (encrypt_data_ncr(fdc, NCR_ALG_NULL, i))
-			break;
-	}
-
-	fprintf(stderr, "\nTesting NCR with AES-128-CBC cipher: \n");
-	for (i = 256; i <= (64 * 1024); i *= 2) {
-		if (encrypt_data_ncr(fdc, NCR_ALG_AES_CBC, i))
+		if (encrypt_data_ncr_direct(fdc, NCR_ALG_AES_CBC, i))
 			break;
 	}
 

@@ -41,7 +41,7 @@
 #include <asm/ioctl.h>
 #include <linux/scatterlist.h>
 #include "cryptodev_int.h"
-#include "ncr_int.h"
+#include "ncr-int.h"
 #include <linux/version.h>
 #include "version.h"
 
@@ -64,8 +64,6 @@ static int enable_stats = 0;
 module_param(enable_stats, int, 0644);
 MODULE_PARM_DESC(enable_stats, "collect statictics about cryptodev usage");
 #endif
-
-#define DEFAULT_PREALLOC_PAGES 16
 
 /* ====== CryptoAPI ====== */
 struct fcrypt {
@@ -137,6 +135,9 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 			break;
 		case CRYPTO_CAMELLIA_CBC:
 			alg_name = "cbc(camelia)";
+			break;
+		case CRYPTO_AES_CTR:
+			alg_name = "ctr(aes)";
 			break;
 		case CRYPTO_NULL:
 			alg_name = "ecb(cipher_null)";
@@ -495,7 +496,7 @@ __crypto_run_std(struct csession *ses_ptr, struct crypt_op *cop)
 
 #ifndef DISABLE_ZCOPY
 
-static void release_user_pages(struct page **pg, int pagecount)
+void release_user_pages(struct page **pg, int pagecount)
 {
 	while (pagecount--) {
 		if (!PageReserved(pg[pagecount]))
@@ -504,16 +505,11 @@ static void release_user_pages(struct page **pg, int pagecount)
 	}
 }
 
-/* last page - first page + 1 */
-#define PAGECOUNT(buf, buflen) \
-        ((((unsigned long)(buf + buflen - 1) & PAGE_MASK) >> PAGE_SHIFT) - \
-         (((unsigned long) buf               & PAGE_MASK) >> PAGE_SHIFT) + 1)
-
 /* offset of buf in it's first page */
 #define PAGEOFFSET(buf) ((unsigned long)buf & ~PAGE_MASK)
 
 /* fetch the pages addr resides in into pg and initialise sg with them */
-static int __get_userbuf(uint8_t *addr, uint32_t len, int write,
+int __get_userbuf(uint8_t *addr, uint32_t len, int write,
 		int pgcount, struct page **pg, struct scatterlist *sg)
 {
 	int ret, pglen, i = 0;

@@ -25,7 +25,7 @@
 #include <asm/ioctl.h>
 #include <linux/scatterlist.h>
 #include "ncr.h"
-#include "ncr_int.h"
+#include "ncr-int.h"
 #include "cryptodev_int.h"
 
 struct packed_key {

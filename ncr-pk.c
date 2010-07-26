@@ -26,7 +26,7 @@
 #include <asm/ioctl.h>
 #include <linux/scatterlist.h>
 #include "ncr.h"
-#include "ncr_int.h"
+#include "ncr-int.h"
 #include <tomcrypt.h>
 
 static struct workqueue_struct * pk_wq = NULL;
@@ -359,9 +359,13 @@ int ncr_pk_cipher_init(const struct algo_properties_st *algo,
 				  err();
 				  return -EINVAL;
 				}
-			} else if (params->params.rsa.type == RSA_PKCS1_PSS)
+			} else if (params->params.rsa.type == RSA_PKCS1_PSS) {
 				ctx->type = LTC_LTC_PKCS_1_PSS;
-			
+			} else {
+				err();
+				return -EINVAL;
+			}
+
 			ctx->salt_len = params->params.rsa.pss_salt;
 			break;
 		case NCR_ALG_DSA:
@@ -377,75 +381,158 @@ int ncr_pk_cipher_init(const struct algo_properties_st *algo,
 }
 
 int ncr_pk_cipher_encrypt(const struct ncr_pk_ctx* ctx, 
-	const void* input, size_t input_size,
-	void* output, size_t *output_size)
+	const struct scatterlist* isg, unsigned int isg_cnt, size_t isg_size,
+	struct scatterlist *osg, unsigned int osg_cnt, size_t* osg_size)
 {
-int cret;
-unsigned long osize = *output_size;
+int cret, ret;
+unsigned long osize = *osg_size;
+uint8_t* tmp;
+void * input, *output;
+
+	tmp = kmalloc(isg_size + *osg_size, GFP_KERNEL);
+	if (tmp == NULL) {
+		err();
+		return -ENOMEM;
+	}
+
+	ret = sg_copy_to_buffer((struct scatterlist*)isg, isg_cnt, tmp, isg_size);
+	if (ret != isg_size) {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}
+
+	input = tmp;
+	output = &tmp[isg_size];
+
 
 	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
-			cret = rsa_encrypt_key_ex( input, input_size, output, &osize, 
+			cret = rsa_encrypt_key_ex( input, isg_size, output, &osize, 
 				NULL, 0, ctx->oaep_hash, ctx->type, &ctx->key->key.pk.rsa);
 
 			if (cret != CRYPT_OK) {
-				printk("cret: %d type: %d\n", cret, ctx->type);
 				err();
-				return tomerr(cret);
+				ret = tomerr(cret);
+				goto fail;
 			}
-			*output_size = osize;
+			*osg_size = osize;
+
 			break;
 		case NCR_ALG_DSA:
-			return -EINVAL;
-			break;
+			ret = -EINVAL;
+			goto fail;
 		default:
 			err();
-			return -EINVAL;
+			ret = -EINVAL;
+			goto fail;
 	}
-	
-	return 0;
+
+	ret = sg_copy_from_buffer(osg, osg_cnt, output, *osg_size);
+	if (ret != *osg_size) {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}	
+
+	ret = 0;
+
+fail:
+	kfree(tmp);
+	return ret;
 }
 
-int ncr_pk_cipher_decrypt(const struct ncr_pk_ctx* ctx, const void* input, size_t input_size,
-	void* output, size_t *output_size)
+int ncr_pk_cipher_decrypt(const struct ncr_pk_ctx* ctx, 
+	const struct scatterlist* isg, unsigned int isg_cnt, size_t isg_size,
+	struct scatterlist *osg, unsigned int osg_cnt, size_t* osg_size)
 {
-int cret;
-unsigned long osize = *output_size;
+int cret, ret;
 int stat;
+unsigned long osize = *osg_size;
+uint8_t* tmp;
+void * input, *output;
+
+	tmp = kmalloc(isg_size + *osg_size, GFP_KERNEL);
+	if (tmp == NULL) {
+		err();
+		return -ENOMEM;
+	}
+
+	input = tmp;
+	output = &tmp[isg_size];
+
+	ret = sg_copy_to_buffer((struct scatterlist*)isg, isg_cnt, input, isg_size);
+	if (ret != isg_size) {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}
 
 	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
-			cret = rsa_decrypt_key_ex( input, input_size, output, &osize, 
+			cret = rsa_decrypt_key_ex( input, isg_size, output, &osize, 
 				NULL, 0, ctx->oaep_hash, ctx->type, &stat, &ctx->key->key.pk.rsa);
 
 			if (cret != CRYPT_OK) {
 				err();
-				return tomerr(cret);
+				ret = tomerr(cret);
+				goto fail;
 			}
 
 			if (stat==0) {
 				err();
-				return -EINVAL;
+				ret = -EINVAL;
+				goto fail;
 			}
-			*output_size = osize;
+			*osg_size = osize;
 			break;
 		case NCR_ALG_DSA:
-			return -EINVAL;
-			break;
+			ret = -EINVAL;
+			goto fail;
 		default:
 			err();
-			return -EINVAL;
+			ret = -EINVAL;
+			goto fail;
 	}
+
+	ret = sg_copy_from_buffer(osg, osg_cnt, output, *osg_size);
+	if (ret != *osg_size) {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}	
+
+	ret = 0;
+fail:
+	kfree(tmp);
 	
-	return 0;
+	return ret;
 }
 
 int ncr_pk_cipher_sign(const struct ncr_pk_ctx* ctx, 
-	const void* input, size_t input_size,
-	void* output, size_t *output_size)
+	const struct scatterlist* isg, unsigned int isg_cnt, size_t isg_size,
+	struct scatterlist *osg, unsigned int osg_cnt, size_t* osg_size)
 {
-int cret;
-unsigned long osize = *output_size;
+int cret, ret;
+unsigned long osize = *osg_size;
+uint8_t* tmp;
+void * input, *output;
+
+	tmp = kmalloc(isg_size + *osg_size, GFP_KERNEL);
+	if (tmp == NULL) {
+		err();
+		return -ENOMEM;
+	}
+
+	input = tmp;
+	output = &tmp[isg_size];
+
+	ret = sg_copy_to_buffer((struct scatterlist*)isg, isg_cnt, input, isg_size);
+	if (ret != isg_size) {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}
 
 	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
@@ -453,39 +540,63 @@ unsigned long osize = *output_size;
 				err();
 				return -EINVAL;
 			}
-			cret = rsa_sign_hash_ex( input, input_size, output, &osize, 
+			cret = rsa_sign_hash_ex( input, isg_size, output, &osize, 
 				ctx->type, ctx->sign_hash, ctx->salt_len, &ctx->key->key.pk.rsa);
-
 			if (cret != CRYPT_OK) {
 				err();
 				return tomerr(cret);
 			}
-			*output_size = osize;
+			*osg_size = osize;
 			break;
 		case NCR_ALG_DSA:
-			cret = dsa_sign_hash( input, input_size, output, &osize, 
+			cret = dsa_sign_hash( input, isg_size, output, &osize, 
 				&ctx->key->key.pk.dsa);
 
 			if (cret != CRYPT_OK) {
 				err();
 				return tomerr(cret);
 			}
-			*output_size = osize;
+			*osg_size = osize;
 			break;
 		default:
 			err();
-			return -EINVAL;
+			ret = -EINVAL;
+			goto fail;
 	}
+
+	ret = sg_copy_from_buffer(osg, osg_cnt, output, *osg_size);
+	if (ret != *osg_size) {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}
+	ret = 0;
+fail:
+	kfree(tmp);
 	
-	return 0;
+	return ret;
 }
 
 int ncr_pk_cipher_verify(const struct ncr_pk_ctx* ctx, 
-	const void* signature, size_t signature_size, 
+	const struct scatterlist* sign_sg, unsigned int sign_sg_cnt, size_t sign_sg_size,
 	const void* hash, size_t hash_size, ncr_error_t*  err)
 {
-int cret;
-int stat;
+int cret, ret;
+int stat = 0;
+uint8_t* sig;
+
+	sig = kmalloc(sign_sg_size, GFP_KERNEL);
+	if (sig == NULL) {
+		err();
+		return -ENOMEM;
+	}
+
+	ret = sg_copy_to_buffer((struct scatterlist*)sign_sg, sign_sg_cnt, sig, sign_sg_size);
+	if (ret != sign_sg_size) {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}
 
 	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
@@ -493,15 +604,15 @@ int stat;
 				err();
 				return -EINVAL;
 			}
-			cret = rsa_verify_hash_ex( signature, signature_size, 
+			cret = rsa_verify_hash_ex( sig, sign_sg_size, 
 				hash, hash_size, ctx->type, ctx->sign_hash,
 				ctx->salt_len, &stat, &ctx->key->key.pk.rsa);
-
 			if (cret != CRYPT_OK) {
 				err();
-				return tomerr(cret);
+				ret = tomerr(cret);
+				goto fail;
 			}
-			
+
 			if (stat == 1)
 				*err = 0;
 			else
@@ -509,11 +620,12 @@ int stat;
 			
 			break;
 		case NCR_ALG_DSA:
-			cret = dsa_verify_hash( signature, signature_size,
+			cret = dsa_verify_hash( sig, sign_sg_size,
 				hash, hash_size, &stat, &ctx->key->key.pk.dsa);
 			if (cret != CRYPT_OK) {
 				err();
-				return tomerr(cret);
+				ret = tomerr(cret);
+				goto fail;
 			}
 
 			if (stat == 1)
@@ -524,8 +636,12 @@ int stat;
 			break;
 		default:
 			err();
-			return -EINVAL;
+			ret = -EINVAL;
+			goto fail;
 	}
-	
-	return 0;
+
+	ret = 0;
+fail:
+	kfree(sig);
+	return ret;
 }

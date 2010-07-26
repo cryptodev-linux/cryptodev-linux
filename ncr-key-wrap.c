@@ -27,7 +27,7 @@
 #include <asm/ioctl.h>
 #include <linux/scatterlist.h>
 #include "ncr.h"
-#include "ncr_int.h"
+#include "ncr-int.h"
 #include "cryptodev_int.h"
 
 typedef uint8_t val64_t[8];
@@ -44,13 +44,13 @@ static void val64_xor( val64_t val, uint32_t x)
 }
 
 static int rfc3394_wrap(val64_t R[], unsigned int n, struct cipher_data* ctx,
-	struct data_item_st* output, const uint8_t iv[8])
+	uint8_t* output, size_t *output_size, const uint8_t iv[8])
 {
 val64_t A;
 uint8_t aes_block[16];
 int i,j;
 
-	if (output->max_data_size < (n+1)*8) {
+	if (*output_size < (n+1)*8) {
 		err();
 		return -EINVAL;
 	}
@@ -72,15 +72,15 @@ int i,j;
 		memcpy(R[n-1], &aes_block[8], 8); /* R[n-1] = LSB64(AES(A^{t-1}|R_{1}^{t-1})) */
 	}
 
-	memcpy(output->data, A, sizeof(A));
+	memcpy(output, A, sizeof(A));
 	for (j=0;j<n;j++)
-		memcpy(&output->data[(j+1)*8], R[j], 8);
-	output->data_size = (n+1)*8;
+		memcpy(&output[(j+1)*8], R[j], 8);
+	*output_size = (n+1)*8;
 
 	return 0;
 }
 
-static int rfc3394_unwrap(uint8_t *wrapped_key, val64_t R[], unsigned int n, val64_t A, struct cipher_data *ctx)
+static int rfc3394_unwrap(const uint8_t *wrapped_key, val64_t R[], unsigned int n, val64_t A, struct cipher_data *ctx)
 {
 	int i, j;
 	uint8_t aes_block[16];
@@ -111,7 +111,7 @@ static int rfc3394_unwrap(uint8_t *wrapped_key, val64_t R[], unsigned int n, val
 
 #define RFC5649_IV "\xA6\x59\x59\xA6"
 static int _wrap_aes_rfc5649(void* kdata, size_t kdata_size, struct key_item_st* kek,
-	struct data_item_st* output, const void* _iv, size_t iv_size)
+	void* output, size_t* output_size, const void* _iv, size_t iv_size)
 {
 size_t n;
 int i, ret;
@@ -157,7 +157,7 @@ uint8_t iv[8];
 		for (;i<n*8;i++) {
 			R[i/8][i%8] = 0;
 		}
-		ret = rfc3394_wrap( R, n, &ctx, output, iv);
+		ret = rfc3394_wrap( R, n, &ctx, output, output_size, iv);
 		kfree(R);
 		if (ret < 0) {
 			err();
@@ -174,10 +174,9 @@ cleanup:
 }
 
 static int _unwrap_aes_rfc5649(void* kdata, size_t *kdata_size, struct key_item_st* kek,
-	struct data_item_st *wrapped, const void* _iv, size_t iv_size)
+	const void *wrapped_key, size_t wrapped_key_size, const void* _iv, size_t iv_size)
 {
-size_t wrapped_key_size, n;
-uint8_t *wrapped_key;
+size_t n;
 int i, ret;
 struct cipher_data ctx;
 uint8_t iv[4];
@@ -195,9 +194,6 @@ size_t size;
 		err();
 		return ret;
 	}
-
-	wrapped_key = wrapped->data;
-	wrapped_key_size = wrapped->data_size;
 
 	if (wrapped_key_size % 8 != 0) {
 		err();
@@ -263,7 +259,7 @@ cleanup:
 
 
 static int wrap_aes_rfc5649(struct key_item_st* tobewrapped, struct key_item_st *kek,
-	struct data_item_st* output, const void* iv, size_t iv_size)
+	void* output, size_t* output_size, const void* iv, size_t iv_size)
 {
 	if (tobewrapped->type != NCR_KEY_TYPE_SECRET) {
 		err();
@@ -271,23 +267,24 @@ static int wrap_aes_rfc5649(struct key_item_st* tobewrapped, struct key_item_st 
 	}
 
 	return _wrap_aes_rfc5649(tobewrapped->key.secret.data, tobewrapped->key.secret.size,
-		kek, output, iv, iv_size);
+		kek, output, output_size, iv, iv_size);
 	
 }
 
 static int unwrap_aes_rfc5649(struct key_item_st* output, struct key_item_st *kek,
-	struct data_item_st* wrapped, const void* iv, size_t iv_size)
+	void* wrapped, size_t wrapped_size, const void* iv, size_t iv_size)
 {
 	output->type = NCR_KEY_TYPE_SECRET;
 
-	return _unwrap_aes_rfc5649(output->key.secret.data, &output->key.secret.size, kek, wrapped, iv, iv_size);
+	return _unwrap_aes_rfc5649(output->key.secret.data, &output->key.secret.size, kek, 
+		wrapped, wrapped_size, iv, iv_size);
 }
 		
 
 /* Wraps using the RFC3394 way.
  */
 static int wrap_aes(struct key_item_st* tobewrapped, struct key_item_st *kek,
-	struct data_item_st* output, const void* iv, size_t iv_size)
+	void* output, size_t *output_size, const void* iv, size_t iv_size)
 {
 size_t key_size, n;
 uint8_t *raw_key;
@@ -330,7 +327,7 @@ struct cipher_data ctx;
 			memcpy(R[i], &raw_key[i*8], 8);
 		}
 
-		ret = rfc3394_wrap( R, n, &ctx, output, iv);
+		ret = rfc3394_wrap( R, n, &ctx, output, output_size, iv);
 		if (ret < 0) {
 			err();
 			goto cleanup;
@@ -359,10 +356,9 @@ void print_val64(char* str, val64_t val)
 #endif
 
 static int unwrap_aes(struct key_item_st* output, struct key_item_st *kek,
-	struct data_item_st* wrapped, const void* iv, size_t iv_size)
+	void* wrapped_key, size_t wrapped_key_size, const void* iv, size_t iv_size)
 {
-size_t wrapped_key_size, n;
-uint8_t *wrapped_key;
+size_t n;
 val64_t A;
 int i, ret;
 struct cipher_data ctx;
@@ -379,9 +375,6 @@ struct cipher_data ctx;
 	}
 
 	output->type = NCR_KEY_TYPE_SECRET;
-
-	wrapped_key = wrapped->data;
-	wrapped_key_size = wrapped->data_size;
 
 	if (wrapped_key_size % 8 != 0) {
 		err();
@@ -431,12 +424,13 @@ cleanup:
 	return ret;
 }
 
-int ncr_key_wrap(struct list_sem_st* key_lst, struct list_sem_st* data_lst, void __user* arg)
+int ncr_key_wrap(struct list_sem_st* key_lst, void __user* arg)
 {
 struct ncr_key_wrap_st wrap;
 struct key_item_st* wkey = NULL;
 struct key_item_st* key = NULL;
-struct data_item_st * data = NULL;
+void* data = NULL;
+size_t data_size;
 int ret;
 
 	if (unlikely(copy_from_user(&wrap, arg, sizeof(wrap)))) {
@@ -462,31 +456,50 @@ int ret;
 		goto fail;
 	}
 
-	data = ncr_data_item_get(data_lst, wrap.data);
+	data_size = wrap.io_size;
+	data = kmalloc(data_size, GFP_KERNEL);
 	if (data == NULL) {
 		err();
-		ret = -EINVAL;
+		ret = -ENOMEM;
 		goto fail;
 	}
-
-	data->flags = key_flags_to_data(wkey->flags) | NCR_DATA_FLAG_EXPORTABLE;
-
+	
 	switch(wrap.algorithm) {
 		case NCR_WALG_AES_RFC3394:
-			ret = wrap_aes(wkey, key, data, wrap.params.params.cipher.iv, wrap.params.params.cipher.iv_size);
+			ret = wrap_aes(wkey, key, data, &data_size, 
+				wrap.params.params.cipher.iv, wrap.params.params.cipher.iv_size);
 			break;
 		case NCR_WALG_AES_RFC5649:
-			ret = wrap_aes_rfc5649(wkey, key, data, wrap.params.params.cipher.iv, wrap.params.params.cipher.iv_size);
+			ret = wrap_aes_rfc5649(wkey, key, data, &data_size, 
+				wrap.params.params.cipher.iv, wrap.params.params.cipher.iv_size);
 			break;
 		default:
 			err();
 			ret = -EINVAL;
 	}
+	
+	if (ret < 0) {
+		err();
+		goto fail;
+	}
+
+	ret = copy_to_user(wrap.io, data, data_size);
+	if (unlikely(ret)) {
+		ret = -EFAULT;
+		goto fail;
+	}
+
+	wrap.io_size = data_size;
+
+	ret = copy_to_user(arg, &wrap, sizeof(wrap));
+	if (unlikely(ret)) {
+		ret = -EFAULT;
+	}
 
 fail:
 	if (wkey != NULL) _ncr_key_item_put(wkey);
 	if (key != NULL) _ncr_key_item_put(key);
-	if (data != NULL) _ncr_data_item_put(data);
+	kfree(data);
 
 	return ret;
 }
@@ -494,12 +507,13 @@ fail:
 /* Unwraps keys. All keys unwrapped are not accessible by 
  * userspace.
  */
-int ncr_key_unwrap(struct list_sem_st* key_lst, struct list_sem_st* data_lst, void __user* arg)
+int ncr_key_unwrap(struct list_sem_st* key_lst, void __user* arg)
 {
 struct ncr_key_wrap_st wrap;
 struct key_item_st* wkey = NULL;
 struct key_item_st* key = NULL;
-struct data_item_st * data = NULL;
+void* data = NULL;
+size_t data_size;
 int ret;
 
 	if (unlikely(copy_from_user(&wrap, arg, sizeof(wrap)))) {
@@ -519,40 +533,48 @@ int ret;
 		goto fail;
 	}
 
-	data = ncr_data_item_get(data_lst, wrap.data);
+	data_size = wrap.io_size;
+	data = kmalloc(data_size, GFP_KERNEL);
 	if (data == NULL) {
 		err();
-		ret = -EINVAL;
+		ret = -ENOMEM;
 		goto fail;
 	}
 
-	wkey->flags = data_flags_to_key(data->flags) | NCR_KEY_FLAG_WRAPPABLE;
+	if (unlikely(copy_from_user(data, wrap.io, data_size))) {
+		err();
+		ret = -EFAULT;
+		goto fail;
+	}
 
 	switch(wrap.algorithm) {
 		case NCR_WALG_AES_RFC3394:
-			ret = unwrap_aes(wkey, key, data, wrap.params.params.cipher.iv, wrap.params.params.cipher.iv_size);
+			ret = unwrap_aes(wkey, key, data, data_size, 
+				wrap.params.params.cipher.iv, wrap.params.params.cipher.iv_size);
 			break;
 		case NCR_WALG_AES_RFC5649:
-			ret = unwrap_aes_rfc5649(wkey, key, data, wrap.params.params.cipher.iv, wrap.params.params.cipher.iv_size);
+			ret = unwrap_aes_rfc5649(wkey, key, data, data_size, 
+				wrap.params.params.cipher.iv, wrap.params.params.cipher.iv_size);
 			break;
 		default:
 			err();
 			ret = -EINVAL;
 	}
-
+	
 fail:
 	if (wkey != NULL) _ncr_key_item_put(wkey);
 	if (key != NULL) _ncr_key_item_put(key);
-	if (data != NULL) _ncr_data_item_put(data);
+	if (data != NULL) kfree(data);
 
 	return ret;
 }
 
-int ncr_key_storage_wrap(struct list_sem_st* key_lst, struct list_sem_st* data_lst, void __user* arg)
+int ncr_key_storage_wrap(struct list_sem_st* key_lst, void __user* arg)
 {
 struct ncr_key_storage_wrap_st wrap;
 struct key_item_st* wkey = NULL;
-struct data_item_st * data = NULL;
+void* data = NULL;
+size_t data_size;
 uint8_t * sdata = NULL;
 size_t sdata_size = 0;
 int ret;
@@ -579,26 +601,42 @@ int ret;
 		goto fail;
 	}
 
-	data = ncr_data_item_get(data_lst, wrap.data);
+	data_size = wrap.io_size;
+	data = kmalloc(data_size, GFP_KERNEL);
 	if (data == NULL) {
 		err();
-		ret = -EINVAL;
+		ret = -ENOMEM;
 		goto fail;
 	}
-
-	data->flags = key_flags_to_data(wkey->flags) | NCR_DATA_FLAG_EXPORTABLE;
-
+	
 	ret = key_to_storage_data(&sdata, &sdata_size, wkey);
 	if (ret < 0) {
 		err();
 		goto fail;
 	}
 
-	ret = _wrap_aes_rfc5649(sdata, sdata_size, &master_key, data, NULL, 0);
+	ret = _wrap_aes_rfc5649(sdata, sdata_size, &master_key, data, &data_size, NULL, 0);
+	if (ret < 0) {
+		err();
+		goto fail;
+	}
+
+	ret = copy_to_user(wrap.io, data, data_size);
+	if (unlikely(ret)) {
+		ret = -EFAULT;
+		goto fail;
+	}
+
+	wrap.io_size = data_size;
+
+	ret = copy_to_user(arg, &wrap, sizeof(wrap));
+	if (unlikely(ret)) {
+		ret = -EFAULT;
+	}
 
 fail:
 	if (wkey != NULL) _ncr_key_item_put(wkey);
-	if (data != NULL) _ncr_data_item_put(data);
+	if (data != NULL) kfree(data);
 	if (sdata != NULL) kfree(sdata);
 
 	return ret;
@@ -607,13 +645,13 @@ fail:
 /* Unwraps keys. All keys unwrapped are not accessible by 
  * userspace.
  */
-int ncr_key_storage_unwrap(struct list_sem_st* key_lst, struct list_sem_st* data_lst, void __user* arg)
+int ncr_key_storage_unwrap(struct list_sem_st* key_lst, void __user* arg)
 {
 struct ncr_key_storage_wrap_st wrap;
 struct key_item_st* wkey = NULL;
-struct data_item_st * data = NULL;
+void* data = NULL;
 uint8_t * sdata = NULL;
-size_t sdata_size = 0;
+size_t sdata_size = 0, data_size;
 int ret;
 
 	if (master_key.type != NCR_KEY_TYPE_SECRET) {
@@ -632,14 +670,21 @@ int ret;
 		return ret;
 	}
 
-	data = ncr_data_item_get(data_lst, wrap.data);
+	data_size = wrap.io_size;
+	data = kmalloc(data_size, GFP_KERNEL);
 	if (data == NULL) {
 		err();
-		ret = -EINVAL;
+		ret = -ENOMEM;
 		goto fail;
 	}
 
-	sdata_size = data->data_size;
+	if (unlikely(copy_from_user(data, wrap.io, data_size))) {
+		err();
+		ret = -EFAULT;
+		goto fail;
+	}
+
+	sdata_size = data_size;
 	sdata = kmalloc(sdata_size, GFP_KERNEL);
 	if (sdata == NULL) {
 		err();
@@ -647,9 +692,9 @@ int ret;
 		goto fail;
 	}
 
-	wkey->flags = data_flags_to_key(data->flags) | NCR_KEY_FLAG_WRAPPABLE;
+	wkey->flags = NCR_KEY_FLAG_WRAPPABLE;
 
-	ret = _unwrap_aes_rfc5649(sdata, &sdata_size, &master_key, data, NULL, 0);
+	ret = _unwrap_aes_rfc5649(sdata, &sdata_size, &master_key, data, data_size, NULL, 0);
 	if (ret < 0) {
 		err();
 		goto fail;
@@ -664,7 +709,7 @@ int ret;
 
 fail:
 	if (wkey != NULL) _ncr_key_item_put(wkey);
-	if (data != NULL) _ncr_data_item_put(data);
+	if (data != NULL) kfree(data);
 	if (sdata != NULL) kfree(sdata);
 
 	return ret;

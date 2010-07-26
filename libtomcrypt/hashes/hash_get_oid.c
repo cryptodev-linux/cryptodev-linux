@@ -8,7 +8,7 @@
  *
  */
 #include "tomcrypt.h"
-#include <ncr_int.h>
+#include <ncr-int.h>
 
 /*
    Returns the OID of the hash.

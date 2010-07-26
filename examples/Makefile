@@ -28,4 +28,4 @@ check: $(progs)
 	./speed
 
 clean:
-	rm -f *.o *~ hmac cipher ncr pk speed
+	rm -f *.o *~ hmac cipher ncr pk speed 

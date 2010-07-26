@@ -67,7 +67,7 @@ TOMCRYPT_OBJECTS = libtomcrypt/misc/zeromem.o libtomcrypt/misc/crypt/crypt_argch
 	libtomcrypt/pk/asn1/der/x509/der_decode_subject_public_key_info.o
 
 cryptodev-objs = cryptodev_main.o cryptodev_cipher.o ncr.o \
-	ncr-data.o ncr-key.o ncr-limits.o ncr-sessions.o ncr-pk.o \
+	ncr-key.o ncr-limits.o  ncr-pk.o ncr-sessions.o \
 	ncr-key-wrap.o ncr-key-storage.o $(TOMMATH_OBJECTS) \
 	$(TOMCRYPT_OBJECTS)
 
@@ -75,22 +75,22 @@ cryptodev-objs = cryptodev_main.o cryptodev_cipher.o ncr.o \
 obj-m += cryptodev.o
 
 build:
-	@make version.h
-	make -C $(KERNEL_DIR) SUBDIRS=`pwd` modules
+	@$(MAKE) version.h
+	$(MAKE) -C $(KERNEL_DIR) SUBDIRS=`pwd` modules
 
 install:
-	make -C $(KERNEL_DIR) SUBDIRS=`pwd` modules_install
+	$(MAKE) -C $(KERNEL_DIR) SUBDIRS=`pwd` modules_install
 	@echo "Installing cryptodev.h in /usr/include/crypto ..."
 	@install -D cryptodev.h /usr/include/crypto/cryptodev.h
 	@install -D ncr.h /usr/include/crypto/ncr.h
 
 clean:
-	make -C $(KERNEL_DIR) SUBDIRS=`pwd` clean
+	$(MAKE) -C $(KERNEL_DIR) SUBDIRS=`pwd` clean
 	rm -f $(hostprogs)
-	KERNEL_DIR=$(KERNEL_DIR) make -C examples clean
+	KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C examples clean
 
 check:
-	KERNEL_DIR=$(KERNEL_DIR) make -C examples check
+	KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C examples check
 
 FILEBASE = cryptodev-linux-$(VERSION)
 TMPDIR ?= /tmp

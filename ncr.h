@@ -55,34 +55,6 @@ typedef enum {
 	NCR_KEY_TYPE_PRIVATE=3,
 } ncr_key_type_t;
 
-/* Data Handling
- */
-#define NCR_DATA_FLAG_EXPORTABLE 1
-#define NCR_DATA_FLAG_SIGN_ONLY 2 /* this object can only be used with hash/sign operations */
-
-typedef int ncr_data_t;
-#define NCR_DATA_INVALID (ncr_data_t)(0)
-
-struct ncr_data_init_st {
-	ncr_data_t desc;
-	size_t max_object_size;
-	unsigned int flags;
-	void __user *initial_data; /* can be null */
-	size_t initial_data_size;
-};
-
-struct ncr_data_st {
-	ncr_data_t desc;
-	void __user* data;
-	size_t data_size; /* rw in get */
-	unsigned int append_flag; /* only when used with NCRIO_DATA_SET */
-};
-
-#define NCRIO_DATA_INIT         _IOWR('c', 200, struct ncr_data_init_st)
-#define NCRIO_DATA_GET         _IOWR('c', 201, struct ncr_data_st)
-#define NCRIO_DATA_SET         _IOR('c', 202, struct ncr_data_st)
-#define NCRIO_DATA_DEINIT         _IOR('c', 203, ncr_data_t)
-
 /* Key handling
  */
 
@@ -187,7 +159,10 @@ struct ncr_key_info_st {
 
 struct ncr_key_data_st {
 	ncr_key_t key;
-	ncr_data_t data;
+
+	void __user *idata;
+	size_t idata_size; /* rw in get */
+
 	/* in case of import this will be used as key id */
 	uint8_t key_id[MAX_KEY_ID_SIZE];
 	size_t key_id_size;
@@ -212,7 +187,7 @@ struct ncr_key_data_st {
 
 #define NCRIO_KEY_DEINIT       _IOR ('c', 215, ncr_key_t)
 
-/* FIXME key wrap ioctls
+/* Key wrap ioctls
  */
 struct ncr_key_wrap_st {
 	ncr_wrap_algorithm_t algorithm;
@@ -220,10 +195,12 @@ struct ncr_key_wrap_st {
 
 	ncr_key_t key;
 	struct ncr_key_params_st params;
-	ncr_data_t data; /* encrypted keytowrap */
+
+	void __user * io; /* encrypted keytowrap */
+	size_t io_size; /* this will be updated by the actual size on wrap */
 };
 
-#define NCRIO_KEY_WRAP        _IOR ('c', 250, struct ncr_key_wrap_st)
+#define NCRIO_KEY_WRAP        _IOWR ('c', 250, struct ncr_key_wrap_st)
 #define NCRIO_KEY_UNWRAP        _IOR ('c', 251, struct ncr_key_wrap_st)
 
 /* Internal ops  */
@@ -238,10 +215,12 @@ struct ncr_master_key_st {
  * fields to be able to recover a key */
 struct ncr_key_storage_wrap_st {
 	ncr_key_t keytowrap;
-	ncr_data_t data; /* encrypted keytowrap */
+
+	void __user * io; /* encrypted keytowrap */
+	size_t io_size; /* this will be updated by the actual size on wrap */
 };
 
-#define NCRIO_KEY_STORAGE_WRAP        _IOR ('c', 261, struct ncr_key_storage_wrap_st)
+#define NCRIO_KEY_STORAGE_WRAP        _IOWR ('c', 261, struct ncr_key_storage_wrap_st)
 #define NCRIO_KEY_STORAGE_UNWRAP        _IOR ('c', 262, struct ncr_key_storage_wrap_st)
 
 /* Crypto Operations ioctls
@@ -250,7 +229,6 @@ struct ncr_key_storage_wrap_st {
 typedef enum {
 	NCR_OP_ENCRYPT=1,
 	NCR_OP_DECRYPT,
-	NCR_OP_DIGEST,
 	NCR_OP_SIGN,
 	NCR_OP_VERIFY,
 } ncr_crypto_op_t;
@@ -277,24 +255,31 @@ typedef enum {
 	NCR_VERIFICATION_FAILED = -2,
 } ncr_error_t;
 
+typedef enum {
+	NCR_KEY_DATA,
+	NCR_DIRECT_DATA,
+} ncr_data_type_t;
+
 struct ncr_session_op_st {
 	/* input */
 	ncr_session_t ses;
 
 	union {
 		struct {
-			ncr_data_t plaintext;
-			ncr_data_t ciphertext;
-		} cipher;
+			ncr_key_t input;
+			void __user * output;  /* when verifying signature this is
+					* the place of the signature.
+					*/
+			size_t output_size;
+		} kdata; /* NCR_KEY_DATA */
 		struct {
-			ncr_data_t text;
-			ncr_data_t output;
-		} sign; /* mac/hash/sign */
-		struct {
-			ncr_data_t text;
-			ncr_data_t signature;
-		} verify; /* mac/sign */
+			void __user * input;
+			size_t input_size;
+			void __user * output;
+			size_t output_size;
+		} udata; /* NCR_DIRECT_DATA */
 	} data;
+	ncr_data_type_t type;
 
 	/* output of verification */
 	ncr_error_t err;
@@ -307,7 +292,7 @@ struct ncr_session_once_op_st {
 
 #define NCRIO_SESSION_INIT        _IOR ('c', 300, struct ncr_session_st)
 #define NCRIO_SESSION_UPDATE        _IOWR ('c', 301, struct ncr_session_op_st)
-#define NCRIO_SESSION_FINAL        _IOR ('c', 302, struct ncr_session_op_st)
+#define NCRIO_SESSION_FINAL        _IOWR ('c', 302, struct ncr_session_op_st)
 
 /* everything in one call */
 #define NCRIO_SESSION_ONCE        _IOWR ('c', 303, struct ncr_session_once_op_st)

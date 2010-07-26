@@ -26,7 +26,7 @@
 #include <asm/ioctl.h>
 #include <linux/scatterlist.h>
 #include "ncr.h"
-#include "ncr_int.h"
+#include "ncr-int.h"
 
 static void ncr_key_clear(struct key_item_st* item);
 
@@ -231,13 +231,12 @@ int ncr_key_deinit(struct list_sem_st* lst, void __user* arg)
 /* "exports" a key to a data item. If the key is not exportable
  * to userspace then the data item will also not be.
  */
-int ncr_key_export(struct list_sem_st* data_lst,
-	struct list_sem_st* key_lst, void __user* arg)
+int ncr_key_export(struct list_sem_st* key_lst, void __user* arg)
 {
 struct ncr_key_data_st data;
 struct key_item_st* item = NULL;
-struct data_item_st* ditem = NULL;
-uint32_t size;
+void* tmp = NULL;
+uint32_t tmp_size;
 int ret;
 
 	if (unlikely(copy_from_user(&data, arg, sizeof(data)))) {
@@ -251,18 +250,15 @@ int ret;
 		return ret;
 	}
 
-	ditem = ncr_data_item_get( data_lst, data.data);
-	if (ditem == NULL) {
+	if (!(item->flags & NCR_KEY_FLAG_EXPORTABLE)) {
 		err();
-		ret = -EINVAL;
+		ret = -EPERM;
 		goto fail;
 	}
 
-	ditem->flags = key_flags_to_data(item->flags);
-
 	switch (item->type) {
 		case NCR_KEY_TYPE_SECRET:
-			if (item->key.secret.size > ditem->max_data_size) {
+			if (item->key.secret.size > data.idata_size) {
 				err();
 				ret = -EINVAL;
 				goto fail;
@@ -270,19 +266,38 @@ int ret;
 
 			/* found */
 			if (item->key.secret.size > 0) {
-				memcpy(ditem->data, item->key.secret.data, item->key.secret.size);
+				ret = copy_to_user(data.idata, item->key.secret.data, item->key.secret.size);
+				if (unlikely(ret)) {
+					err();
+					ret = -EFAULT;
+					goto fail;
+				}
 			}
-			ditem->data_size = item->key.secret.size;
+			data.idata_size = item->key.secret.size;
 			break;
 		case NCR_KEY_TYPE_PUBLIC:
 		case NCR_KEY_TYPE_PRIVATE:
-			size = ditem->max_data_size;
-			ret = ncr_pk_pack(item, ditem->data, &size);
+			tmp_size = data.idata_size;
 			
-			ditem->data_size = size;
+			tmp = kmalloc(tmp_size, GFP_KERNEL);
+			if (tmp == NULL) {
+				err();
+				ret = -ENOMEM;
+				goto fail;
+			}
+
+			ret = ncr_pk_pack(item, tmp, &tmp_size);
+			data.idata_size = tmp_size;
 			
 			if (ret < 0) {
 				err();
+				goto fail;
+			}
+
+			ret = copy_to_user(data.idata, tmp, tmp_size);
+			if (unlikely(ret)) {
+				err();
+				ret = -EFAULT;
 				goto fail;
 			}
 			
@@ -293,16 +308,16 @@ int ret;
 			goto fail;
 	}
 
-	_ncr_key_item_put( item);
-	_ncr_data_item_put( ditem);
-
-	return 0;
+	if (unlikely(copy_to_user(arg, &data, sizeof(data)))) {
+		err();
+		ret = -EFAULT;
+	} else
+		ret = 0;
 
 fail:
+	kfree(tmp);
 	if (item)
 		_ncr_key_item_put(item);
-	if (ditem)
-		_ncr_data_item_put(ditem);
 	return ret;
 	
 }
@@ -310,13 +325,13 @@ fail:
 /* "imports" a key from a data item. If the key is not exportable
  * to userspace then the key item will also not be.
  */
-int ncr_key_import(struct list_sem_st* data_lst,
-	struct list_sem_st* key_lst, void __user* arg)
+int ncr_key_import(struct list_sem_st* key_lst, void __user* arg)
 {
 struct ncr_key_data_st data;
 struct key_item_st* item = NULL;
-struct data_item_st* ditem = NULL;
 int ret;
+void* tmp = NULL;
+size_t tmp_size;
 
 	if (unlikely(copy_from_user(&data, arg, sizeof(data)))) {
 		err();
@@ -329,13 +344,20 @@ int ret;
 		return ret;
 	}
 	
-	ditem = ncr_data_item_get( data_lst, data.data);
-	if (ditem == NULL) {
+	tmp = kmalloc(data.idata_size, GFP_KERNEL);
+	if (tmp == NULL) {
 		err();
-		ret = -EINVAL;
+		ret = -ENOMEM;
 		goto fail;
 	}
-
+	
+	if (unlikely(copy_from_user(tmp, data.idata, data.idata_size))) {
+		err();
+		ret = -EFAULT;
+		goto fail;
+	}
+	tmp_size = data.idata_size;
+	
 	item->type = data.type;
 	item->algorithm = _ncr_algo_to_properties(data.algorithm);
 	if (item->algorithm == NULL) {
@@ -344,11 +366,6 @@ int ret;
 		goto fail;
 	}
 	item->flags = data.flags;
-	/* if data cannot be exported then the flags above
-	 * should be overriden */
-	if (!(ditem->flags & NCR_DATA_FLAG_EXPORTABLE)) {
-		item->flags &= ~NCR_KEY_FLAG_EXPORTABLE;
-	}
 
 	if (data.key_id_size > MAX_KEY_ID_SIZE) {
 		err();
@@ -363,18 +380,18 @@ int ret;
 	switch(item->type) {
 		case NCR_KEY_TYPE_SECRET:
 
-			if (ditem->data_size > NCR_CIPHER_MAX_KEY_LEN) {
+			if (tmp_size > NCR_CIPHER_MAX_KEY_LEN) {
 				err();
 				ret = -EINVAL;
 				goto fail;
 			}
 			
-			memcpy(item->key.secret.data, ditem->data, ditem->data_size);
-			item->key.secret.size = ditem->data_size;
+			memcpy(item->key.secret.data, tmp, tmp_size);
+			item->key.secret.size = tmp_size;
 			break;
 		case NCR_KEY_TYPE_PRIVATE:
 		case NCR_KEY_TYPE_PUBLIC:
-			ret = ncr_pk_unpack( item, ditem->data, ditem->data_size);
+			ret = ncr_pk_unpack( item, tmp, tmp_size);
 			if (ret < 0) {
 				err();
 				goto fail;
@@ -387,16 +404,13 @@ int ret;
 			goto fail;
 	}
 
-	_ncr_key_item_put( item);
-	_ncr_data_item_put( ditem);
-
-	return 0;
+	ret = 0;
 
 fail:
 	if (item)
 		_ncr_key_item_put(item);
-	if (ditem)
-		_ncr_data_item_put(ditem);
+	kfree(tmp);
+
 	return ret;
 }
 

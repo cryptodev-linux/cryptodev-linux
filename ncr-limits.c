@@ -29,17 +29,15 @@
 #include <linux/file.h>
 #include <linux/cred.h>
 #include "ncr.h"
-#include "ncr_int.h"
+#include "ncr-int.h"
 
 /* arbitrary now */
 static unsigned int max_per_user[] = {
 	[LIMIT_TYPE_KEY] = 128,
-	[LIMIT_TYPE_DATA] = 128,
 };
 
 static unsigned int max_per_process[] = {
 	[LIMIT_TYPE_KEY] = 64,
-	[LIMIT_TYPE_DATA] = 64,
 };
 
 struct limit_user_item_st {
