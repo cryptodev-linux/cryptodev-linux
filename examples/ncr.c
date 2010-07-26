@@ -797,6 +797,119 @@ test_ncr_hash(int cfd)
 
 }
 
+static int
+test_ncr_hash_key(int cfd)
+{
+	ncr_key_t key;
+	struct ncr_key_data_st keydata;
+	uint8_t data[HASH_DATA_SIZE];
+	int j, data_size;
+	struct ncr_session_op_st op;
+	struct ncr_session_st op_init;
+	const uint8_t *output = (void*)"\xe2\xd7\x2c\x2e\x14\xad\x97\xc8\xd2\xdb\xce\xd8\xb3\x52\x9f\x1c\xb3\x2c\x5c\xec";
+
+	/* convert it to key */
+	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+
+	keydata.key_id[0] = 'a';
+	keydata.key_id[2] = 'b';
+	keydata.key_id_size = 2;
+	keydata.type = NCR_KEY_TYPE_SECRET;
+	keydata.algorithm = NCR_ALG_AES_CBC;
+	keydata.flags = NCR_KEY_FLAG_EXPORTABLE;
+
+	fprintf(stdout, "Tests on Hashes of Keys\n");
+
+	fprintf(stdout, "\t%s:\n", hash_vectors[0].name);
+	/* import key */
+	keydata.key = key;
+	keydata.idata = (void*)hash_vectors[0].plaintext;
+	keydata.idata_size =  hash_vectors[0].plaintext_size;
+	if (ioctl(cfd, NCRIO_KEY_IMPORT, &keydata)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_IMPORT)");
+		return 1;
+	}
+
+	/* encrypt */
+	memset(&op_init, 0, sizeof(op_init));
+	op_init.algorithm = hash_vectors[0].algorithm;
+	op_init.op = hash_vectors[0].op;
+
+	if (ioctl(cfd, NCRIO_SESSION_INIT, &op_init)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_SESSION_INIT)");
+		return 1;
+	}
+
+	memset(&op, 0, sizeof(op));
+	op.ses = op_init.ses;
+	op.data.udata.input = (void*)hash_vectors[0].plaintext;
+	op.data.udata.input_size = hash_vectors[0].plaintext_size;
+	op.data.udata.output = NULL;
+	op.data.udata.output_size = 0;
+	op.type = NCR_DIRECT_DATA;
+
+	if (ioctl(cfd, NCRIO_SESSION_UPDATE, &op)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_SESSION_UPDATE)");
+		return 1;
+	}
+
+	memset(&op, 0, sizeof(op));
+	op.ses = op_init.ses;
+	op.data.kdata.input = key;
+	op.data.kdata.output = NULL;
+	op.data.kdata.output_size = 0;
+	op.type = NCR_KEY_DATA;
+
+	if (ioctl(cfd, NCRIO_SESSION_UPDATE, &op)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_SESSION_UPDATE)");
+		return 1;
+	}
+
+	op.data.udata.input = NULL;
+	op.data.udata.input_size = 0;
+	op.data.udata.output = data;
+	op.data.udata.output_size = sizeof(data);
+	op.type = NCR_DIRECT_DATA;
+
+	if (ioctl(cfd, NCRIO_SESSION_FINAL, &op)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_SESSION_FINAL)");
+		return 1;
+	}		
+
+	data_size = op.data.udata.output_size;
+
+
+	if (data_size != hash_vectors[0].output_size ||
+			memcmp(data, output, hash_vectors[0].output_size) != 0) {
+			fprintf(stderr, "HASH test vector %d failed!\n", 0);
+
+			fprintf(stderr, "Output[%d]: ", (int)data_size);
+			for(j=0;j<data_size;j++)
+			  fprintf(stderr, "%.2x:", (int)data[j]);
+			fprintf(stderr, "\n");
+
+			fprintf(stderr, "Expected[%d]: ", hash_vectors[0].output_size);
+			for(j=0;j<hash_vectors[0].output_size;j++)
+			  fprintf(stderr, "%.2x:", (int)output[j]);
+			fprintf(stderr, "\n");
+			return 1;
+	}
+
+
+	fprintf(stdout, "\n");
+
+	return 0;
+
+}
+
 
 int
 main()
@@ -817,6 +930,9 @@ main()
 		return 1;
 
 	if (test_ncr_hash(fd))
+		return 1;
+
+	if (test_ncr_hash_key(fd))
 		return 1;
 
 	if (test_ncr_wrap_key(fd))

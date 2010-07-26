@@ -495,13 +495,17 @@ static int get_userbuf1(struct session_item_st* ses,
 {
 	int pagecount = 0;
 
-	if (udata == NULL) {
+	if (unlikely(udata == NULL)) {
+		err();
 		return -EINVAL;
 	}
 
-	pagecount = PAGECOUNT(udata, udata_size);
+	if (unlikely(ses->sg == NULL || ses->pages == NULL)) {
+		err();
+		return -ENOMEM;
+	}
 
-	ses->available_pages = pagecount;
+	pagecount = PAGECOUNT(udata, udata_size);
 
 	if (pagecount > ses->array_size) {
 		while (ses->array_size < pagecount)
@@ -514,18 +518,20 @@ static int get_userbuf1(struct session_item_st* ses,
 		ses->sg = krealloc(ses->sg, ses->array_size *
 				sizeof(struct scatterlist), GFP_KERNEL);
 
-		if (ses->sg == NULL || ses->pages == NULL) {
+		if (unlikely(ses->sg == NULL || ses->pages == NULL)) {
 			return -ENOMEM;
 		}
 	}
 
 	if (__get_userbuf(udata, udata_size, 1,
 			pagecount, ses->pages, ses->sg)) {
-		dprintk(1, KERN_ERR, "failed to get user pages for data input\n");
+		err();
 		return -EINVAL;
 	}
 	(*dst_sg) = ses->sg;
 	*dst_cnt = pagecount;
+
+	ses->available_pages = pagecount;
 
 	return 0;
 }
@@ -538,16 +544,22 @@ static int get_userbuf2(struct session_item_st* ses,
 	int src_pagecount, dst_pagecount = 0, pagecount, write_src = 1;
 	size_t input_size = op->data.udata.input_size;
 
-	if (op->data.udata.input == NULL) {
+	if (unlikely(op->data.udata.input == NULL)) {
+		err();
 		return -EINVAL;
+	}
+
+	if (unlikely(ses->sg == NULL || ses->pages == NULL)) {
+		err();
+		return -ENOMEM;
 	}
 
 	src_pagecount = PAGECOUNT(op->data.udata.input, input_size);
 
 	if (op->data.udata.input != op->data.udata.output) {	/* non-in-situ transformation */
+		write_src = 0;
 		if (op->data.udata.output != NULL) {
 			dst_pagecount = PAGECOUNT(op->data.udata.output, op->data.udata.output_size);
-			write_src = 0;
 		} else {
 			dst_pagecount = 0;
 		}
@@ -557,7 +569,7 @@ static int get_userbuf2(struct session_item_st* ses,
 		input_size = max(input_size, (size_t)op->data.udata.output_size);
 	}
 
-	ses->available_pages = pagecount = src_pagecount + dst_pagecount;
+	pagecount = src_pagecount + dst_pagecount;
 
 	if (pagecount > ses->array_size) {
 		while (ses->array_size < pagecount)
@@ -577,7 +589,8 @@ static int get_userbuf2(struct session_item_st* ses,
 
 	if (__get_userbuf(op->data.udata.input, input_size, write_src,
 			src_pagecount, ses->pages, ses->sg)) {
-		dprintk(1, KERN_ERR, "failed to get user pages for data input\n");
+		err();
+		printk("write: %d\n", write_src);
 		return -EINVAL;
 	}
 	(*src_sg) = ses->sg;
@@ -589,7 +602,7 @@ static int get_userbuf2(struct session_item_st* ses,
 
 		if (__get_userbuf(op->data.udata.output, op->data.udata.output_size, 1, dst_pagecount,
 					ses->pages + src_pagecount, *dst_sg)) {
-			dprintk(1, KERN_ERR, "failed to get user pages for data output\n");
+			err();
 			release_user_pages(ses->pages, src_pagecount);
 			return -EINVAL;
 		}
@@ -602,6 +615,8 @@ static int get_userbuf2(struct session_item_st* ses,
 			*dst_sg = NULL;
 		}
 	}
+	
+	ses->available_pages = pagecount;
 
 	return 0;
 }
@@ -892,9 +907,6 @@ static int _ncr_session_update_key(struct ncr_lists* lists, struct ncr_session_o
 	int ret;
 	struct session_item_st* sess;
 	struct key_item_st* key = NULL;
-	struct scatterlist *osg;
-	unsigned osg_cnt=0;
-	size_t osg_size;
 
 	sess = ncr_sessions_item_get( &lists->sessions, op->ses);
 	if (sess == NULL) {
@@ -914,21 +926,6 @@ static int _ncr_session_update_key(struct ncr_lists* lists, struct ncr_session_o
 		ret = -EINVAL;
 		goto fail;
 	}
-
-	if (down_interruptible(&sess->mem_mutex)) {
-		err();
-		_ncr_sessions_item_put(sess);
-		return -ERESTARTSYS;
-	}
-
-	ret = get_userbuf1(sess, op->data.kdata.output, op->data.kdata.output_size, 
-		&osg, &osg_cnt);
-	if (ret < 0) {
-		err();
-		goto fail;
-	}
-
-	osg_size = op->data.kdata.output_size;
 
 	switch(sess->op) {
 		case NCR_OP_ENCRYPT:
@@ -954,11 +951,6 @@ static int _ncr_session_update_key(struct ncr_lists* lists, struct ncr_session_o
 	ret = 0;
 
 fail:
-	if (sess->available_pages) {
-		release_user_pages(sess->pages, sess->available_pages);
-		sess->available_pages = 0;
-	}
-	up(&sess->mem_mutex);
 	if (key) _ncr_key_item_put(key);
 	_ncr_sessions_item_put(sess);
 
