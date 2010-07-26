@@ -413,7 +413,7 @@ int ncr_session_init(struct ncr_lists* lists, void __user* arg)
 	return ret;
 }
 
-int _ncr_session_encrypt(struct session_item_st* sess, const struct scatterlist* input, unsigned input_cnt,
+static int _ncr_session_encrypt(struct session_item_st* sess, const struct scatterlist* input, unsigned input_cnt,
 	size_t input_size, void *output, unsigned output_cnt, size_t *output_size)
 {
 int ret;
@@ -441,7 +441,7 @@ int ret;
 	return 0;
 }
 
-int _ncr_session_decrypt(struct session_item_st* sess, const struct scatterlist* input, 
+static int _ncr_session_decrypt(struct session_item_st* sess, const struct scatterlist* input, 
 	unsigned input_cnt, size_t input_size,
 	struct scatterlist *output, unsigned output_cnt, size_t *output_size)
 {
@@ -470,7 +470,7 @@ int ret;
 	return 0;
 }
 
-void _ncr_session_remove(struct list_sem_st* lst, ncr_session_t desc)
+static void _ncr_session_remove(struct list_sem_st* lst, ncr_session_t desc)
 {
 	struct session_item_st * item, *tmp;
 
@@ -622,7 +622,7 @@ static int get_userbuf2(struct session_item_st* ses,
 }
 
 /* Called when userspace buffers are used */
-int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st* op)
+static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st* op)
 {
 	int ret;
 	struct session_item_st* sess;
@@ -731,7 +731,7 @@ static int try_session_update(struct ncr_lists* lists, struct ncr_session_op_st*
 	return 0;
 }
 
-int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st* op)
+static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st* op)
 {
 	int ret;
 	struct session_item_st* sess;
