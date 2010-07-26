@@ -561,19 +561,27 @@ static int get_userbuf(struct csession *ses,
 	(*tot_pages) = pagecount = src_pagecount + dst_pagecount;
 
 	if (pagecount > ses->array_size) {
-		while (ses->array_size < pagecount)
-			ses->array_size *= 2;
+		struct scatterlist *sg;
+		struct page **pages;
+		int array_size;
+
+		for (array_size = ses->array_size; array_size < pagecount;
+		     array_size *= 2)
+			;
 
 		dprintk(2, KERN_DEBUG, "%s: reallocating to %d elements\n",
-				__func__, ses->array_size);
-		ses->pages = krealloc(ses->pages, ses->array_size *
-				sizeof(struct page *), GFP_KERNEL);
-		ses->sg = krealloc(ses->sg, ses->array_size *
-				sizeof(struct scatterlist), GFP_KERNEL);
-
-		if (ses->sg == NULL || ses->pages == NULL) {
+				__func__, array_size);
+		pages = krealloc(ses->pages, array_size * sizeof(struct page *),
+				 GFP_KERNEL);
+		if (pages == NULL)
 			return -ENOMEM;
-		}
+		ses->pages = pages;
+		sg = krealloc(ses->sg, array_size * sizeof(struct scatterlist),
+			      GFP_KERNEL);
+		if (sg == NULL)
+			return -ENOMEM;
+		ses->sg = sg;
+		ses->array_size = array_size;
 	}
 
 	if (__get_userbuf(cop->src, cop->len, write_src,
