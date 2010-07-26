@@ -196,7 +196,7 @@ struct ncr_key_wrap_st {
 	ncr_key_t key;
 	struct ncr_key_params_st params;
 
-	void* io; /* encrypted keytowrap */
+	void __user * io; /* encrypted keytowrap */
 	size_t io_size; /* this will be updated by the actual size on wrap */
 };
 
@@ -216,7 +216,7 @@ struct ncr_master_key_st {
 struct ncr_key_storage_wrap_st {
 	ncr_key_t keytowrap;
 
-	void* io; /* encrypted keytowrap */
+	void __user * io; /* encrypted keytowrap */
 	size_t io_size; /* this will be updated by the actual size on wrap */
 };
 
@@ -267,15 +267,15 @@ struct ncr_session_op_st {
 	union {
 		struct {
 			ncr_key_t input;
-			void* output;  /* when verifying signature this is
+			void __user * output;  /* when verifying signature this is
 					* the place of the signature.
 					*/
 			size_t output_size;
 		} kdata; /* NCR_KEY_DATA */
 		struct {
-			void* input;
+			void __user * input;
 			size_t input_size;
-			void* output;
+			void __user * output;
 			size_t output_size;
 		} udata; /* NCR_DIRECT_DATA */
 	} data;
