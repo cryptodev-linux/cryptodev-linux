@@ -459,8 +459,7 @@ size_t size;
 	}
 	item->type = algo->key_type;
 	if (item->type == NCR_KEY_TYPE_SECRET) {
-		/* arbitrary */
-		item->algorithm = _ncr_algo_to_properties(NCR_ALG_AES_CBC);
+		item->algorithm = algo;
 
 		size = gen.params.params.secret.bits/8;
 		if ((gen.params.params.secret.bits % 8 != 0) ||
