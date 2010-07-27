@@ -32,8 +32,6 @@ struct algo_properties_st {
 };
 
 struct session_item_st {
-	struct list_head list;
-
 	const struct algo_properties_st *algorithm;
 	ncr_crypto_op_t op;
 
@@ -104,7 +102,8 @@ struct ncr_lists {
 	struct idr key_idr;
 
 	/* sessions */
-	struct list_sem_st sessions;
+	struct mutex session_idr_mutex;
+	struct idr session_idr;
 };
 
 void* ncr_init_lists(void);
