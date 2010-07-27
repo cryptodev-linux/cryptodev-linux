@@ -55,8 +55,8 @@ void* ncr_init_lists(void)
 	mutex_init(&lst->key_idr_mutex);
 	idr_init(&lst->key_idr);
 
-	init_MUTEX(&lst->sessions.sem);
-	INIT_LIST_HEAD(&lst->sessions.list);
+	mutex_init(&lst->session_idr_mutex);
+	idr_init(&lst->session_idr);
 
 	return lst;
 }

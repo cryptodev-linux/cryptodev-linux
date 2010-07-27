@@ -33,52 +33,37 @@
 static int _ncr_session_update_key(struct ncr_lists* lists, struct ncr_session_op_st* op);
 static void _ncr_session_remove(struct ncr_lists *lst, ncr_session_t desc);
 
-void ncr_sessions_list_deinit(struct ncr_lists *lst_)
+static int session_list_deinit_fn(int id, void *item, void *unused)
 {
-	struct list_sem_st *lst;
-	struct session_item_st * item, *tmp;
-
-	lst = &lst_->sessions;
-	down(&lst->sem);
-
-	list_for_each_entry_safe(item, tmp, &lst->list, list) {
-		list_del(&item->list);
-		_ncr_sessions_item_put( item); /* decrement ref count */
-	}
-	up(&lst->sem);
+	(void)unused;
+	_ncr_sessions_item_put(item);
+	return 0;
 }
 
-/* must be called with data semaphore down
- */
-static ncr_session_t _ncr_sessions_get_new_desc( struct list_sem_st* lst)
+void ncr_sessions_list_deinit(struct ncr_lists *lst)
 {
-struct session_item_st* item;
-int mx = 1;
-
-	list_for_each_entry(item, &lst->list, list) {
-		mx = max(mx, item->desc);
-	}
-	mx++;
-
-	return mx;
+	/* The mutex is not necessary, but doesn't hurt and makes it easier to
+	   verify locking correctness. */
+	mutex_lock(&lst->session_idr_mutex);
+	idr_for_each(&lst->session_idr, session_list_deinit_fn, NULL);
+	idr_remove_all(&lst->session_idr);
+	idr_destroy(&lst->session_idr);
+	mutex_unlock(&lst->session_idr_mutex);
 }
 
 /* returns the data item corresponding to desc */
-struct session_item_st* ncr_sessions_item_get(struct ncr_lists *lst_, ncr_session_t desc)
+struct session_item_st* ncr_sessions_item_get(struct ncr_lists *lst, ncr_session_t desc)
 {
-struct list_sem_st *lst;
 struct session_item_st* item;
 
-	lst = &lst_->sessions;
-	down(&lst->sem);
-	list_for_each_entry(item, &lst->list, list) {
-		if (item->desc == desc) {
-			atomic_inc(&item->refcnt);
-			up(&lst->sem);
-			return item;
-		}
+	mutex_lock(&lst->session_idr_mutex);
+	item = idr_find(&lst->session_idr, desc);
+	if (item != NULL) {
+		atomic_inc(&item->refcnt);
+		mutex_unlock(&lst->session_idr_mutex);
+		return item;
 	}
-	up(&lst->sem);
+	mutex_unlock(&lst->session_idr_mutex);
 
 	err();
 	return NULL;
@@ -98,12 +83,10 @@ void _ncr_sessions_item_put( struct session_item_st* item)
 	}
 }
 
-struct session_item_st* ncr_session_new(struct ncr_lists *lst_)
+struct session_item_st* ncr_session_new(struct ncr_lists *lst)
 {
-	struct list_sem_st *lst;
 	struct session_item_st* sess;
 
-	lst = &lst_->sessions;
 	sess = kzalloc(sizeof(*sess), GFP_KERNEL);
 	if (sess == NULL) {
 		err();
@@ -117,23 +100,31 @@ struct session_item_st* ncr_session_new(struct ncr_lists *lst_)
 			sizeof(struct scatterlist), GFP_KERNEL);
 	if (sess->sg == NULL || sess->pages == NULL) {
 		err();
-		kfree(sess->sg);
-		kfree(sess->pages);
-		kfree(sess);
-		return NULL;
+		goto err_sess;
 	}
 	init_MUTEX(&sess->mem_mutex);
 
 	atomic_set(&sess->refcnt, 2); /* One for lst->list, one for "sess" */
 
-	down(&lst->sem);
-
-	sess->desc = _ncr_sessions_get_new_desc(lst);
-	list_add(&sess->list, &lst->list);
-	
-	up(&lst->sem);
+	mutex_lock(&lst->session_idr_mutex);
+	/* idr_pre_get() should preallocate enough, and, due to
+	   session_idr_mutex, nobody else can use the preallocated data.
+	   Therefore the loop recommended in idr_get_new() documentation is not
+	   necessary. */
+	if (idr_pre_get(&lst->session_idr, GFP_KERNEL) == 0 ||
+	    idr_get_new(&lst->session_idr, sess, &sess->desc) != 0) {
+		mutex_unlock(&lst->session_idr_mutex);
+		goto err_sess;
+	}
+	mutex_unlock(&lst->session_idr_mutex);
 
 	return sess;
+
+err_sess:
+	kfree(sess->sg);
+	kfree(sess->pages);
+	kfree(sess);
+	return NULL;
 }
 
 static const struct algo_properties_st algo_properties[] = {
@@ -482,25 +473,18 @@ int ret;
 	return 0;
 }
 
-static void _ncr_session_remove(struct ncr_lists *lst_, ncr_session_t desc)
+static void _ncr_session_remove(struct ncr_lists *lst, ncr_session_t desc)
 {
-	struct list_sem_st* lst;
-	struct session_item_st * item, *tmp;
+	struct session_item_st * item;
 
-	lst = &lst_->sessions;
-	down(&lst->sem);
-	
-	list_for_each_entry_safe(item, tmp, &lst->list, list) {
-		if(item->desc == desc) {
-			list_del(&item->list);
-			_ncr_sessions_item_put( item); /* decrement ref count */
-			break;
-		}
-	}
-	
-	up(&lst->sem);
+	mutex_lock(&lst->session_idr_mutex);
+	item = idr_find(&lst->session_idr, desc);
+	if (item != NULL)
+		idr_remove(&lst->session_idr, desc); /* Steal the reference */
+	mutex_unlock(&lst->session_idr_mutex);
 
-	return;
+	if (item != NULL)
+		_ncr_sessions_item_put(item);
 }
 
 static int _ncr_session_grow_pages(struct session_item_st *ses, int pagecount)
