@@ -5,6 +5,7 @@
 #include <asm/atomic.h>
 #include "cryptodev_int.h"
 #include <ncr-pk.h>
+#include <ncr-dh.h>
 
 #define KEY_DATA_MAX_SIZE 3*1024
 
@@ -18,6 +19,7 @@ struct algo_properties_st {
 	unsigned can_sign:1;
 	unsigned can_digest:1;
 	unsigned can_encrypt:1;
+	unsigned can_kx:1; /* key exchange */
 	unsigned is_symmetric:1;
 	unsigned is_pk:1;
 	int digest_size;
@@ -73,6 +75,7 @@ struct key_item_st {
 		union {
 			rsa_key rsa;
 			dsa_key dsa;
+			dh_key dh;
 		} pk;
 	} key;
 

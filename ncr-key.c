@@ -510,14 +510,23 @@ int ret;
 		err();
 		return ret;
 	}
+	
+	if (item->type == NCR_KEY_TYPE_INVALID) {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}
 
 	info.flags = item->flags;
 	info.type = item->type;
 	info.algorithm = item->algorithm->algo;
+	
+	ret = 0;
 
+fail:
 	_ncr_key_item_put( item);
 
-	return 0;
+	return ret;
 }
 
 int ncr_key_generate_pair(struct list_sem_st* lst, void __user* arg)

@@ -297,6 +297,82 @@ int pubkey_info(void* data, int data_size, int verbose)
 	return 0;
 }
 
+/* Diffie Hellman */
+const char dh_params_txt[] = "-----BEGIN DH PARAMETERS-----\n"\
+"MIGHAoGBAKMox0/IjuGqSaGMJESYMhdmXiTe1pY8gkSzWZ/ktWaUdaYAzgAZp7r3\n"\
+"OCh68YslS9Oi7/UQjmBbgGuOucMKgq3tYeYzY8G2epIuIzM4TAogaEqwkdSrXlth\n"\
+"MMsP2FhLhHg8m6V6iItitnMOz9r8t3BEf04GRlfzgZraM0gUUwTjAgEF\n"\
+"-----END DH PARAMETERS-----\n";
+
+static int test_ncr_dh(int cfd)
+{
+struct ncr_key_generate_st kgen;
+ncr_key_t private1, public1;
+int ret;
+gnutls_datum g, p, params;
+gnutls_dh_params_t dhp;
+
+	fprintf(stdout, "Tests on DH key exchange:");
+	fflush(stdout);
+
+	params.data = (void*)dh_params_txt;
+	params.size = sizeof(dh_params_txt)-1;
+
+	ret = gnutls_dh_params_init(&dhp);
+	if (ret < 0) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		fprintf(stderr, "gnutls: %s\n", gnutls_strerror(ret));
+		return 1;
+	}
+	
+	ret = gnutls_dh_params_import_pkcs3(dhp, &params, GNUTLS_X509_FMT_PEM);
+	if (ret < 0) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		fprintf(stderr, "gnutls: %s\n", gnutls_strerror(ret));
+		return 1;
+	}
+	
+	ret = gnutls_dh_params_export_raw(dhp, &p, &g, NULL);
+	if (ret < 0) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		fprintf(stderr, "gnutls: %s\n", gnutls_strerror(ret));
+		return 1;
+	}
+
+	/* generate a DH key */
+	if (ioctl(cfd, NCRIO_KEY_INIT, &private1)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+
+	if (ioctl(cfd, NCRIO_KEY_INIT, &public1)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+	
+	memset(&kgen, 0, sizeof(kgen));
+	kgen.desc = private1;
+	kgen.desc2 = public1;
+	kgen.params.algorithm = NCR_ALG_DH;
+	kgen.params.keyflags = NCR_KEY_FLAG_EXPORTABLE;
+	kgen.params.params.dh.p = p.data;
+	kgen.params.params.dh.p_size = p.size;
+	kgen.params.params.dh.g = g.data;
+	kgen.params.params.dh.g_size = g.size;
+
+	if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_GENERATE)");
+		return 1;
+	}
+
+	fprintf(stdout, " Success\n");
+
+	return 0;
+}
+
 #define RSA_ENCRYPT_SIZE 32
 
 static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oaep)
@@ -725,6 +801,9 @@ main()
 		perror("open(/dev/crypto)");
 		return 1;
 	}
+
+	if (test_ncr_dh(fd))
+		return 1;
 
 	if (test_ncr_rsa(fd))
 		return 1;

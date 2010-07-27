@@ -39,6 +39,7 @@ typedef enum {
 
 	NCR_ALG_RSA=140,
 	NCR_ALG_DSA,
+	NCR_ALG_DH, /* DH as in PKCS #3 */
 } ncr_algorithm_t;
 
 
@@ -76,6 +77,7 @@ struct ncr_key_generate_params_st {
 	ncr_algorithm_t algorithm; /* just a cipher algorithm when
 	* generating secret keys
 	*/
+
 	unsigned int keyflags;
 	union {
 		struct {
@@ -83,14 +85,23 @@ struct ncr_key_generate_params_st {
 		} secret;
 		struct {
 			unsigned int bits;
-			unsigned long e;
+			unsigned long e; /* use zero for default */
 		} rsa;		
 		struct {
-			unsigned int q_bits;
+			/* For DSS standard allowed values
+			 * are:            p:1024 q: 160
+			 *                 p:2048 q: 224
+			 *                 p:2048 q: 256
+			 *                 p:3072 q: 256
+			 */
 			unsigned int p_bits;
+			unsigned int q_bits;
 		} dsa;
 		struct {
-			unsigned int bits;
+			uint8_t __user *p; /* prime */
+			size_t p_size;
+			uint8_t __user *g; /* generator */
+			size_t g_size;
 		} dh;
 	} params;
 };

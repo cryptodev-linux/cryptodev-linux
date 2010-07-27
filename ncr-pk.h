@@ -51,4 +51,6 @@ int ncr_pk_cipher_verify(const struct ncr_pk_ctx* ctx,
 	const struct scatterlist* sign_sg, unsigned int sign_sg_cnt, size_t sign_sg_size,
 	const void* hash, size_t hash_size, ncr_error_t*  err);
 
+int _ncr_tomerr(int err);
+
 #endif

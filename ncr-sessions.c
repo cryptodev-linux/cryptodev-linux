@@ -201,6 +201,8 @@ static const struct algo_properties_st algo_properties[] = {
 		.can_encrypt=1, .can_sign=1, .key_type = NCR_KEY_TYPE_PUBLIC },
 	{ .algo = NCR_ALG_DSA, .kstr = NULL, .is_pk = 1,
 		.can_sign=1, .key_type = NCR_KEY_TYPE_PUBLIC },
+	{ .algo = NCR_ALG_DH, .kstr = NULL, .is_pk = 1,
+		.can_kx=1, .key_type = NCR_KEY_TYPE_PUBLIC },
 	{ .algo = NCR_ALG_NONE }
 
 };

@@ -34,7 +34,7 @@
 
 static struct workqueue_struct * pk_wq = NULL;
 
-static int tomerr(int err)
+int _ncr_tomerr(int err)
 {
 	switch (err) {
 		case CRYPT_BUFFER_OVERFLOW:
@@ -56,6 +56,9 @@ void ncr_pk_clear(struct key_item_st* key)
 			break;
 		case NCR_ALG_DSA:
 			dsa_free(&key->key.pk.dsa);
+			break;
+		case NCR_ALG_DH:
+			dh_free(&key->key.pk.dh);
 			break;
 		default:
 			return;
@@ -81,14 +84,14 @@ static int ncr_pk_make_public_and_id( struct key_item_st * private, struct key_i
 			cret = rsa_export(tmp, &max_size, PK_PUBLIC, &private->key.pk.rsa);
 			if (cret != CRYPT_OK) {
 				err();
-				ret = tomerr(cret);
+				ret = _ncr_tomerr(cret);
 				goto fail;
 			}
 
 			cret = rsa_import(tmp, max_size, &public->key.pk.rsa);
 			if (cret != CRYPT_OK) {
 				err();
-				ret = tomerr(cret);
+				ret = _ncr_tomerr(cret);
 				goto fail;
 			}
 			break;
@@ -96,14 +99,21 @@ static int ncr_pk_make_public_and_id( struct key_item_st * private, struct key_i
 			cret = dsa_export(tmp, &max_size, PK_PUBLIC, &private->key.pk.dsa);
 			if (cret != CRYPT_OK) {
 				err();
-				ret = tomerr(cret);
+				ret = _ncr_tomerr(cret);
 				goto fail;
 			}
 
 			cret = dsa_import(tmp, max_size, &public->key.pk.dsa);
 			if (cret != CRYPT_OK) {
 				err();
-				ret = tomerr(cret);
+				ret = _ncr_tomerr(cret);
+				goto fail;
+			}
+			break;
+		case NCR_ALG_DH:
+			ret = dh_generate_public(&public->key.pk.dh, &private->key.pk.dh);
+			if (ret < 0) {
+				err();
 				goto fail;
 			}
 			break;
@@ -117,7 +127,7 @@ static int ncr_pk_make_public_and_id( struct key_item_st * private, struct key_i
 	cret = hash_memory(_ncr_algo_to_properties(NCR_ALG_SHA1), tmp, max_size, private->key_id, &key_id_size);
 	if (cret != CRYPT_OK) {
 		err();
-		ret = tomerr(cret);
+		ret = _ncr_tomerr(cret);
 		goto fail;
 	}
 	private->key_id_size = public->key_id_size = key_id_size;
@@ -146,7 +156,7 @@ int ncr_pk_pack( const struct key_item_st * key, uint8_t * packed, uint32_t * pa
 			if (cret != CRYPT_OK) {
 				*packed_size = max_size;
 				err();
-				return tomerr(cret);
+				return _ncr_tomerr(cret);
 			}
 			break;
 		case NCR_ALG_DSA:
@@ -154,7 +164,7 @@ int ncr_pk_pack( const struct key_item_st * key, uint8_t * packed, uint32_t * pa
 			if (cret != CRYPT_OK) {
 				*packed_size = max_size;
 				err();
-				return tomerr(cret);
+				return _ncr_tomerr(cret);
 			}
 			break;
 		default:
@@ -180,14 +190,14 @@ int ncr_pk_unpack( struct key_item_st * key, const void * packed, size_t packed_
 			cret = rsa_import(packed, packed_size, (void*)&key->key.pk.rsa);
 			if (cret != CRYPT_OK) {
 				err();
-				return tomerr(cret);
+				return _ncr_tomerr(cret);
 			}
 			break;
 		case NCR_ALG_DSA:
 			cret = dsa_import(packed, packed_size, (void*)&key->key.pk.dsa);
 			if (cret != CRYPT_OK) {
 				err();
-				return tomerr(cret);
+				return _ncr_tomerr(cret);
 			}
 			break;
 		default:
@@ -211,7 +221,8 @@ struct keygen_st {
 static void keygen_handler(struct work_struct *instance)
 {
 	unsigned long e;
-	int cret;
+	int cret, ret;
+	uint8_t * tmp = NULL;
 	struct keygen_st *st =
 	    container_of(instance, struct keygen_st, pk_gen);
 
@@ -224,7 +235,7 @@ static void keygen_handler(struct work_struct *instance)
 			cret = rsa_make_key(st->params->params.rsa.bits/8, e, &st->private->key.pk.rsa);
 			if (cret != CRYPT_OK) {
 				err();
-				st->ret = tomerr(cret);
+				st->ret = _ncr_tomerr(cret);
 			} else
 				st->ret = 0;
 			break;
@@ -238,15 +249,62 @@ static void keygen_handler(struct work_struct *instance)
 				st->params->params.dsa.p_bits/8, &st->private->key.pk.dsa);
 			if (cret != CRYPT_OK) {
 				err();
-				st->ret = tomerr(cret);
+				st->ret = _ncr_tomerr(cret);
 			} else 
 				st->ret = 0;
 			break;
+		case NCR_ALG_DH: {
+			uint8_t * p, *g;
+			size_t p_size, g_size;
+		
+			p_size = st->params->params.dh.p_size;
+			g_size = st->params->params.dh.g_size;
+		
+			tmp = kmalloc(g_size+p_size, GFP_KERNEL);
+			if (tmp == NULL) {
+				err();
+				st->ret = -ENOMEM;
+				goto fail;
+			}
+		
+			p = tmp;
+			g = &tmp[p_size];
+		
+			if (unlikely(copy_from_user(p, st->params->params.dh.p, p_size))) {
+				err();
+				st->ret = -EFAULT;
+				goto fail;
+			}
+
+			if (unlikely(copy_from_user(g, st->params->params.dh.g, g_size))) {
+				err();
+				st->ret = -EFAULT;
+				goto fail;
+			}
+		
+			ret = dh_import_params(&st->private->key.pk.dh, p, p_size, g, g_size);
+			if (ret < 0) {
+				err();
+				st->ret = ret;
+				goto fail;
+			}
+
+			ret = dh_generate_key(&st->private->key.pk.dh);
+			if (ret < 0) {
+				st->ret = ret;
+				err();
+				goto fail;
+			}
+			st->ret = 0;
+			break;
+		}
 		default:
 			err();
 			st->ret = -EINVAL;
 	}
 
+fail:
+	kfree(tmp);
 	complete(&st->completed);
 }
 
@@ -416,7 +474,7 @@ void * input, *output;
 
 			if (cret != CRYPT_OK) {
 				err();
-				ret = tomerr(cret);
+				ret = _ncr_tomerr(cret);
 				goto fail;
 			}
 			*osg_size = osize;
@@ -478,7 +536,7 @@ void * input, *output;
 
 			if (cret != CRYPT_OK) {
 				err();
-				ret = tomerr(cret);
+				ret = _ncr_tomerr(cret);
 				goto fail;
 			}
 
@@ -543,7 +601,7 @@ void * input, *output;
 				ctx->type, ctx->sign_hash, ctx->salt_len, &ctx->key->key.pk.rsa);
 			if (cret != CRYPT_OK) {
 				err();
-				return tomerr(cret);
+				return _ncr_tomerr(cret);
 			}
 			*osg_size = osize;
 			break;
@@ -553,7 +611,7 @@ void * input, *output;
 
 			if (cret != CRYPT_OK) {
 				err();
-				return tomerr(cret);
+				return _ncr_tomerr(cret);
 			}
 			*osg_size = osize;
 			break;
@@ -604,7 +662,7 @@ uint8_t* sig;
 				ctx->salt_len, &stat, &ctx->key->key.pk.rsa);
 			if (cret != CRYPT_OK) {
 				err();
-				ret = tomerr(cret);
+				ret = _ncr_tomerr(cret);
 				goto fail;
 			}
 
@@ -619,7 +677,7 @@ uint8_t* sig;
 				hash, hash_size, &stat, &ctx->key->key.pk.dsa);
 			if (cret != CRYPT_OK) {
 				err();
-				ret = tomerr(cret);
+				ret = _ncr_tomerr(cret);
 				goto fail;
 			}
 
