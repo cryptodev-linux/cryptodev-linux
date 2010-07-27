@@ -98,7 +98,6 @@ struct list_sem_st {
  * are here.
  */
 struct ncr_lists {
-	struct list_sem_st data;
 	struct list_sem_st key;
 
 	/* sessions */
