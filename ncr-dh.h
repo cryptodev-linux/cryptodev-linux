@@ -16,6 +16,10 @@ int dh_import_params(dh_key * key, uint8_t* p, size_t p_size, uint8_t* g, size_t
 void dh_free(dh_key * key);
 int dh_generate_public(dh_key * public, dh_key* private);
 
-int dh_export(uint8_t *out, size_t *outlen, int type, dh_key *key);
+int dh_export(uint8_t *out, unsigned long *outlen, int type, dh_key *key);
 int dh_import(const uint8_t *in, size_t inlen, dh_key *key);
+
+int dh_derive_gxy(struct key_item_st* newkey, dh_key * key,
+	void* pk, size_t pk_size);
+
 #endif

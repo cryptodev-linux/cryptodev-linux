@@ -143,7 +143,7 @@ fail:
 int ncr_pk_pack( const struct key_item_st * key, uint8_t * packed, uint32_t * packed_size)
 {
 	unsigned long max_size = *packed_size;
-	int cret;
+	int cret, ret;
 
 	if (packed == NULL || packed_size == NULL) {
 		err();
@@ -167,18 +167,26 @@ int ncr_pk_pack( const struct key_item_st * key, uint8_t * packed, uint32_t * pa
 				return _ncr_tomerr(cret);
 			}
 			break;
+		case NCR_ALG_DH:
+			ret = dh_export(packed, &max_size, key->key.pk.dsa.type, (void*)&key->key.pk.dsa);
+			if (ret < 0) {
+				err();
+				return ret;
+			}
+			break;
 		default:
 			err();
 			return -EINVAL;
 	}
-
+	
 	*packed_size = max_size;
+
 	return 0;
 }
 
 int ncr_pk_unpack( struct key_item_st * key, const void * packed, size_t packed_size)
 {
-	int cret;
+	int cret, ret;
 
 	if (key == NULL || packed == NULL) {
 		err();
@@ -198,6 +206,13 @@ int ncr_pk_unpack( struct key_item_st * key, const void * packed, size_t packed_
 			if (cret != CRYPT_OK) {
 				err();
 				return _ncr_tomerr(cret);
+			}
+			break;
+		case NCR_ALG_DH:
+			ret = dh_import(packed, packed_size, (void*)&key->key.pk.dh);
+			if (ret < 0) {
+				err();
+				return ret;
 			}
 			break;
 		default:
@@ -366,7 +381,9 @@ void ncr_pk_queue_deinit(void)
 	destroy_workqueue(pk_wq);
 }
 
-const struct algo_properties_st *ncr_key_params_get_sign_hash(const struct algo_properties_st *algo, struct ncr_key_params_st * params)
+const struct algo_properties_st *ncr_key_params_get_sign_hash(
+	const struct algo_properties_st *algo, 
+	struct ncr_key_params_st * params)
 {
 	ncr_algorithm_t id;
 
@@ -696,5 +713,52 @@ uint8_t* sig;
 	ret = 0;
 fail:
 	kfree(sig);
+	return ret;
+}
+
+int ncr_pk_derive(struct key_item_st* newkey, struct key_item_st* oldkey,
+	struct ncr_key_derivation_params_st * params)
+{
+int ret;
+void* tmp = NULL;
+size_t size;
+
+	switch(params->derive) {
+		case NCR_DERIVE_DH:
+			if (oldkey->type != NCR_KEY_TYPE_PRIVATE &&
+				oldkey->algorithm->algo != NCR_ALG_DH) {
+				err();
+				return -EINVAL;
+			}
+			
+			size = params->params.params.dh.pub_size;
+			tmp = kmalloc(size, GFP_KERNEL);
+			if (tmp == NULL) {
+				err();
+				return -ENOMEM;
+			}
+			
+			if (unlikely(copy_from_user(tmp, params->params.params.dh.pub, 
+				size))) {
+					err();
+					ret = -EFAULT;
+					goto fail;
+			}
+			
+			ret = dh_derive_gxy(newkey, &oldkey->key.pk.dh, tmp, size);
+			if (ret < 0) {
+				err();
+				goto fail;
+			}
+		
+			break;
+		default:
+			err();
+			return -EINVAL;
+	}
+
+	ret = 0;
+fail:
+	kfree(tmp);
 	return ret;
 }

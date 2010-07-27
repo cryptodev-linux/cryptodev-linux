@@ -276,6 +276,7 @@ int ret;
 					goto fail;
 				}
 			}
+
 			data.idata_size = item->key.secret.size;
 			break;
 		case NCR_KEY_TYPE_PUBLIC:
@@ -346,7 +347,9 @@ size_t tmp_size;
 		err();
 		return ret;
 	}
-	
+
+	ncr_key_clear(item);
+
 	tmp = kmalloc(data.idata_size, GFP_KERNEL);
 	if (tmp == NULL) {
 		err();
@@ -426,6 +429,9 @@ static void ncr_key_clear(struct key_item_st* item)
 		ncr_pk_clear(item);
 	}
 	memset(&item->key, 0, sizeof(item->key));
+	memset(item->key_id, 0, sizeof(item->key_id));
+	item->key_id_size = 0;
+	item->flags = 0;
 	
 	return;
 }
@@ -593,13 +599,64 @@ fail:
 	return ret;
 }
 
-int ncr_key_derive(struct list_sem_st* lst, void __user* arg)
+/* "exports" a key to a data item. If the key is not exportable
+ * to userspace then the data item will also not be.
+ */
+int ncr_key_derive(struct list_sem_st* key_lst, void __user* arg)
 {
-	return -EINVAL;
-}
+struct ncr_key_derivation_params_st data;
+int ret;
+struct key_item_st* key = NULL;
+struct key_item_st* newkey = NULL;
 
-int ncr_key_get_public(struct list_sem_st* lst, void __user* arg)
-{
-	return -EINVAL;
+	if (unlikely(copy_from_user(&data, arg, sizeof(data)))) {
+		err();
+		return -EFAULT;
+	}
+
+	ret = ncr_key_item_get_read( &key, key_lst, data.key);
+	if (ret < 0) {
+		err();
+		return ret;
+	}
+
+	ret = ncr_key_item_get_write( &newkey, key_lst, data.newkey);
+	if (ret < 0) {
+		err();
+		goto fail;
+	}
+
+	ncr_key_clear(newkey);
+
+	newkey->flags = data.keyflags;
+
+	switch (key->type) {
+		case NCR_KEY_TYPE_PUBLIC:
+		case NCR_KEY_TYPE_PRIVATE:
+			ret = ncr_pk_derive(newkey, key, &data);
+			if (ret < 0) {
+				err();
+				goto fail;
+			}
+			break;
+		default:
+			err();
+			ret = -EINVAL;
+			goto fail;
+	}
+
+	if (unlikely(copy_to_user(arg, &data, sizeof(data)))) {
+		err();
+		ret = -EFAULT;
+	} else
+		ret = 0;
+
+fail:
+	if (key)
+		_ncr_key_item_put(key);
+	if (newkey)
+		_ncr_key_item_put(newkey);
+	return ret;
+	
 }
 

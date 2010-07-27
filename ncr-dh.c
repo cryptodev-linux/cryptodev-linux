@@ -38,108 +38,245 @@ void dh_free(dh_key * key)
 	mp_clear_multi(&key->p, &key->g, &key->x, NULL);
 }
 
-int dh_import_params(dh_key * key, uint8_t* p, size_t p_size, uint8_t* g, size_t g_size)
+int dh_import_params(dh_key * key, uint8_t * p, size_t p_size, uint8_t * g,
+		     size_t g_size)
 {
-int ret;
-int err;
-	
-	if ((err = mp_init_multi(&key->p, &key->g, &key->x, &key->y, NULL)) != CRYPT_OK) {
+	int ret;
+	int err;
+
+	if ((err =
+	     mp_init_multi(&key->p, &key->g, &key->x, &key->y,
+			   NULL)) != CRYPT_OK) {
 		err();
 		return -ENOMEM;
 	}
-	
-	if ((err = mp_read_unsigned_bin(&key->p, (unsigned char *)p, p_size)) != CRYPT_OK) {
+
+	if ((err =
+	     mp_read_unsigned_bin(&key->p, (unsigned char *) p,
+				  p_size)) != CRYPT_OK) {
 		err();
 		ret = _ncr_tomerr(err);
 		goto fail;
 	}
 
-	if ((err = mp_read_unsigned_bin(&key->g, (unsigned char *)g, g_size)) != CRYPT_OK) {
+	if ((err =
+	     mp_read_unsigned_bin(&key->g, (unsigned char *) g,
+				  g_size)) != CRYPT_OK) {
 		err();
 		ret = _ncr_tomerr(err);
 		goto fail;
 	}
 
 	return 0;
-fail:
+      fail:
 	mp_clear_multi(&key->p, &key->g, &key->x, &key->y, NULL);
-	
+
 	return ret;
 }
 
 int dh_generate_key(dh_key * key)
 {
-void* buf;
-int size;
-int err, ret;
+	void *buf;
+	int size;
+	int err, ret;
 
 	size = mp_unsigned_bin_size(&key->p);
 	if (size == 0) {
-	   err();
-	   return -EINVAL;
+		err();
+		return -EINVAL;
 	}
-	
+
 	buf = kmalloc(size, GFP_KERNEL);
 	if (buf == NULL) {
 		err();
 		return -ENOMEM;
 	}
-	
-	get_random_bytes( buf, size);
+
+	get_random_bytes(buf, size);
 
 	if ((err = mp_read_unsigned_bin(&key->x, buf, size)) != CRYPT_OK) {
 		err();
 		ret = _ncr_tomerr(err);
 		goto fail;
 	}
-	
-	err = mp_mod( &key->g, &key->p, &key->x);
+
+	err = mp_mod(&key->x, &key->p, &key->x);
 	if (err != CRYPT_OK) {
 		err();
 		ret = _ncr_tomerr(err);
 		goto fail;
 	}
-	
+
 	key->type = PK_PRIVATE;
-	
+
 	ret = 0;
-fail:
+      fail:
 	kfree(buf);
-	
+
 	return ret;
 
 }
 
-int dh_generate_public(dh_key * public, dh_key* private)
+int dh_generate_public(dh_key * public, dh_key * private)
 {
-int err, ret;
+	int err, ret;
 
-	err = mp_copy(&private->g, &public->g);
-	if (err != CRYPT_OK) {
-		err();
-		ret = _ncr_tomerr(err);
-		goto fail;
-	}
-	
-	err = mp_copy(&private->p, &public->p);
+	err =
+	    mp_exptmod(&private->g, &private->x, &private->p, &public->y);
 	if (err != CRYPT_OK) {
 		err();
 		ret = _ncr_tomerr(err);
 		goto fail;
 	}
 
-	err = mp_exptmod(&private->g, &private->x, &private->p, &public->y);
-	if (err != CRYPT_OK) {
-		err();
-		ret = _ncr_tomerr(err);
-		goto fail;
-	}
-	
 	public->type = PK_PUBLIC;
+
+	ret = 0;
+      fail:
+
+	return ret;
+}
+
+int dh_export(uint8_t * out, unsigned long * outlen, int type, dh_key * key)
+{
+	unsigned long zero = 0;
+	int err;
+
+	if (out == NULL || outlen == NULL || key == NULL) {
+		err();
+		return -EINVAL;
+	}
+
+	/* can we store the static header?  */
+	if (type == PK_PRIVATE && key->type != PK_PRIVATE) {
+		return -EINVAL;
+	}
+
+	if (type != PK_PUBLIC && type != PK_PRIVATE) {
+		return -EINVAL;
+	}
+
+	/* This encoding is different from the one in original
+	 * libtomcrypt. It uses a compatible encoding with gnutls
+	 * and openssl 
+	 */
+	if (type == PK_PRIVATE) {
+		err = der_encode_sequence_multi(out, outlen,
+					LTC_ASN1_SHORT_INTEGER, 1UL, &zero, 
+					LTC_ASN1_INTEGER, 1UL, &key->p, 
+					LTC_ASN1_INTEGER, 1UL, &key->g,
+					LTC_ASN1_INTEGER, 1UL, &key->x, 
+					LTC_ASN1_EOL, 0UL, NULL);
+	} else {
+		err = mp_unsigned_bin_size(&key->y);
+		if (err > *outlen) {
+			err();
+			return -EOVERFLOW;
+		}
+		
+		*outlen = err;
+
+		err = mp_to_unsigned_bin(&key->y, out);
+	}
 	
+	if (err != CRYPT_OK) {
+		err();
+		return _ncr_tomerr(err);
+	}
+	
+	return 0;
+}
+
+int dh_import(const uint8_t * in, size_t inlen, dh_key * key)
+{
+	int err;
+	unsigned long zero = 0;
+
+	if (in == NULL || key == NULL) {
+		err();
+		return -EINVAL;
+	}
+
+	/* init key */
+	if (mp_init_multi
+	    (&key->p, &key->g, &key->x, &key->y, NULL) != CRYPT_OK) {
+		return -ENOMEM;
+	}
+
+	/* get key type */
+	if ((err = der_decode_sequence_multi(in, inlen,
+				LTC_ASN1_SHORT_INTEGER, 1UL, &zero, 
+				LTC_ASN1_INTEGER, 1UL, &key->p, 
+				LTC_ASN1_INTEGER, 1UL, &key->g,
+				LTC_ASN1_INTEGER, 1UL, &key->x,
+				LTC_ASN1_EOL, 0UL, NULL)) == CRYPT_OK) {
+		key->type = PK_PRIVATE;
+	} else {		/* public */
+		err = mp_read_unsigned_bin(&key->y, in, inlen);
+		key->type = PK_PUBLIC;
+	}
+
+	if (err != CRYPT_OK) {
+		goto LBL_ERR;
+	}
+
+	return 0;
+
+      LBL_ERR:
+	mp_clear_multi(&key->p, &key->g, &key->x, &key->y, NULL);
+	return _ncr_tomerr(err);
+}
+
+int dh_derive_gxy(struct key_item_st* newkey, dh_key * key,
+	void* pk, size_t pk_size)
+{
+int ret, err;
+mp_int y, gxy;
+	/* newkey will be a secret key with value of g^{xy}
+	 */
+	
+	if (mp_init_multi(&y, &gxy, NULL) != CRYPT_OK) {
+		err();
+		return -ENOMEM;
+	}
+	
+	if (key->type != PK_PRIVATE) {
+		err();
+		return -EINVAL;
+	}
+
+	if ((err=mp_read_unsigned_bin(&y, pk, pk_size)) != CRYPT_OK) {
+		err();
+		ret = _ncr_tomerr(err);
+		goto fail;
+	}
+	
+	if ((err=mp_exptmod(&y, &key->x, &key->p, &gxy))!= CRYPT_OK) {
+		err();
+		ret = _ncr_tomerr(err);
+		goto fail;
+	}
+	
+	err = mp_unsigned_bin_size(&gxy);
+	if (err > NCR_CIPHER_MAX_KEY_LEN) {
+		err();
+		ret = -EOVERFLOW;
+		goto fail;
+	}
+	newkey->key.secret.size = err;
+
+	err = mp_to_unsigned_bin(&gxy, newkey->key.secret.data);
+	if (err != CRYPT_OK) {
+		err();
+		ret = _ncr_tomerr(err);
+		goto fail;
+	}
+
+	newkey->type = NCR_KEY_TYPE_SECRET;
+
 	ret = 0;
 fail:
-		
+	mp_clear_multi(&y, &gxy, NULL);
+	
 	return ret;
-
-}
+}	

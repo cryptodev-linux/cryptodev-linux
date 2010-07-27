@@ -307,10 +307,15 @@ const char dh_params_txt[] = "-----BEGIN DH PARAMETERS-----\n"\
 static int test_ncr_dh(int cfd)
 {
 struct ncr_key_generate_st kgen;
-ncr_key_t private1, public1;
+ncr_key_t private1, public1, public2, private2;
+ncr_key_t z1, z2;
 int ret;
 gnutls_datum g, p, params;
 gnutls_dh_params_t dhp;
+unsigned char y1[1024], y2[1024];
+size_t y1_size, y2_size;
+struct ncr_key_data_st keydata;
+struct ncr_key_derivation_params_st kderive;
 
 	fprintf(stdout, "Tests on DH key exchange:");
 	fflush(stdout);
@@ -367,6 +372,151 @@ gnutls_dh_params_t dhp;
 		perror("ioctl(NCRIO_KEY_GENERATE)");
 		return 1;
 	}
+	
+	/* generate another DH key */
+	if (ioctl(cfd, NCRIO_KEY_INIT, &private2)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+
+	if (ioctl(cfd, NCRIO_KEY_INIT, &public2)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+	
+	memset(&kgen, 0, sizeof(kgen));
+	kgen.desc = private2;
+	kgen.desc2 = public2;
+	kgen.params.algorithm = NCR_ALG_DH;
+	kgen.params.keyflags = NCR_KEY_FLAG_EXPORTABLE;
+	kgen.params.params.dh.p = p.data;
+	kgen.params.params.dh.p_size = p.size;
+	kgen.params.params.dh.g = g.data;
+	kgen.params.params.dh.g_size = g.size;
+
+	if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_GENERATE)");
+		return 1;
+	}
+
+	/* export y1=g^x1 */
+	memset(&keydata, 0, sizeof(keydata));
+	keydata.key = public1;
+	keydata.idata = y1;
+	keydata.idata_size = sizeof(y1);
+
+	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_EXPORT)");
+		return 1;
+	}
+	
+	y1_size = keydata.idata_size;
+
+	/* export y2=g^x2 */
+	memset(&keydata, 0, sizeof(keydata));
+	keydata.key = public2;
+	keydata.idata = y2;
+	keydata.idata_size = sizeof(y2);
+
+	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_EXPORT)");
+		return 1;
+	}
+	
+	y2_size = keydata.idata_size;
+	
+	/* z1=y1^x2 */
+	if (ioctl(cfd, NCRIO_KEY_INIT, &z1)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+
+	memset(&kderive, 0, sizeof(kderive));
+	kderive.derive = NCR_DERIVE_DH;
+	kderive.newkey = z1;
+	kderive.keyflags = NCR_KEY_FLAG_EXPORTABLE;
+	kderive.key = private1;
+	kderive.params.params.dh.pub = y2;
+	kderive.params.params.dh.pub_size = y2_size;
+
+	if (ioctl(cfd, NCRIO_KEY_DERIVE, &kderive)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+	
+	/* z2=y2^x1 */
+	if (ioctl(cfd, NCRIO_KEY_INIT, &z2)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+
+	memset(&kderive, 0, sizeof(kderive));
+	kderive.derive = NCR_DERIVE_DH;
+	kderive.newkey = z2;
+	kderive.keyflags = NCR_KEY_FLAG_EXPORTABLE;
+	kderive.key = private2;
+	kderive.params.params.dh.pub = y1;
+	kderive.params.params.dh.pub_size = y1_size;
+
+	if (ioctl(cfd, NCRIO_KEY_DERIVE, &kderive)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+	
+	/* z1==z2 */
+	memset(&keydata, 0, sizeof(keydata));
+	keydata.key = z1;
+	keydata.idata = y1;
+	keydata.idata_size = sizeof(y1);
+
+	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_EXPORT)");
+		return 1;
+	}
+	y1_size = keydata.idata_size;
+
+	memset(&keydata, 0, sizeof(keydata));
+	keydata.key = z2;
+	keydata.idata = y2;
+	keydata.idata_size = sizeof(y2);
+
+	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_EXPORT)");
+		return 1;
+	}
+	y2_size = keydata.idata_size;
+	
+	if (y1_size == 0 || y1_size != y2_size || memcmp(y1, y2, y1_size) != 0) {
+		int i;
+
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		fprintf(stderr, "Output in DH does not match (%d, %d)!\n", 
+			(int)y1_size, (int)y2_size);
+
+		fprintf(stderr, "Key1[%d]: ", (int) y1_size);
+		for(i=0;i<y1_size;i++)
+			fprintf(stderr, "%.2x:", y1[i]);
+		fprintf(stderr, "\n");
+
+		fprintf(stderr, "Key2[%d]: ", (int) y2_size);
+		for(i=0;i<y2_size;i++)
+			fprintf(stderr, "%.2x:", y2[i]);
+		fprintf(stderr, "\n");
+
+		return 1;
+	}
+
 
 	fprintf(stdout, " Success\n");
 

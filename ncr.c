@@ -106,7 +106,7 @@ struct ncr_master_key_st st;
 		dprintk(0, KERN_DEBUG, "Master key was previously initialized.\n");
 	}
 
-	dprintk(0, KERN_INFO, "Intializing master key.\n");
+	dprintk(0, KERN_INFO, "Initializing master key.\n");
 
 	master_key.type = NCR_KEY_TYPE_SECRET;
 	
@@ -159,10 +159,8 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 			return ncr_master_key_set(arg);
 		case NCRIO_KEY_GENERATE_PAIR:
 			return ncr_key_generate_pair(&lst->key, arg);
-#if 0
 		case NCRIO_KEY_DERIVE:
 			return ncr_key_derive(&lst->key, arg);
-#endif
 		default:
 			return -EINVAL;
 	}

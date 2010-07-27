@@ -7,9 +7,8 @@
 #endif
 
 #define NCR_CIPHER_MAX_BLOCK_LEN 32
-#define NCR_CIPHER_MAX_KEY_LEN 64
+#define NCR_CIPHER_MAX_KEY_LEN 512
 #define NCR_HASH_MAX_OUTPUT_SIZE  64
-#define NCR_PK_MAX_OBJECT 640
 
 typedef enum {
 	NCR_ALG_NONE,
@@ -132,8 +131,8 @@ struct ncr_key_params_st {
 			size_t iv_size;
 		} cipher;
 		struct {
-			uint8_t peer_public[NCR_PK_MAX_OBJECT];
-			size_t peer_public_size;
+			uint8_t __user *pub;
+			size_t pub_size;
 		} dh;
 		struct {
 			ncr_rsa_type_t type;
@@ -147,7 +146,13 @@ struct ncr_key_params_st {
 	} params;
 };
 
+typedef enum {
+	NCR_DERIVE_DH=1,
+} ncr_derive_t;
+
 struct ncr_key_derivation_params_st {
+	ncr_derive_t derive; /* the derivation algorithm */
+
 	ncr_key_t newkey;
 	unsigned int keyflags; /* for new key */
 	

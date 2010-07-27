@@ -110,7 +110,11 @@ void ncr_deinit_lists(struct ncr_lists *lst);
 
 int ncr_ioctl(struct ncr_lists*, struct file *filp,
 		unsigned int cmd, unsigned long arg);
-		
+
+/* key derivation */
+int ncr_key_derive(struct list_sem_st* key_lst, void __user* arg);
+
+/* key handling */
 int ncr_key_init(struct list_sem_st*, void __user* arg);
 int ncr_key_deinit(struct list_sem_st*, void __user* arg);
 int ncr_key_export(struct list_sem_st* key_lst,void __user* arg);
