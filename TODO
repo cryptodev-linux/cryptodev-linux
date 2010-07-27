@@ -1,0 +1,3 @@
+* ioctl_compat() mode for ncr.h API as it is in cryptodev.h
+* Put limits to sessions
+
