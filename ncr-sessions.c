@@ -2,6 +2,7 @@
  * New driver for /dev/crypto device (aka CryptoDev)
 
  * Copyright (c) 2010 Katholieke Universiteit Leuven
+ * Portions Copyright (c) 2010 Phil Sutter
  * 
  * Author: Nikos Mavrogiannopoulos <nmav@gnutls.org>
  *

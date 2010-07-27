@@ -2,6 +2,8 @@
  * Driver for /dev/crypto device (aka CryptoDev)
  *
  * Copyright (c) 2010 Nikos Mavrogiannopoulos <nmav@gnutls.org>
+ * Portions Copyright (c) 2010 Michael Weiser
+ * Portions Copyright (c) 2010 Phil Sutter
  *
  * This file is part of linux cryptodev.
  *
