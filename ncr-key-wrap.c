@@ -429,7 +429,7 @@ cleanup:
 	return ret;
 }
 
-int ncr_key_wrap(struct list_sem_st* key_lst, void __user* arg)
+int ncr_key_wrap(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_wrap_st wrap;
 struct key_item_st* wkey = NULL;
@@ -443,7 +443,7 @@ int ret;
 		return -EFAULT;
 	}
 
-	ret = ncr_key_item_get_read( &wkey, key_lst, wrap.keytowrap);
+	ret = ncr_key_item_get_read( &wkey, lst, wrap.keytowrap);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -455,7 +455,7 @@ int ret;
 		goto fail;
 	}
 
-	ret = ncr_key_item_get_read( &key, key_lst, wrap.key);
+	ret = ncr_key_item_get_read( &key, lst, wrap.key);
 	if (ret < 0) {
 		err();
 		goto fail;
@@ -512,7 +512,7 @@ fail:
 /* Unwraps keys. All keys unwrapped are not accessible by 
  * userspace.
  */
-int ncr_key_unwrap(struct list_sem_st* key_lst, void __user* arg)
+int ncr_key_unwrap(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_wrap_st wrap;
 struct key_item_st* wkey = NULL;
@@ -526,13 +526,13 @@ int ret;
 		return -EFAULT;
 	}
 
-	ret = ncr_key_item_get_write( &wkey, key_lst, wrap.keytowrap);
+	ret = ncr_key_item_get_write( &wkey, lst, wrap.keytowrap);
 	if (ret < 0) {
 		err();
 		return ret;
 	}
 
-	ret = ncr_key_item_get_read( &key, key_lst, wrap.key);
+	ret = ncr_key_item_get_read( &key, lst, wrap.key);
 	if (ret < 0) {
 		err();
 		goto fail;
@@ -574,7 +574,7 @@ fail:
 	return ret;
 }
 
-int ncr_key_storage_wrap(struct list_sem_st* key_lst, void __user* arg)
+int ncr_key_storage_wrap(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_storage_wrap_st wrap;
 struct key_item_st* wkey = NULL;
@@ -594,7 +594,7 @@ int ret;
 		return -EFAULT;
 	}
 
-	ret = ncr_key_item_get_read( &wkey, key_lst, wrap.keytowrap);
+	ret = ncr_key_item_get_read( &wkey, lst, wrap.keytowrap);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -650,7 +650,7 @@ fail:
 /* Unwraps keys. All keys unwrapped are not accessible by 
  * userspace.
  */
-int ncr_key_storage_unwrap(struct list_sem_st* key_lst, void __user* arg)
+int ncr_key_storage_unwrap(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_storage_wrap_st wrap;
 struct key_item_st* wkey = NULL;
@@ -669,7 +669,7 @@ int ret;
 		return -EFAULT;
 	}
 
-	ret = ncr_key_item_get_write( &wkey, key_lst, wrap.keytowrap);
+	ret = ncr_key_item_get_write( &wkey, lst, wrap.keytowrap);
 	if (ret < 0) {
 		err();
 		return ret;

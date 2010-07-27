@@ -40,18 +40,18 @@ static void _ncr_key_unlink_item(struct key_item_st *item)
 	_ncr_key_item_put( item); /* decrement ref count */
 }
 
-void ncr_key_list_deinit(struct list_sem_st* lst)
+void ncr_key_list_deinit(struct ncr_lists *lst_)
 {
-	if(lst) {
-		struct key_item_st * item, *tmp;
+	struct list_sem_st *lst;
+	struct key_item_st * item, *tmp;
 
-		down(&lst->sem);
+	lst = &lst_->key;
+	down(&lst->sem);
 
-		list_for_each_entry_safe(item, tmp, &lst->list, list) {
-			_ncr_key_unlink_item(item);
-		}
-		up(&lst->sem);
+	list_for_each_entry_safe(item, tmp, &lst->list, list) {
+		_ncr_key_unlink_item(item);
 	}
+	up(&lst->sem);
 }
 
 /* must be called with data semaphore down
@@ -70,12 +70,14 @@ int mx = 1;
 }
 
 /* returns the data item corresponding to desc */
-int ncr_key_item_get_read(struct key_item_st**st, struct list_sem_st* lst, 
+int ncr_key_item_get_read(struct key_item_st**st, struct ncr_lists *lst_,
 	ncr_key_t desc)
 {
+struct list_sem_st *lst;
 struct key_item_st* item;
 int ret;
 	
+	lst = &lst_->key;
 	*st = NULL;
 	
 	down(&lst->sem);
@@ -107,11 +109,13 @@ exit:
  * is in use.
  */
 int ncr_key_item_get_write( struct key_item_st** st, 
-	struct list_sem_st* lst, ncr_key_t desc)
+	struct ncr_lists *lst_, ncr_key_t desc)
 {
+struct list_sem_st *lst;
 struct key_item_st* item;
 int ret;
 
+	lst = &lst_->key;
 	*st = NULL;
 
 	down(&lst->sem);
@@ -157,12 +161,14 @@ void _ncr_key_item_put( struct key_item_st* item)
 	}
 }
 
-int ncr_key_init(struct list_sem_st* lst, void __user* arg)
+int ncr_key_init(struct ncr_lists *lst_, void __user* arg)
 {
+	struct list_sem_st *lst;
 	ncr_key_t desc;
 	struct key_item_st* key;
 	int ret;
 
+	lst = &lst_->key;
 	ret = ncr_limits_add_and_check(current_euid(), task_pid_nr(current), LIMIT_TYPE_KEY);
 	if (ret < 0) {
 		err();
@@ -207,11 +213,13 @@ err_limits:
 }
 
 
-int ncr_key_deinit(struct list_sem_st* lst, void __user* arg)
+int ncr_key_deinit(struct ncr_lists *lst_, void __user* arg)
 {
+	struct list_sem_st *lst;
 	ncr_key_t desc;
 	struct key_item_st * item, *tmp;
 
+	lst = &lst_->key;
 	if (unlikely(copy_from_user(&desc, arg, sizeof(desc)))) {
 		err();
 		return -EFAULT;
@@ -234,7 +242,7 @@ int ncr_key_deinit(struct list_sem_st* lst, void __user* arg)
 /* "exports" a key to a data item. If the key is not exportable
  * to userspace then the data item will also not be.
  */
-int ncr_key_export(struct list_sem_st* key_lst, void __user* arg)
+int ncr_key_export(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_data_st data;
 struct key_item_st* item = NULL;
@@ -247,7 +255,7 @@ int ret;
 		return -EFAULT;
 	}
 
-	ret = ncr_key_item_get_read( &item, key_lst, data.key);
+	ret = ncr_key_item_get_read( &item, lst, data.key);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -329,7 +337,7 @@ fail:
 /* "imports" a key from a data item. If the key is not exportable
  * to userspace then the key item will also not be.
  */
-int ncr_key_import(struct list_sem_st* key_lst, void __user* arg)
+int ncr_key_import(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_data_st data;
 struct key_item_st* item = NULL;
@@ -342,7 +350,7 @@ size_t tmp_size;
 		return -EFAULT;
 	}
 
-	ret = ncr_key_item_get_write( &item, key_lst, data.key);
+	ret = ncr_key_item_get_write( &item, lst, data.key);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -438,7 +446,7 @@ static void ncr_key_clear(struct key_item_st* item)
 
 /* Generate a secret key
  */
-int ncr_key_generate(struct list_sem_st* lst, void __user* arg)
+int ncr_key_generate(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_generate_st gen;
 struct key_item_st* item = NULL;
@@ -500,7 +508,7 @@ fail:
 	return ret;
 }
 
-int ncr_key_info(struct list_sem_st* lst, void __user* arg)
+int ncr_key_info(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_info_st info;
 struct key_item_st* item = NULL;
@@ -535,7 +543,7 @@ fail:
 	return ret;
 }
 
-int ncr_key_generate_pair(struct list_sem_st* lst, void __user* arg)
+int ncr_key_generate_pair(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_generate_st gen;
 struct key_item_st* private = NULL;
@@ -602,7 +610,7 @@ fail:
 /* "exports" a key to a data item. If the key is not exportable
  * to userspace then the data item will also not be.
  */
-int ncr_key_derive(struct list_sem_st* key_lst, void __user* arg)
+int ncr_key_derive(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_derivation_params_st data;
 int ret;
@@ -614,13 +622,13 @@ struct key_item_st* newkey = NULL;
 		return -EFAULT;
 	}
 
-	ret = ncr_key_item_get_read( &key, key_lst, data.key);
+	ret = ncr_key_item_get_read( &key, lst, data.key);
 	if (ret < 0) {
 		err();
 		return ret;
 	}
 
-	ret = ncr_key_item_get_write( &newkey, key_lst, data.newkey);
+	ret = ncr_key_item_get_write( &newkey, lst, data.newkey);
 	if (ret < 0) {
 		err();
 		goto fail;

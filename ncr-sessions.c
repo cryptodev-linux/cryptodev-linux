@@ -31,22 +31,21 @@
 #include <linux/scatterlist.h>
 
 static int _ncr_session_update_key(struct ncr_lists* lists, struct ncr_session_op_st* op);
-static void _ncr_session_remove(struct list_sem_st* lst, ncr_session_t desc);
+static void _ncr_session_remove(struct ncr_lists *lst, ncr_session_t desc);
 
-void ncr_sessions_list_deinit(struct list_sem_st* lst)
+void ncr_sessions_list_deinit(struct ncr_lists *lst_)
 {
-	if(lst) {
-		struct session_item_st * item, *tmp;
+	struct list_sem_st *lst;
+	struct session_item_st * item, *tmp;
 
-		down(&lst->sem);
-		
-		list_for_each_entry_safe(item, tmp, &lst->list, list) {
-			list_del(&item->list);
-			_ncr_sessions_item_put( item); /* decrement ref count */
-		}
-		up(&lst->sem);
+	lst = &lst_->sessions;
+	down(&lst->sem);
 
+	list_for_each_entry_safe(item, tmp, &lst->list, list) {
+		list_del(&item->list);
+		_ncr_sessions_item_put( item); /* decrement ref count */
 	}
+	up(&lst->sem);
 }
 
 /* must be called with data semaphore down
@@ -65,10 +64,12 @@ int mx = 1;
 }
 
 /* returns the data item corresponding to desc */
-struct session_item_st* ncr_sessions_item_get( struct list_sem_st* lst, ncr_session_t desc)
+struct session_item_st* ncr_sessions_item_get(struct ncr_lists *lst_, ncr_session_t desc)
 {
+struct list_sem_st *lst;
 struct session_item_st* item;
 
+	lst = &lst_->sessions;
 	down(&lst->sem);
 	list_for_each_entry(item, &lst->list, list) {
 		if (item->desc == desc) {
@@ -97,10 +98,12 @@ void _ncr_sessions_item_put( struct session_item_st* item)
 	}
 }
 
-struct session_item_st* ncr_session_new(struct list_sem_st* lst)
+struct session_item_st* ncr_session_new(struct ncr_lists *lst_)
 {
+	struct list_sem_st *lst;
 	struct session_item_st* sess;
 
+	lst = &lst_->sessions;
 	sess = kzalloc(sizeof(*sess), GFP_KERNEL);
 	if (sess == NULL) {
 		err();
@@ -226,7 +229,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 	int ret;
 	const struct algo_properties_st *sign_hash;
 
-	ns = ncr_session_new(&lists->sessions);
+	ns = ncr_session_new(lists);
 	if (ns == NULL) {
 		err();
 		return -ENOMEM;
@@ -250,7 +253,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 			}
 
 			/* read key */
-			ret = ncr_key_item_get_read( &ns->key, &lists->key, session->key);
+			ret = ncr_key_item_get_read( &ns->key, lists, session->key);
 			if (ret < 0) {
 				err();
 				goto fail;
@@ -319,7 +322,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 			
 			} else {
 				/* read key */
-				ret = ncr_key_item_get_read( &ns->key, &lists->key, session->key);
+				ret = ncr_key_item_get_read( &ns->key, lists, session->key);
 				if (ret < 0) {
 					err();
 					goto fail;
@@ -390,7 +393,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 
 fail:
 	if (ret < 0) {
-		_ncr_session_remove(&lists->sessions, ns->desc);
+		_ncr_session_remove(lists, ns->desc);
 	}
 	_ncr_sessions_item_put(ns);
 
@@ -416,7 +419,7 @@ int ncr_session_init(struct ncr_lists* lists, void __user* arg)
 	ret = copy_to_user( arg, &session, sizeof(session));
 	if (unlikely(ret)) {
 		err();
-		_ncr_session_remove(&lists->sessions, session.ses);
+		_ncr_session_remove(lists, session.ses);
 		return -EFAULT;
 	}
 	return ret;
@@ -479,10 +482,12 @@ int ret;
 	return 0;
 }
 
-static void _ncr_session_remove(struct list_sem_st* lst, ncr_session_t desc)
+static void _ncr_session_remove(struct ncr_lists *lst_, ncr_session_t desc)
 {
+	struct list_sem_st* lst;
 	struct session_item_st * item, *tmp;
 
+	lst = &lst_->sessions;
 	down(&lst->sem);
 	
 	list_for_each_entry_safe(item, tmp, &lst->list, list) {
@@ -630,7 +635,7 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 	unsigned osg_cnt=0, isg_cnt=0;
 	size_t isg_size, osg_size;
 
-	sess = ncr_sessions_item_get( &lists->sessions, op->ses);
+	sess = ncr_sessions_item_get(lists, op->ses);
 	if (sess == NULL) {
 		err();
 		return -EINVAL;
@@ -750,7 +755,7 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 	void __user * udata = NULL;
 	size_t *udata_size;
 
-	sess = ncr_sessions_item_get( &lists->sessions, op->ses);
+	sess = ncr_sessions_item_get(lists, op->ses);
 	if (sess == NULL) {
 		err();
 		return -EINVAL;
@@ -900,7 +905,7 @@ fail:
 	}
 
 	_ncr_sessions_item_put(sess);
-	_ncr_session_remove(&lists->sessions, op->ses);
+	_ncr_session_remove(lists, op->ses);
 
 	return ret;
 }
@@ -913,14 +918,14 @@ static int _ncr_session_update_key(struct ncr_lists* lists, struct ncr_session_o
 	struct session_item_st* sess;
 	struct key_item_st* key = NULL;
 
-	sess = ncr_sessions_item_get( &lists->sessions, op->ses);
+	sess = ncr_sessions_item_get(lists, op->ses);
 	if (sess == NULL) {
 		err();
 		return -EINVAL;
 	}
 
 	/* read key */
-	ret = ncr_key_item_get_read( &key, &lists->key, op->data.kdata.input);
+	ret = ncr_key_item_get_read( &key, lists, op->data.kdata.input);
 	if (ret < 0) {
 		err();
 		goto fail;

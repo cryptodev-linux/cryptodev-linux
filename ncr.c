@@ -64,8 +64,8 @@ void* ncr_init_lists(void)
 void ncr_deinit_lists(struct ncr_lists *lst)
 {
 	if(lst) {
-		ncr_key_list_deinit(&lst->key);
-		ncr_sessions_list_deinit(&lst->sessions);
+		ncr_key_list_deinit(lst);
+		ncr_sessions_list_deinit(lst);
 		kfree(lst);
 	}
 }
@@ -127,25 +127,25 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 
 	switch (cmd) {
 		case NCRIO_KEY_INIT:
-			return ncr_key_init(&lst->key, arg);
+			return ncr_key_init(lst, arg);
 		case NCRIO_KEY_DEINIT:
-			return ncr_key_deinit(&lst->key, arg);
+			return ncr_key_deinit(lst, arg);
 		case NCRIO_KEY_GENERATE:
-			return ncr_key_generate(&lst->key, arg);
+			return ncr_key_generate(lst, arg);
 		case NCRIO_KEY_EXPORT:
-			return ncr_key_export(&lst->key, arg);
+			return ncr_key_export(lst, arg);
 		case NCRIO_KEY_IMPORT:
-			return ncr_key_import(&lst->key, arg);
+			return ncr_key_import(lst, arg);
 		case NCRIO_KEY_GET_INFO:
-			return ncr_key_info(&lst->key, arg);
+			return ncr_key_info(lst, arg);
 		case NCRIO_KEY_WRAP:
-			return ncr_key_wrap(&lst->key, arg);
+			return ncr_key_wrap(lst, arg);
 		case NCRIO_KEY_UNWRAP:
-			return ncr_key_unwrap(&lst->key, arg);
+			return ncr_key_unwrap(lst, arg);
 		case NCRIO_KEY_STORAGE_WRAP:
-			return ncr_key_storage_wrap(&lst->key, arg);
+			return ncr_key_storage_wrap(lst, arg);
 		case NCRIO_KEY_STORAGE_UNWRAP:
-			return ncr_key_storage_unwrap(&lst->key, arg);
+			return ncr_key_storage_unwrap(lst, arg);
 		case NCRIO_SESSION_INIT:
 			return ncr_session_init(lst, arg);
 		case NCRIO_SESSION_UPDATE:
@@ -158,9 +158,9 @@ ncr_ioctl(struct ncr_lists* lst, struct file *filp,
 		case NCRIO_MASTER_KEY_SET:
 			return ncr_master_key_set(arg);
 		case NCRIO_KEY_GENERATE_PAIR:
-			return ncr_key_generate_pair(&lst->key, arg);
+			return ncr_key_generate_pair(lst, arg);
 		case NCRIO_KEY_DERIVE:
-			return ncr_key_derive(&lst->key, arg);
+			return ncr_key_derive(lst, arg);
 		default:
 			return -EINVAL;
 	}
