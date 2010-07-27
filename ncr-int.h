@@ -1,6 +1,8 @@
 #ifndef NCR_INT_H
 # define NCR_INT_H
 
+#include <linux/idr.h>
+#include <linux/mutex.h>
 #include "ncr.h"
 #include <asm/atomic.h>
 #include "cryptodev_int.h"
@@ -59,7 +61,6 @@ struct session_item_st {
 };
 
 struct key_item_st {
-	struct list_head list;
 	/* This object is also not protected from concurrent access.
 	 */
 	ncr_key_type_t type;
@@ -99,7 +100,8 @@ struct list_sem_st {
  * are here.
  */
 struct ncr_lists {
-	struct list_sem_st key;
+	struct mutex key_idr_mutex;
+	struct idr key_idr;
 
 	/* sessions */
 	struct list_sem_st sessions;
