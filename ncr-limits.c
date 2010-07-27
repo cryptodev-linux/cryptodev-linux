@@ -46,15 +46,13 @@ static unsigned int max_per_process[] = {
 struct limit_user_item_st {
 	struct list_head list;
 	uid_t uid;
-	limits_type_t type;
-	atomic_t cnt;
+	atomic_t cnt[NUM_LIMIT_TYPES];
 };
 
 struct limit_process_item_st {
 	struct list_head list;
 	pid_t pid;
-	limits_type_t type;
-	atomic_t cnt;
+	atomic_t cnt[NUM_LIMIT_TYPES];
 };
 
 struct limit_st {
@@ -100,13 +98,14 @@ struct limit_process_item_st* pitem;
 struct limit_user_item_st* uitem;
 int add = 1;
 int ret;
+	BUG_ON(type >= NUM_LIMIT_TYPES);
 
 	down(&limits.users.sem);
 	list_for_each_entry(uitem, &limits.users.list, list) {
-		if (uitem->uid == uid && uitem->type == type) {
+		if (uitem->uid == uid) {
 			add = 0;
 
-			if (atomic_add_unless(&uitem->cnt, 1, max_per_user[type])==0) {
+			if (atomic_add_unless(&uitem->cnt[type], 1, max_per_user[type])==0) {
 				err();
 				up(&limits.users.sem);
 				return -EPERM;
@@ -115,6 +114,8 @@ int ret;
 	}
 
 	if (add) {
+		size_t i;
+
 		uitem = kmalloc( sizeof(*uitem), GFP_KERNEL);
 		if (uitem == NULL) {
 			err();
@@ -122,8 +123,9 @@ int ret;
 			return -ENOMEM;
 		}
 		uitem->uid = uid;
-		uitem->type = type;
-		atomic_set(&uitem->cnt, 1);
+		for (i = 0; i < NUM_LIMIT_TYPES; i++)
+			atomic_set(&uitem->cnt[i], 0);
+		atomic_set(&uitem->cnt[type], 1);
 
 		list_add(&uitem->list, &limits.users.list);
 	}
@@ -133,9 +135,9 @@ int ret;
 	/* check process limits */
 	down(&limits.processes.sem);
 	list_for_each_entry(pitem, &limits.processes.list, list) {
-		if (pitem->pid == pid && pitem->type == type) {
+		if (pitem->pid == pid) {
 			add = 0;
-			if (atomic_add_unless(&pitem->cnt, 1, max_per_process[type])==0) {
+			if (atomic_add_unless(&pitem->cnt[type], 1, max_per_process[type])==0) {
 				err();
 				up(&limits.processes.sem);
 
@@ -147,6 +149,8 @@ int ret;
 	
 
 	if (add) {
+		size_t i;
+
 		pitem = kmalloc(sizeof(*pitem), GFP_KERNEL);
 		if (uitem == NULL) {
 			err();
@@ -155,8 +159,9 @@ int ret;
 			goto restore_user;
 		}
 		pitem->pid = pid;
-		pitem->type = type;
-		atomic_set(&pitem->cnt, 1);
+		for (i = 0; i < NUM_LIMIT_TYPES; i++)
+			atomic_set(&pitem->cnt[i], 0);
+		atomic_set(&pitem->cnt[type], 1);
 
 		list_add(&pitem->list, &limits.processes.list);
 	}
@@ -167,8 +172,8 @@ int ret;
 restore_user:
 	down(&limits.users.sem);
 	list_for_each_entry(uitem, &limits.users.list, list) {
-		if (uitem->uid == uid && uitem->type == type)
-			atomic_dec(&uitem->cnt);
+		if (uitem->uid == uid)
+			atomic_dec(&uitem->cnt[type]);
 	}
 	up(&limits.users.sem);
 	return ret;
@@ -179,10 +184,11 @@ void ncr_limits_remove(uid_t uid, pid_t pid, limits_type_t type)
 struct limit_process_item_st* pitem;
 struct limit_user_item_st* uitem;
 
+	BUG_ON(type >= NUM_LIMIT_TYPES);
 	down(&limits.users.sem);
 	list_for_each_entry(uitem, &limits.users.list, list) {
-		if (uitem->uid == uid && uitem->type == type) {
-			atomic_dec(&uitem->cnt);
+		if (uitem->uid == uid) {
+			atomic_dec(&uitem->cnt[type]);
 		}
 	}
 	up(&limits.users.sem);
@@ -190,8 +196,8 @@ struct limit_user_item_st* uitem;
 	/* check process limits */
 	down(&limits.processes.sem);
 	list_for_each_entry(pitem, &limits.processes.list, list) {
-		if (pitem->pid == pid && pitem->type == type) {
-			atomic_dec(&pitem->cnt);
+		if (pitem->pid == pid) {
+			atomic_dec(&pitem->cnt[type]);
 		}
 	}
 	up(&limits.processes.sem);

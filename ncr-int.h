@@ -137,6 +137,7 @@ void _ncr_key_item_put( struct key_item_st* item);
 
 typedef enum {
 	LIMIT_TYPE_KEY,
+	NUM_LIMIT_TYPES
 } limits_type_t;
 
 void ncr_limits_remove(uid_t uid, pid_t pid, limits_type_t type);
