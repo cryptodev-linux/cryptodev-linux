@@ -121,7 +121,7 @@ struct session_item_st* ncr_session_new(struct list_sem_st* lst)
 	}
 	init_MUTEX(&sess->mem_mutex);
 
-	atomic_set(&sess->refcnt, 1);
+	atomic_set(&sess->refcnt, 2); /* One for lst->list, one for "sess" */
 
 	down(&lst->sem);
 
@@ -392,6 +392,7 @@ fail:
 	if (ret < 0) {
 		_ncr_session_remove(&lists->sessions, ns->desc);
 	}
+	_ncr_sessions_item_put(ns);
 
 	return ret;
 }

@@ -189,9 +189,9 @@ int ncr_key_init(struct list_sem_st* lst, void __user* arg)
 
 	list_add(&key->list, &lst->list);
 	
+	desc = key->desc;
 	up(&lst->sem);
 
-	desc = key->desc;
 	ret = copy_to_user(arg, &desc, sizeof(desc));
 	if (unlikely(ret)) {
 		down(&lst->sem);
