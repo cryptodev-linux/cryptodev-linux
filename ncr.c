@@ -103,11 +103,14 @@ struct ncr_master_key_st st;
 		dprintk(0, KERN_DEBUG, "Master key was previously initialized.\n");
 	}
 
+	if (unlikely(copy_from_user(master_key.key.secret.data, st.key, st.key_size))) {
+		err();
+		return -EFAULT;
+	}
+
 	dprintk(0, KERN_INFO, "Initializing master key.\n");
 
 	master_key.type = NCR_KEY_TYPE_SECRET;
-	
-	memcpy(master_key.key.secret.data, st.key, st.key_size);
 	master_key.key.secret.size = st.key_size;
 
 	return 0;

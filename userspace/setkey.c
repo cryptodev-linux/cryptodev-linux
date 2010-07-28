@@ -25,6 +25,7 @@ int main(int argc, char** argv)
 	struct ncr_master_key_st key;
 	int size, ret;
 	struct stat st;
+	uint8_t rawkey[32];
 	
 	if (argc != 2) {
 		fprintf(stderr, "Usage: setkey [filename]\n");
@@ -52,12 +53,13 @@ int main(int argc, char** argv)
 		exit(1);
 	}
 
-	size = fread(key.key, 1, sizeof(key.key), fp);
+	size = fread(rawkey, 1, sizeof(rawkey), fp);
 	if (size < 16) {
 		fprintf(stderr, "Illegal key!\n");
 		exit(1);
 	}
 	fclose(fp);
+	key.key = rawkey;
 	key.key_size = size;
 
 	/* Open the crypto device */
