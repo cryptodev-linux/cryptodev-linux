@@ -97,7 +97,6 @@ struct list_sem_st {
  * are here.
  */
 struct ncr_lists {
-	struct list_sem_st data;
 	struct mutex key_idr_mutex;
 	struct idr key_idr;
 

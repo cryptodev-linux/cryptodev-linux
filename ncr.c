@@ -52,9 +52,6 @@ void* ncr_init_lists(void)
 
 	memset(lst, 0, sizeof(*lst));
 
-	init_MUTEX(&lst->data.sem);
-	INIT_LIST_HEAD(&lst->data.list);
-
 	mutex_init(&lst->key_idr_mutex);
 	idr_init(&lst->key_idr);
 
