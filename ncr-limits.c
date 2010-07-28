@@ -148,7 +148,7 @@ int ret;
 
 	if (add) {
 		pitem = kmalloc(sizeof(*pitem), GFP_KERNEL);
-		if (uitem == NULL) {
+		if (pitem == NULL) {
 			err();
 			up(&limits.processes.sem);
 			ret = -ENOMEM;
