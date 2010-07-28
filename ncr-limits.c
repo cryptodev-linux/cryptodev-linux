@@ -22,6 +22,8 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#include <linux/hash.h>
+#include <linux/mutex.h>
 #include <linux/types.h>
 #include <linux/mm.h>
 #include <linux/highmem.h>
@@ -44,51 +46,76 @@ static unsigned int max_per_process[] = {
 };
 
 struct limit_user_item_st {
-	struct list_head list;
+	struct hlist_node hlist;
 	uid_t uid;
 	atomic_t cnt[NUM_LIMIT_TYPES];
 };
 
 struct limit_process_item_st {
-	struct list_head list;
+	struct hlist_node hlist;
 	pid_t pid;
 	atomic_t cnt[NUM_LIMIT_TYPES];
 };
 
-struct limit_st {
-	struct list_sem_st users;
-	struct list_sem_st processes;
-};
+static struct mutex user_limit_mutex;
+#define USER_LIMIT_HASH_BITS 7
+#define USER_LIMIT_TABLE_SIZE (1 << USER_LIMIT_HASH_BITS)
+static struct hlist_head user_limit_table[USER_LIMIT_TABLE_SIZE];
 
-static struct limit_st limits;
+static struct hlist_head *user_limit_hash(uid_t uid)
+{
+	return &user_limit_table[hash_long(uid, USER_LIMIT_HASH_BITS)];
+}
+
+static struct mutex process_limit_mutex;
+#define PROCESS_LIMIT_HASH_BITS 9
+#define PROCESS_LIMIT_TABLE_SIZE (1 << PROCESS_LIMIT_HASH_BITS)
+static struct hlist_head process_limit_table[PROCESS_LIMIT_TABLE_SIZE];
+
+static struct hlist_head *process_limit_hash(pid_t pid)
+{
+	return &process_limit_table[hash_long(pid, PROCESS_LIMIT_HASH_BITS)];
+}
 
 void ncr_limits_init(void)
 {
-	init_MUTEX(&limits.users.sem);
-	INIT_LIST_HEAD(&limits.users.list);
+	size_t i;
 
-	init_MUTEX(&limits.processes.sem);
-	INIT_LIST_HEAD(&limits.processes.list);
+	mutex_init(&user_limit_mutex);
+	for (i = 0; i < USER_LIMIT_TABLE_SIZE; i++)
+		INIT_HLIST_HEAD(&user_limit_table[i]);
+
+	mutex_init(&process_limit_mutex);
+	for (i = 0; i < PROCESS_LIMIT_TABLE_SIZE; i++)
+		INIT_HLIST_HEAD(&process_limit_table[i]);
 }
 
 void ncr_limits_deinit(void)
 {
-struct limit_process_item_st* pitem, *ptmp;
-struct limit_user_item_st* uitem, *utmp;
+struct limit_process_item_st* pitem;
+struct limit_user_item_st* uitem;
+struct hlist_node *pos, *tmp;
+size_t i;
 
-	down(&limits.users.sem);
-	list_for_each_entry_safe(uitem, utmp, &limits.users.list, list) {
-		list_del(&uitem->list);
-		kfree(uitem);
+	mutex_lock(&user_limit_mutex);
+	for (i = 0; i < USER_LIMIT_TABLE_SIZE; i++) {
+		hlist_for_each_entry_safe(uitem, pos, tmp, &user_limit_table[i],
+					  hlist) {
+			hlist_del(&uitem->hlist);
+			kfree(uitem);
+		}
 	}
-	up(&limits.users.sem);
+	mutex_unlock(&user_limit_mutex);
 	
-	down(&limits.processes.sem);
-	list_for_each_entry_safe(pitem, ptmp, &limits.processes.list, list) {
-		list_del(&pitem->list);
-		kfree(pitem);
+	mutex_lock(&process_limit_mutex);
+	for (i = 0; i < PROCESS_LIMIT_TABLE_SIZE; i++) {
+		hlist_for_each_entry_safe(pitem, pos, tmp,
+					  &process_limit_table[i], hlist) {
+			hlist_del(&pitem->hlist);
+			kfree(pitem);
+		}
 	}
-	up(&limits.processes.sem);
+	mutex_unlock(&process_limit_mutex);
 
 }
 
@@ -96,18 +123,21 @@ int ncr_limits_add_and_check(uid_t uid, pid_t pid, limits_type_t type)
 {
 struct limit_process_item_st* pitem;
 struct limit_user_item_st* uitem;
+struct hlist_head *user_head, *process_head;
+struct hlist_node *pos;
 int add = 1;
 int ret;
 	BUG_ON(type >= NUM_LIMIT_TYPES);
 
-	down(&limits.users.sem);
-	list_for_each_entry(uitem, &limits.users.list, list) {
+	user_head = user_limit_hash(uid);
+	mutex_lock(&user_limit_mutex);
+	hlist_for_each_entry(uitem, pos, user_head, hlist) {
 		if (uitem->uid == uid) {
 			add = 0;
 
 			if (atomic_add_unless(&uitem->cnt[type], 1, max_per_user[type])==0) {
 				err();
-				up(&limits.users.sem);
+				mutex_unlock(&user_limit_mutex);
 				return -EPERM;
 			}
 		}
@@ -119,7 +149,7 @@ int ret;
 		uitem = kmalloc( sizeof(*uitem), GFP_KERNEL);
 		if (uitem == NULL) {
 			err();
-			up(&limits.users.sem);
+			mutex_unlock(&user_limit_mutex);
 			return -ENOMEM;
 		}
 		uitem->uid = uid;
@@ -127,19 +157,20 @@ int ret;
 			atomic_set(&uitem->cnt[i], 0);
 		atomic_set(&uitem->cnt[type], 1);
 
-		list_add(&uitem->list, &limits.users.list);
+		hlist_add_head(&uitem->hlist, user_head);
 	}
-	up(&limits.users.sem);
+	mutex_unlock(&user_limit_mutex);
 
 	add = 1;
 	/* check process limits */
-	down(&limits.processes.sem);
-	list_for_each_entry(pitem, &limits.processes.list, list) {
+	process_head = process_limit_hash(uid);
+	mutex_lock(&process_limit_mutex);
+	hlist_for_each_entry(pitem, pos, process_head, hlist) {
 		if (pitem->pid == pid) {
 			add = 0;
 			if (atomic_add_unless(&pitem->cnt[type], 1, max_per_process[type])==0) {
 				err();
-				up(&limits.processes.sem);
+				mutex_unlock(&process_limit_mutex);
 
 				ret = -EPERM;
 				goto restore_user;
@@ -154,7 +185,7 @@ int ret;
 		pitem = kmalloc(sizeof(*pitem), GFP_KERNEL);
 		if (pitem == NULL) {
 			err();
-			up(&limits.processes.sem);
+			mutex_unlock(&process_limit_mutex);
 			ret = -ENOMEM;
 			goto restore_user;
 		}
@@ -163,19 +194,19 @@ int ret;
 			atomic_set(&pitem->cnt[i], 0);
 		atomic_set(&pitem->cnt[type], 1);
 
-		list_add(&pitem->list, &limits.processes.list);
+		hlist_add_head(&pitem->hlist, process_head);
 	}
-	up(&limits.processes.sem);
+	mutex_unlock(&process_limit_mutex);
 
 	return 0;
 
 restore_user:
-	down(&limits.users.sem);
-	list_for_each_entry(uitem, &limits.users.list, list) {
+	mutex_lock(&user_limit_mutex);
+	hlist_for_each_entry(uitem, pos, user_head, hlist) {
 		if (uitem->uid == uid)
 			atomic_dec(&uitem->cnt[type]);
 	}
-	up(&limits.users.sem);
+	mutex_unlock(&user_limit_mutex);
 	return ret;
 }
 
@@ -183,24 +214,28 @@ void ncr_limits_remove(uid_t uid, pid_t pid, limits_type_t type)
 {
 struct limit_process_item_st* pitem;
 struct limit_user_item_st* uitem;
+struct hlist_head *hhead;
+struct hlist_node *pos;
 
 	BUG_ON(type >= NUM_LIMIT_TYPES);
-	down(&limits.users.sem);
-	list_for_each_entry(uitem, &limits.users.list, list) {
+	hhead = user_limit_hash(uid);
+	mutex_lock(&user_limit_mutex);
+	hlist_for_each_entry(uitem, pos, hhead, hlist) {
 		if (uitem->uid == uid) {
 			atomic_dec(&uitem->cnt[type]);
 		}
 	}
-	up(&limits.users.sem);
+	mutex_unlock(&user_limit_mutex);
 
 	/* check process limits */
-	down(&limits.processes.sem);
-	list_for_each_entry(pitem, &limits.processes.list, list) {
+	hhead = process_limit_hash(uid);
+	mutex_lock(&process_limit_mutex);
+	hlist_for_each_entry(pitem, pos, hhead, hlist) {
 		if (pitem->pid == pid) {
 			atomic_dec(&pitem->cnt[type]);
 		}
 	}
-	up(&limits.processes.sem);
+	mutex_unlock(&process_limit_mutex);
 
 	return;
 }
