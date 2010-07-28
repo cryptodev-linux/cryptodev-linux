@@ -88,11 +88,6 @@ struct key_item_st {
 	ncr_key_t desc;
 };
 
-struct list_sem_st {
-	struct list_head list;
-	struct semaphore sem;
-};
-
 /* all the data associated with the open descriptor
  * are here.
  */
