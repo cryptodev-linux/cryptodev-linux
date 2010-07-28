@@ -263,7 +263,8 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				
 				if (ns->algorithm->kstr == NULL) {
 					err();
-					return -EINVAL;
+					ret = -EINVAL;
+					goto fail;
 				}
 
 				ret = cryptodev_cipher_init(&ns->cipher, ns->algorithm->kstr,
@@ -342,7 +343,8 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 					sign_hash = ncr_key_params_get_sign_hash(ns->key->algorithm, &session->params);
 					if (IS_ERR(sign_hash)) {
 						err();
-						return PTR_ERR(sign_hash);
+						ret = PTR_ERR(sign_hash);
+						goto fail;
 					}
 
 					if (!sign_hash->can_digest) {
