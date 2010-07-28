@@ -4,6 +4,7 @@ Michal Ludvig:
 Nikos Mavrogiannopoulos: 
   Port to 2.6.27 and later, better compatibility
   with OpenBSD (and FreeBSD) cryptodev and maintanance.
+  Design and implementation of NCR (NewCrypto) API.
 
 Michael Weiser: 
   Porting to blkcipher async API. Several hardware drivers
@@ -11,6 +12,9 @@ Michael Weiser:
 
 Phil Sutter: 
   Implemented a zero copy version of the internal engine.
+
+Miloslav Trmač:
+  Several optimizations and bugfixes in the NCR API.
 
 
 Maintained by Nikos Mavrogiannopoulos (nmav [at] gnutls [dot] org)
