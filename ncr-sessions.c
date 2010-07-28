@@ -229,7 +229,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 	ns = ncr_session_new(&lists->sessions);
 	if (ns == NULL) {
 		err();
-		return -EINVAL;
+		return -ENOMEM;
 	}
 
 	ns->op = session->op;
