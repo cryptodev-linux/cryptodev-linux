@@ -46,7 +46,7 @@ static void val64_xor( val64_t val, uint32_t x)
 	val[4] ^= (x >> 24) & 0xff;
 }
 
-static int rfc3394_wrap(val64_t R[], unsigned int n, struct cipher_data* ctx,
+static int rfc3394_wrap(val64_t *R, unsigned int n, struct cipher_data* ctx,
 	uint8_t* output, size_t *output_size, const uint8_t iv[8])
 {
 val64_t A;
@@ -120,6 +120,7 @@ size_t n;
 int i, ret;
 struct cipher_data ctx;
 uint8_t iv[8];
+val64_t *R = NULL;
 
 	if (iv_size != 4) {
 		memcpy(iv, RFC5649_IV, 4);
@@ -144,33 +145,32 @@ uint8_t iv[8];
 		return ret;
 	}
 
-	{
-		val64_t *R;
+	R = kmalloc(n * sizeof (*R), GFP_KERNEL);
+	if (R == NULL) {
+		err();
+		ret = -ENOMEM;
+		goto cleanup;
+	}
 
-		R = kmalloc(n * sizeof (*R), GFP_KERNEL);
-		if (R == NULL) {
-			err();
-			ret = -ENOMEM;
-			goto cleanup;
-		}
-		/* R = P */
-		for (i=0;i<kdata_size;i++) {
-			R[i/8][i%8] = ((uint8_t*)kdata)[i];
-		}
-		for (;i<n*8;i++) {
-			R[i/8][i%8] = 0;
-		}
-		ret = rfc3394_wrap( R, n, &ctx, output, output_size, iv);
-		kfree(R);
-		if (ret < 0) {
-			err();
-			goto cleanup;
-		}
+	/* R = P */
+	for (i=0;i<kdata_size;i++) {
+		R[i/8][i%8] = ((uint8_t*)kdata)[i];
+	}
+
+	for (;i<n*8;i++) {
+		R[i/8][i%8] = 0;
+	}
+
+	ret = rfc3394_wrap( R, n, &ctx, output, output_size, iv);
+	if (ret < 0) {
+		err();
+		goto cleanup;
 	}
 
 	ret = 0;
 
 cleanup:
+	kfree(R);
 	cryptodev_cipher_deinit(&ctx);
 
 	return ret;
@@ -184,6 +184,7 @@ int i, ret;
 struct cipher_data ctx;
 uint8_t iv[4];
 size_t size;
+val64_t *R = NULL, A;
 
 	if (iv_size != 4) {
 		memcpy(iv, RFC5649_IV, 4);
@@ -212,49 +213,42 @@ size_t size;
 		goto cleanup;
 	}
 
-	{
-		val64_t *R, A;
-
-		R = kmalloc(n * sizeof (*R), GFP_KERNEL);
-		if (R == NULL) {
-			err();
-			ret = -ENOMEM;
-			goto cleanup;
-		}
-		ret = rfc3394_unwrap(wrapped_key, R, n, A, &ctx);
-		if (ret < 0) {
-			err();
-			kfree(R);
-			goto cleanup;
-		}
-
-		if (memcmp(A, iv, 4)!= 0) {
-			err();
-			kfree(R);
-			ret = -EINVAL;
-			goto cleanup;
-		}
-
-		size = (A[4] << 24) | (A[5] << 16) | (A[6] << 8) | A[7];
-		if (size > n*8 || size < (n-1)*8 || *kdata_size < size) {
-			err();
-			kfree(R);
-			ret = -EINVAL;
-			goto cleanup;
-		}
-
-		memset(kdata, 0, size);
-		*kdata_size = size;
-		for (i=0;i<size;i++) {
-			((uint8_t*)kdata)[i] = R[i/8][i%8];
-		}
-		kfree(R);
+	R = kmalloc(n * sizeof (*R), GFP_KERNEL);
+	if (R == NULL) {
+		err();
+		ret = -ENOMEM;
+		goto cleanup;
 	}
 
+	ret = rfc3394_unwrap(wrapped_key, R, n, A, &ctx);
+	if (ret < 0) {
+		err();
+		goto cleanup;
+	}
+
+	if (memcmp(A, iv, 4)!= 0) {
+		err();
+		ret = -EINVAL;
+		goto cleanup;
+	}
+
+	size = (A[4] << 24) | (A[5] << 16) | (A[6] << 8) | A[7];
+	if (size > n*8 || size < (n-1)*8 || *kdata_size < size) {
+		err();
+		ret = -EINVAL;
+		goto cleanup;
+	}
+
+	memset(kdata, 0, size);
+	*kdata_size = size;
+	for (i=0;i<size;i++) {
+		((uint8_t*)kdata)[i] = R[i/8][i%8];
+	}
 
 	ret = 0;
 
 cleanup:
+	kfree(R);
 	cryptodev_cipher_deinit(&ctx);
 
 	return ret;
@@ -293,6 +287,7 @@ size_t key_size, n;
 uint8_t *raw_key;
 int i, ret;
 struct cipher_data ctx;
+val64_t *R = NULL;
 
 	if (tobewrapped->type != NCR_KEY_TYPE_SECRET) {
 		err();
@@ -322,24 +317,28 @@ struct cipher_data ctx;
 	n = key_size/8;
 
 
-	{
-		val64_t R[(NCR_CIPHER_MAX_KEY_LEN + 7) / 8];
+	R = kmalloc(sizeof(*R)*n, GFP_KERNEL);
+	if (R == NULL) {
+		err();
+		ret = -ENOMEM;
+		goto cleanup;
+	}
 
-		/* R = P */
-		for (i=0;i<n;i++) {
-			memcpy(R[i], &raw_key[i*8], 8);
-		}
+	/* R = P */
+	for (i=0;i<n;i++) {
+		memcpy(R[i], &raw_key[i*8], 8);
+	}
 
-		ret = rfc3394_wrap( R, n, &ctx, output, output_size, iv);
-		if (ret < 0) {
-			err();
-			goto cleanup;
-		}
+	ret = rfc3394_wrap( R, n, &ctx, output, output_size, iv);
+	if (ret < 0) {
+		err();
+		goto cleanup;
 	}
 
 	ret = 0;
 
 cleanup:
+	kfree(R);
 	cryptodev_cipher_deinit(&ctx);
 
 	return ret;
@@ -365,6 +364,7 @@ size_t n;
 val64_t A;
 int i, ret;
 struct cipher_data ctx;
+val64_t * R = NULL;
 
 	if (iv_size < sizeof(initA)) {
 		iv_size = sizeof(initA);
@@ -387,41 +387,43 @@ struct cipher_data ctx;
 
 	n = wrapped_key_size/8 - 1;
 
-	if (sizeof(output->key.secret.data) < (n-1)*8) {
+	if (NCR_CIPHER_MAX_KEY_LEN < (n-1)*8) {
 		err();
 		ret = -EINVAL;
 		goto cleanup;
 	}
 
-	{
-		val64_t R[sizeof(output->key.secret.data)/8 + 1];
-
-		ret = rfc3394_unwrap(wrapped_key, R, n, A, &ctx);
-		if (ret < 0) {
-			err();
-			return ret;
-		}
-
-		if (memcmp(A, iv, 8)!= 0) {
-			err();
-			ret = -EINVAL;
-			goto cleanup;
-		}
-
-		memset(&output->key, 0, sizeof(output->key));
-		for (i=0;i<n;i++) {
-			memcpy(&output->key.secret.data[i*8], R[i], sizeof(R[i]));
-		}
-		output->key.secret.size = n*8;
-		output->flags = NCR_KEY_FLAG_WRAPPABLE;
-		output->type = NCR_KEY_TYPE_SECRET;
-
+	R = kmalloc(sizeof(*R)*n, GFP_KERNEL);
+	if (R == NULL) {
+		err();
+		ret = -ENOMEM;
+		goto cleanup;
 	}
 
+	ret = rfc3394_unwrap(wrapped_key, R, n, A, &ctx);
+	if (ret < 0) {
+		err();
+		return ret;
+	}
+
+	if (memcmp(A, iv, 8)!= 0) {
+		err();
+		ret = -EINVAL;
+		goto cleanup;
+	}
+
+	memset(&output->key, 0, sizeof(output->key));
+	for (i=0;i<n;i++) {
+		memcpy(&output->key.secret.data[i*8], R[i], sizeof(R[i]));
+	}
+	output->key.secret.size = n*8;
+	output->flags = NCR_KEY_FLAG_WRAPPABLE;
+	output->type = NCR_KEY_TYPE_SECRET;
 
 	ret = 0;
 
 cleanup:
+	kfree(R);
 	cryptodev_cipher_deinit(&ctx);
 
 	return ret;
