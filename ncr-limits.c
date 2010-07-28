@@ -140,6 +140,7 @@ int ret;
 				mutex_unlock(&user_limit_mutex);
 				return -EPERM;
 			}
+			break;
 		}
 	}
 
@@ -175,6 +176,7 @@ int ret;
 				ret = -EPERM;
 				goto restore_user;
 			}
+			break;
 		}
 	}
 	
@@ -203,8 +205,10 @@ int ret;
 restore_user:
 	mutex_lock(&user_limit_mutex);
 	hlist_for_each_entry(uitem, pos, user_head, hlist) {
-		if (uitem->uid == uid)
+		if (uitem->uid == uid) {
 			atomic_dec(&uitem->cnt[type]);
+			break;
+		}
 	}
 	mutex_unlock(&user_limit_mutex);
 	return ret;
@@ -223,6 +227,7 @@ struct hlist_node *pos;
 	hlist_for_each_entry(uitem, pos, hhead, hlist) {
 		if (uitem->uid == uid) {
 			atomic_dec(&uitem->cnt[type]);
+			break;
 		}
 	}
 	mutex_unlock(&user_limit_mutex);
@@ -233,6 +238,7 @@ struct hlist_node *pos;
 	hlist_for_each_entry(pitem, pos, hhead, hlist) {
 		if (pitem->pid == pid) {
 			atomic_dec(&pitem->cnt[type]);
+			break;
 		}
 	}
 	mutex_unlock(&process_limit_mutex);
