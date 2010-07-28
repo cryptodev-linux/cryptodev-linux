@@ -123,7 +123,6 @@ int ncr_key_generate(struct list_sem_st* data_lst, void __user* arg);
 int ncr_key_info(struct list_sem_st*, void __user* arg);
 
 int ncr_key_generate_pair(struct list_sem_st* lst, void __user* arg);
-int ncr_key_derive(struct list_sem_st*, void __user* arg);
 int ncr_key_get_public(struct list_sem_st* lst, void __user* arg);
 
 int ncr_key_item_get_read(struct key_item_st**st, struct list_sem_st* lst, 
