@@ -1,8 +1,7 @@
-This is the linux-cryptodev [newapi] branch. Here a new API is being
-designed. The ioctl() API is in ncr.h and the userspace in ncrypto.h.
+This is the linux-cryptodev NCR branch. The ioctl() API is in ncr.h.
 
 For the new API to fully operate, root must load a system key (constant
-per system) using the setkey program. After this stage the new API should
+per system) using the ncr-setkey program. After this stage the new API should
 be fully operational. Example:
 $ dd if=/dev/urandom of=/boot/key count=1 bs=16
 $ chmod 600 /boot/key
@@ -15,11 +14,8 @@ keys will not be possible.
 
 
 
-The old OpenBSD API via /dev/crypto device driver is still supported.
+A compatibility API using OpenBSD's interface via /dev/crypto device driver 
+is supported.
 
-It was initially written for linux 2.6.8 by Michal Ludvig. Compatibility
-fixes for *BSD cryptodev as well as porting to 2.6.27 blkcipher API 
-by Nikos Mavrogiannopoulos. Initial blkcipher async API porting by
-Michael Weiser.
 
 Maintained by Nikos Mavrogiannopoulos (nmav [at] gnutls [dot] org)
