@@ -2,3 +2,4 @@
 * Put limits to sessions
 * Export private keys to PKCS #8 format (can it be implemented?)
 * Documentation for functions
+* Is a writev() like interface needed?
