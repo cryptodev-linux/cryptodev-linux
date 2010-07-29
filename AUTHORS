@@ -1,5 +1,5 @@
 Michal Ludvig: 
-  Initial implementation for linux 2.6.8
+  Initial implementation of OpenBSD's /dev/crypto API for linux 2.6.8
 
 Nikos Mavrogiannopoulos: 
   Port to 2.6.27 and later, better compatibility
