@@ -3,3 +3,4 @@
 * Export private keys to PKCS #8 format (can it be implemented?)
 * Documentation for functions
 * Is a writev() like interface needed?
+* Implement the NIST DSA generation algorithm.
