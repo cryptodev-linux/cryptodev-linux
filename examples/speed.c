@@ -26,7 +26,6 @@
 #include <sys/stat.h>
 #include <signal.h>
 #include <unistd.h>
-#include "../cryptodev.h"
 #include "../ncr.h"
 
 static double udifftimeval(struct timeval start, struct timeval end)
@@ -65,75 +64,6 @@ static void value2human(double bytes, double time, double* data, double* speed,c
                 strcpy(metric, "bytes");
                 return;
         }
-}
-
-
-int encrypt_data(int cipher, int fdc, int chunksize)
-{
-	struct crypt_op cop;
-	char *buffer, iv[32];
-	static int val = 23;
-	struct timeval start, end;
-	double total = 0;
-	double secs, ddata, dspeed;
-	struct session_op sess;
-	char metric[16];
-	char keybuf[16];
-	int keylen;
-
-	memset(keybuf, 0x42, 16);
-	if (cipher == CRYPTO_NULL)
-		keylen = 0;
-	else keylen = 16;
-
-	buffer = malloc(chunksize);
-	memset(iv, 0x23, 32);
-
-	printf("\tEncrypting in chunks of %d bytes: ", chunksize);
-	fflush(stdout);
-
-	memset(buffer, val++, chunksize);
-
-	must_finish = 0;
-	alarm(5);
-
-	gettimeofday(&start, NULL);
-	do {
-		memset(&sess, 0, sizeof(sess));
-		sess.cipher = cipher;
-		sess.keylen = keylen;
-		sess.key = (unsigned char *)keybuf;
-		if (ioctl(fdc, CIOCGSESSION, &sess)) {
-			perror("ioctl(CIOCGSESSION)");
-			return 1;
-		}
-
-		memset(&cop, 0, sizeof(cop));
-		cop.ses = sess.ses;
-		cop.len = chunksize;
-		cop.iv = (unsigned char *)iv;
-		cop.op = COP_ENCRYPT;
-		cop.flags = 0;
-		cop.src = cop.dst = (unsigned char *)buffer;
-
-		if (ioctl(fdc, CIOCCRYPT, &cop)) {
-			perror("ioctl(CIOCCRYPT)");
-			return 1;
-		}
-		
-		ioctl(fdc, CIOCFSESSION, &sess.ses);
-
-		total+=chunksize;
-	} while(must_finish==0);
-	gettimeofday(&end, NULL);
-
-	secs = udifftimeval(start, end)/ 1000000.0;
-	
-	value2human(total, secs, &ddata, &dspeed, metric);
-	printf ("done. %.2f %s in %.2f secs: ", ddata, metric, secs);
-	printf ("%.2f %s/sec\n", dspeed, metric);
-
-	return 0;
 }
 
 
@@ -211,7 +141,7 @@ int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 
 int main(void)
 {
-	int fd, i, fdc = -1;
+	int fd, i;
 
 	signal(SIGALRM, alarm_handler);
 
@@ -219,39 +149,20 @@ int main(void)
 		perror("open()");
 		return 1;
 	}
-	if (ioctl(fd, CRIOGET, &fdc)) {
-		perror("ioctl(CRIOGET)");
-		return 1;
-	}
-
-	fprintf(stderr, "Testing NULL cipher: \n");
-
-	for (i = 256; i <= (64 * 1024); i *= 2) {
-		if (encrypt_data(CRYPTO_NULL, fdc, i))
-			break;
-	}
 
 	fprintf(stderr, "\nTesting NCR-DIRECT with NULL cipher: \n");
 	for (i = 256; i <= (64 * 1024); i *= 2) {
-		if (encrypt_data_ncr_direct(fdc, NCR_ALG_NULL, i))
+		if (encrypt_data_ncr_direct(fd, NCR_ALG_NULL, i))
 			break;
 	}
 
-	fprintf(stderr, "\nTesting AES-128-CBC cipher: \n");
-
-	for (i = 256; i <= (64 * 1024); i *= 2) {
-		if (encrypt_data(CRYPTO_AES_CBC, fdc, i))
-			break;
-	}
 
 	fprintf(stderr, "\nTesting NCR-DIRECT with AES-128-CBC cipher: \n");
 	for (i = 256; i <= (64 * 1024); i *= 2) {
-		if (encrypt_data_ncr_direct(fdc, NCR_ALG_AES_CBC, i))
+		if (encrypt_data_ncr_direct(fd, NCR_ALG_AES_CBC, i))
 			break;
 	}
 
-
-	close(fdc);
 	close(fd);
 	return 0;
 }

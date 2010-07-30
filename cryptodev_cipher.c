@@ -31,7 +31,6 @@
 #include <linux/uaccess.h>
 #include <crypto/algapi.h>
 #include <crypto/hash.h>
-#include "cryptodev.h"
 #include "cryptodev_int.h"
 
 

@@ -11,7 +11,6 @@
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/scatterlist.h>
-#include <cryptodev.h>
 #include <ncr.h>
 
 #define PFX "cryptodev: "
@@ -79,42 +78,5 @@ ssize_t _cryptodev_hash_update( struct hash_data* hdata, const void* data, size_
 int cryptodev_hash_reset( struct hash_data* hdata);
 void cryptodev_hash_deinit(struct hash_data* hdata);
 int cryptodev_hash_init( struct hash_data* hdata, const char* alg_name, int hmac_mode, void* mackey, size_t mackeylen);
-
-/* compatibility stuff */
-#ifdef CONFIG_COMPAT
-#include <linux/compat.h>
-
-/* input of CIOCGSESSION */
-struct compat_session_op {
-	/* Specify either cipher or mac
-	 */
-	uint32_t	cipher;		/* cryptodev_crypto_op_t */
-	uint32_t	mac;		/* cryptodev_crypto_op_t */
-
-	uint32_t	keylen;
-	compat_uptr_t	key;		/* pointer to key data */
-	uint32_t	mackeylen;
-	compat_uptr_t	mackey;		/* pointer to mac key data */
-
-	uint32_t	ses;		/* session identifier */
-};
-
-/* input of CIOCCRYPT */
- struct compat_crypt_op {
-	uint32_t	ses;		/* session identifier */
-	uint16_t	op;		/* COP_ENCRYPT or COP_DECRYPT */
-	uint16_t	flags;		/* no usage so far, use 0 */
-	uint32_t	len;		/* length of source data */
-	compat_uptr_t	src;		/* source data */
-	compat_uptr_t	dst;		/* pointer to output data */
-	compat_uptr_t	mac;		/* pointer to output data for hash/MAC operations */
-	compat_uptr_t	iv;		/* initialization vector for encryption operations */
-};
-
-/* compat ioctls, defined for the above structs */
-#define COMPAT_CIOCGSESSION    _IOWR('c', 102, struct compat_session_op)
-#define COMPAT_CIOCCRYPT       _IOWR('c', 104, struct compat_crypt_op)
-
-#endif /* CONFIG_COMPAT */
 
 #endif /* CRYPTODEV_INT_H */

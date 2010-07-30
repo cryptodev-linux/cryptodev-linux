@@ -29,7 +29,6 @@
 #include <linux/slab.h>
 #include <linux/highmem.h>
 #include <linux/random.h>
-#include "cryptodev.h"
 #include <asm/atomic.h>
 #include <linux/version.h>
 #include <linux/file.h>

@@ -27,7 +27,6 @@
 #include <linux/slab.h>
 #include <linux/random.h>
 #include <linux/uaccess.h>
-#include "cryptodev.h"
 #include <linux/scatterlist.h>
 #include "ncr.h"
 #include "ncr-int.h"

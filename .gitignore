@@ -7,8 +7,6 @@ Module.symvers
 *.o
 *.mod.c
 modules.order
-examples/cipher
-examples/hmac
 examples/ncr
 examples/pk
 examples/speed

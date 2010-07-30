@@ -25,7 +25,6 @@
 
 #include <linux/crypto.h>
 #include <linux/mutex.h>
-#include "cryptodev.h"
 #include "ncr.h"
 #include "ncr-int.h"
 #include <linux/mm_types.h>

@@ -80,8 +80,7 @@ build:
 
 install:
 	$(MAKE) -C $(KERNEL_DIR) SUBDIRS=`pwd` modules_install
-	@echo "Installing cryptodev.h in /usr/include/crypto ..."
-	@install -D cryptodev.h /usr/include/crypto/cryptodev.h
+	@echo "Installing ncr.h in /usr/include/crypto ..."
 	@install -D ncr.h /usr/include/crypto/ncr.h
 
 clean:
