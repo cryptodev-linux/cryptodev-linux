@@ -614,6 +614,10 @@ void * input, *output;
 
 	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
+			if (ctx->sign_hash == NULL) {
+				err();
+				return -EINVAL;
+			}
 			cret = rsa_sign_hash_ex( input, isg_size, output, &osize, 
 				ctx->type, ctx->sign_hash, ctx->salt_len, &ctx->key->key.pk.rsa);
 			if (cret != CRYPT_OK) {
@@ -674,6 +678,10 @@ uint8_t* sig;
 
 	switch(ctx->algorithm->algo) {
 		case NCR_ALG_RSA:
+			if (ctx->sign_hash == NULL) {
+				err();
+				return -EINVAL;
+			}
 			cret = rsa_verify_hash_ex( sig, sign_sg_size, 
 				hash, hash_size, ctx->type, ctx->sign_hash,
 				ctx->salt_len, &stat, &ctx->key->key.pk.rsa);
