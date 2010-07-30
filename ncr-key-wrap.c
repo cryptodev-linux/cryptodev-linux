@@ -403,7 +403,7 @@ val64_t * R = NULL;
 	ret = rfc3394_unwrap(wrapped_key, R, n, A, &ctx);
 	if (ret < 0) {
 		err();
-		return ret;
+		goto cleanup;
 	}
 
 	if (memcmp(A, iv, 8)!= 0) {
