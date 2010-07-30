@@ -185,7 +185,7 @@ int ret;
 		size_t i;
 
 		pitem = kmalloc(sizeof(*pitem), GFP_KERNEL);
-		if (uitem == NULL) {
+		if (pitem == NULL) {
 			err();
 			mutex_unlock(&process_limit_mutex);
 			ret = -ENOMEM;

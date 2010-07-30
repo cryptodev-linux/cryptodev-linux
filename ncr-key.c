@@ -186,9 +186,9 @@ int ncr_key_init(struct ncr_lists *lst, void __user* arg)
 		_ncr_key_item_put(key);
 		return -ENOMEM;
 	}
+	desc = key->desc;
 	mutex_unlock(&lst->key_idr_mutex);
 
-	desc = key->desc;
 	ret = copy_to_user(arg, &desc, sizeof(desc));
 	if (unlikely(ret)) {
 		_ncr_key_remove(lst, desc);

@@ -10,6 +10,7 @@
 #include <ncr-dh.h>
 
 #define KEY_DATA_MAX_SIZE 3*1024
+#define NCR_CIPHER_MAX_KEY_LEN 1024
 
 #define err() printk(KERN_DEBUG"ncr: %s: %s: %d\n", __FILE__, __func__, __LINE__)
 
@@ -119,7 +120,6 @@ int ncr_key_generate(struct ncr_lists *lst, void __user* arg);
 int ncr_key_info(struct ncr_lists *lst, void __user* arg);
 
 int ncr_key_generate_pair(struct ncr_lists *lst, void __user* arg);
-int ncr_key_derive(struct ncr_lists *lst, void __user* arg);
 int ncr_key_get_public(struct ncr_lists *lst, void __user* arg);
 
 int ncr_key_item_get_read(struct key_item_st**st, struct ncr_lists *lst,

@@ -7,7 +7,6 @@
 #endif
 
 #define NCR_CIPHER_MAX_BLOCK_LEN 32
-#define NCR_CIPHER_MAX_KEY_LEN 512
 #define NCR_HASH_MAX_OUTPUT_SIZE  64
 
 typedef enum {
@@ -221,7 +220,7 @@ struct ncr_key_wrap_st {
 
 /* Internal ops  */
 struct ncr_master_key_st {
-	uint8_t key[NCR_CIPHER_MAX_KEY_LEN];
+	uint8_t __user * key;
 	uint16_t key_size;
 };
 

@@ -104,7 +104,7 @@ struct session_item_st* ncr_session_new(struct ncr_lists *lst)
 	}
 	init_MUTEX(&sess->mem_mutex);
 
-	atomic_set(&sess->refcnt, 1);
+	atomic_set(&sess->refcnt, 2); /* One for lst->list, one for "sess" */
 
 	mutex_lock(&lst->session_idr_mutex);
 	/* idr_pre_get() should preallocate enough, and, due to
@@ -223,7 +223,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 	ns = ncr_session_new(lists);
 	if (ns == NULL) {
 		err();
-		return -EINVAL;
+		return -ENOMEM;
 	}
 
 	ns->op = session->op;
@@ -257,7 +257,8 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				
 				if (ns->algorithm->kstr == NULL) {
 					err();
-					return -EINVAL;
+					ret = -EINVAL;
+					goto fail;
 				}
 
 				ret = cryptodev_cipher_init(&ns->cipher, ns->algorithm->kstr,
@@ -336,7 +337,8 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 					sign_hash = ncr_key_params_get_sign_hash(ns->key->algorithm, &session->params);
 					if (IS_ERR(sign_hash)) {
 						err();
-						return PTR_ERR(sign_hash);
+						ret = PTR_ERR(sign_hash);
+						goto fail;
 					}
 
 					if (!sign_hash->can_digest) {
@@ -384,6 +386,7 @@ fail:
 	if (ret < 0) {
 		_ncr_session_remove(lists, ns->desc);
 	}
+	_ncr_sessions_item_put(ns);
 
 	return ret;
 }
