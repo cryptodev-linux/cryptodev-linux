@@ -1,6 +1,8 @@
 #ifndef NCR_INT_H
 # define NCR_INT_H
 
+#include <linux/idr.h>
+#include <linux/mutex.h>
 #include "ncr.h"
 #include <asm/atomic.h>
 #include "cryptodev_int.h"
@@ -31,8 +33,6 @@ struct algo_properties_st {
 };
 
 struct session_item_st {
-	struct list_head list;
-
 	const struct algo_properties_st *algorithm;
 	ncr_crypto_op_t op;
 
@@ -59,7 +59,6 @@ struct session_item_st {
 };
 
 struct key_item_st {
-	struct list_head list;
 	/* This object is also not protected from concurrent access.
 	 */
 	ncr_key_type_t type;
@@ -90,19 +89,16 @@ struct key_item_st {
 	ncr_key_t desc;
 };
 
-struct list_sem_st {
-	struct list_head list;
-	struct semaphore sem;
-};
-
 /* all the data associated with the open descriptor
  * are here.
  */
 struct ncr_lists {
-	struct list_sem_st key;
+	struct mutex key_idr_mutex;
+	struct idr key_idr;
 
 	/* sessions */
-	struct list_sem_st sessions;
+	struct mutex session_idr_mutex;
+	struct idr session_idr;
 };
 
 void* ncr_init_lists(void);
@@ -112,29 +108,30 @@ int ncr_ioctl(struct ncr_lists*, struct file *filp,
 		unsigned int cmd, unsigned long arg);
 
 /* key derivation */
-int ncr_key_derive(struct list_sem_st* key_lst, void __user* arg);
+int ncr_key_derive(struct ncr_lists *lst, void __user* arg);
 
 /* key handling */
-int ncr_key_init(struct list_sem_st*, void __user* arg);
-int ncr_key_deinit(struct list_sem_st*, void __user* arg);
-int ncr_key_export(struct list_sem_st* key_lst,void __user* arg);
-int ncr_key_import(struct list_sem_st* key_lst,void __user* arg);
-void ncr_key_list_deinit(struct list_sem_st* lst);
-int ncr_key_generate(struct list_sem_st* data_lst, void __user* arg);
-int ncr_key_info(struct list_sem_st*, void __user* arg);
+int ncr_key_init(struct ncr_lists *lst, void __user* arg);
+int ncr_key_deinit(struct ncr_lists *lst, void __user* arg);
+int ncr_key_export(struct ncr_lists *lst, void __user* arg);
+int ncr_key_import(struct ncr_lists *lst, void __user* arg);
+void ncr_key_list_deinit(struct ncr_lists *lst);
+int ncr_key_generate(struct ncr_lists *lst, void __user* arg);
+int ncr_key_info(struct ncr_lists *lst, void __user* arg);
 
-int ncr_key_generate_pair(struct list_sem_st* lst, void __user* arg);
-int ncr_key_get_public(struct list_sem_st* lst, void __user* arg);
+int ncr_key_generate_pair(struct ncr_lists *lst, void __user* arg);
+int ncr_key_get_public(struct ncr_lists *lst, void __user* arg);
 
-int ncr_key_item_get_read(struct key_item_st**st, struct list_sem_st* lst, 
+int ncr_key_item_get_read(struct key_item_st**st, struct ncr_lists *lst,
 	ncr_key_t desc);
 /* get key item for writing */
-int ncr_key_item_get_write( struct key_item_st** st, 
-	struct list_sem_st* lst, ncr_key_t desc);
+int ncr_key_item_get_write( struct key_item_st** st,
+	struct ncr_lists *lst, ncr_key_t desc);
 void _ncr_key_item_put( struct key_item_st* item);
 
 typedef enum {
 	LIMIT_TYPE_KEY,
+	NUM_LIMIT_TYPES
 } limits_type_t;
 
 void ncr_limits_remove(uid_t uid, pid_t pid, limits_type_t type);
@@ -142,16 +139,16 @@ int ncr_limits_add_and_check(uid_t uid, pid_t pid, limits_type_t type);
 void ncr_limits_init(void);
 void ncr_limits_deinit(void);
 
-int ncr_key_wrap(struct list_sem_st* keys, void __user* arg);
-int ncr_key_unwrap(struct list_sem_st*, void __user* arg);
-int ncr_key_storage_wrap(struct list_sem_st* key_lst, void __user* arg);
-int ncr_key_storage_unwrap(struct list_sem_st*, void __user* arg);
+int ncr_key_wrap(struct ncr_lists *lst, void __user* arg);
+int ncr_key_unwrap(struct ncr_lists *lst, void __user* arg);
+int ncr_key_storage_wrap(struct ncr_lists *lst, void __user* arg);
+int ncr_key_storage_unwrap(struct ncr_lists *lst, void __user* arg);
 
 /* sessions */
-struct session_item_st* ncr_session_new(struct list_sem_st* lst);
+struct session_item_st* ncr_session_new(struct ncr_lists *lst);
 void _ncr_sessions_item_put( struct session_item_st* item);
-struct session_item_st* ncr_sessions_item_get( struct list_sem_st* lst, ncr_session_t desc);
-void ncr_sessions_list_deinit(struct list_sem_st* lst);
+struct session_item_st* ncr_sessions_item_get(struct ncr_lists *lst, ncr_session_t desc);
+void ncr_sessions_list_deinit(struct ncr_lists *lst);
 
 int ncr_session_init(struct ncr_lists* lists, void __user* arg);
 int ncr_session_update(struct ncr_lists* lists, void __user* arg);

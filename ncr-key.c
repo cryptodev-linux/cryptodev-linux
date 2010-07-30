@@ -33,44 +33,26 @@
 
 static void ncr_key_clear(struct key_item_st* item);
 
-/* must be called with data semaphore down */
-static void _ncr_key_unlink_item(struct key_item_st *item)
+static int key_list_deinit_fn(int id, void *item, void *unused)
 {
-	list_del(&item->list);
-	_ncr_key_item_put( item); /* decrement ref count */
+	(void)unused;
+	_ncr_key_item_put(item);
+	return 0;
 }
 
-void ncr_key_list_deinit(struct list_sem_st* lst)
+void ncr_key_list_deinit(struct ncr_lists *lst)
 {
-	if(lst) {
-		struct key_item_st * item, *tmp;
-
-		down(&lst->sem);
-
-		list_for_each_entry_safe(item, tmp, &lst->list, list) {
-			_ncr_key_unlink_item(item);
-		}
-		up(&lst->sem);
-	}
-}
-
-/* must be called with data semaphore down
- */
-static ncr_key_t _ncr_key_get_new_desc( struct list_sem_st* lst)
-{
-struct key_item_st* item;
-int mx = 1;
-
-	list_for_each_entry(item, &lst->list, list) {
-		mx = max(mx, item->desc);
-	}
-	mx++;
-
-	return mx;
+	/* The mutex is not necessary, but doesn't hurt and makes it easier to
+	   verify locking correctness. */
+	mutex_lock(&lst->key_idr_mutex);
+	idr_for_each(&lst->key_idr, key_list_deinit_fn, NULL);
+	idr_remove_all(&lst->key_idr);
+	idr_destroy(&lst->key_idr);
+	mutex_unlock(&lst->key_idr_mutex);
 }
 
 /* returns the data item corresponding to desc */
-int ncr_key_item_get_read(struct key_item_st**st, struct list_sem_st* lst, 
+int ncr_key_item_get_read(struct key_item_st**st, struct ncr_lists *lst,
 	ncr_key_t desc)
 {
 struct key_item_st* item;
@@ -78,28 +60,27 @@ int ret;
 	
 	*st = NULL;
 	
-	down(&lst->sem);
-	list_for_each_entry(item, &lst->list, list) {
-		if (item->desc == desc) {
-			atomic_inc(&item->refcnt);
-			
-			if (atomic_read(&item->writer) != 0) {
-				/* writer in place busy */
-				atomic_dec(&item->refcnt);
-				ret = -EBUSY;
-				goto exit;
-			}
-			
-			*st = item;
-			ret = 0;
-			goto exit;
-		}
+	mutex_lock(&lst->key_idr_mutex);
+	item = idr_find(&lst->key_idr, desc);
+	if (item == NULL) {
+		err();
+		ret = -EINVAL;
+		goto exit;
+	}
+	atomic_inc(&item->refcnt);
+
+	if (atomic_read(&item->writer) != 0) {
+		/* writer in place busy */
+		atomic_dec(&item->refcnt);
+		ret = -EBUSY;
+		goto exit;
 	}
 
-	err();
-	ret = -EINVAL;
+	*st = item;
+	ret = 0;
+
 exit:
-	up(&lst->sem);
+	mutex_unlock(&lst->key_idr_mutex);
 	return ret;
 }
 
@@ -107,42 +88,40 @@ exit:
  * is in use.
  */
 int ncr_key_item_get_write( struct key_item_st** st, 
-	struct list_sem_st* lst, ncr_key_t desc)
+	struct ncr_lists *lst, ncr_key_t desc)
 {
 struct key_item_st* item;
 int ret;
 
 	*st = NULL;
 
-	down(&lst->sem);
-	list_for_each_entry(item, &lst->list, list) {
-		if (item->desc == desc) {
-			/* do not return items that are in use already */
+	mutex_lock(&lst->key_idr_mutex);
+	item = idr_find(&lst->key_idr, desc);
+	if (item == NULL) {
+		err();
+		ret = -EINVAL;
+		goto exit;
+	}
+	/* do not return items that are in use already */
 
-			if (atomic_add_unless(&item->writer, 1, 1)==0) {
-				/* another writer so busy */
-				ret = -EBUSY;
-				goto exit;
-			}
-			
-			if (atomic_add_unless(&item->refcnt, 1, 2)==0) {
-				/* some reader is active so busy */
-				atomic_dec(&item->writer);
-				ret = -EBUSY;
-				goto exit;
-			}
-
-			*st = item;
-			ret = 0;
-			goto exit;
-		}
+	if (atomic_add_unless(&item->writer, 1, 1)==0) {
+		/* another writer so busy */
+		ret = -EBUSY;
+		goto exit;
 	}
 
-	err();
-	ret = -EINVAL;
+	if (atomic_add_unless(&item->refcnt, 1, 2)==0) {
+		/* some reader is active so busy */
+		atomic_dec(&item->writer);
+		ret = -EBUSY;
+		goto exit;
+	}
+
+	*st = item;
+	ret = 0;
 
 exit:
-	up(&lst->sem);
+	mutex_unlock(&lst->key_idr_mutex);
 	return ret;
 }
 
@@ -157,7 +136,21 @@ void _ncr_key_item_put( struct key_item_st* item)
 	}
 }
 
-int ncr_key_init(struct list_sem_st* lst, void __user* arg)
+static void _ncr_key_remove(struct ncr_lists *lst, ncr_key_t desc)
+{
+	struct key_item_st * item;
+
+	mutex_lock(&lst->key_idr_mutex);
+	item = idr_find(&lst->key_idr, desc);
+	if (item != NULL)
+		idr_remove(&lst->key_idr, desc); /* Steal the reference */
+	mutex_unlock(&lst->key_idr_mutex);
+
+	if (item != NULL)
+		_ncr_key_item_put(item);
+}
+
+int ncr_key_init(struct ncr_lists *lst, void __user* arg)
 {
 	ncr_key_t desc;
 	struct key_item_st* key;
@@ -180,23 +173,25 @@ int ncr_key_init(struct list_sem_st* lst, void __user* arg)
 
 	atomic_set(&key->refcnt, 1);
 	atomic_set(&key->writer, 0);
-
-	down(&lst->sem);
-
-	key->desc = _ncr_key_get_new_desc(lst);
 	key->uid = current_euid();
 	key->pid = task_pid_nr(current);
 
-	list_add(&key->list, &lst->list);
-	
+	mutex_lock(&lst->key_idr_mutex);
+	/* idr_pre_get() should preallocate enough, and, due to key_idr_mutex,
+	   nobody else can use the preallocated data.  Therefore the loop
+	   recommended in idr_get_new() documentation is not necessary. */
+	if (idr_pre_get(&lst->key_idr, GFP_KERNEL) == 0 ||
+	    idr_get_new(&lst->key_idr, key, &key->desc) != 0) {
+		mutex_unlock(&lst->key_idr_mutex);
+		_ncr_key_item_put(key);
+		return -ENOMEM;
+	}
 	desc = key->desc;
-	up(&lst->sem);
+	mutex_unlock(&lst->key_idr_mutex);
 
 	ret = copy_to_user(arg, &desc, sizeof(desc));
 	if (unlikely(ret)) {
-		down(&lst->sem);
-		_ncr_key_unlink_item(key);
-		up(&lst->sem);
+		_ncr_key_remove(lst, desc);
 		return -EFAULT;
 	}
 	return ret;
@@ -206,27 +201,16 @@ err_limits:
 	return ret;
 }
 
-
-int ncr_key_deinit(struct list_sem_st* lst, void __user* arg)
+int ncr_key_deinit(struct ncr_lists *lst, void __user* arg)
 {
 	ncr_key_t desc;
-	struct key_item_st * item, *tmp;
 
 	if (unlikely(copy_from_user(&desc, arg, sizeof(desc)))) {
 		err();
 		return -EFAULT;
 	}
 
-	down(&lst->sem);
-	
-	list_for_each_entry_safe(item, tmp, &lst->list, list) {
-		if(item->desc == desc) {
-			_ncr_key_unlink_item(item);
-			break;
-		}
-	}
-	
-	up(&lst->sem);
+	_ncr_key_remove(lst, desc);
 
 	return 0;
 }
@@ -234,7 +218,7 @@ int ncr_key_deinit(struct list_sem_st* lst, void __user* arg)
 /* "exports" a key to a data item. If the key is not exportable
  * to userspace then the data item will also not be.
  */
-int ncr_key_export(struct list_sem_st* key_lst, void __user* arg)
+int ncr_key_export(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_data_st data;
 struct key_item_st* item = NULL;
@@ -247,7 +231,7 @@ int ret;
 		return -EFAULT;
 	}
 
-	ret = ncr_key_item_get_read( &item, key_lst, data.key);
+	ret = ncr_key_item_get_read( &item, lst, data.key);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -329,7 +313,7 @@ fail:
 /* "imports" a key from a data item. If the key is not exportable
  * to userspace then the key item will also not be.
  */
-int ncr_key_import(struct list_sem_st* key_lst, void __user* arg)
+int ncr_key_import(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_data_st data;
 struct key_item_st* item = NULL;
@@ -342,7 +326,7 @@ size_t tmp_size;
 		return -EFAULT;
 	}
 
-	ret = ncr_key_item_get_write( &item, key_lst, data.key);
+	ret = ncr_key_item_get_write( &item, lst, data.key);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -438,7 +422,7 @@ static void ncr_key_clear(struct key_item_st* item)
 
 /* Generate a secret key
  */
-int ncr_key_generate(struct list_sem_st* lst, void __user* arg)
+int ncr_key_generate(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_generate_st gen;
 struct key_item_st* item = NULL;
@@ -500,7 +484,7 @@ fail:
 	return ret;
 }
 
-int ncr_key_info(struct list_sem_st* lst, void __user* arg)
+int ncr_key_info(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_info_st info;
 struct key_item_st* item = NULL;
@@ -535,7 +519,7 @@ fail:
 	return ret;
 }
 
-int ncr_key_generate_pair(struct list_sem_st* lst, void __user* arg)
+int ncr_key_generate_pair(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_generate_st gen;
 struct key_item_st* private = NULL;
@@ -602,7 +586,7 @@ fail:
 /* "exports" a key to a data item. If the key is not exportable
  * to userspace then the data item will also not be.
  */
-int ncr_key_derive(struct list_sem_st* key_lst, void __user* arg)
+int ncr_key_derive(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_derivation_params_st data;
 int ret;
@@ -614,13 +598,13 @@ struct key_item_st* newkey = NULL;
 		return -EFAULT;
 	}
 
-	ret = ncr_key_item_get_read( &key, key_lst, data.key);
+	ret = ncr_key_item_get_read( &key, lst, data.key);
 	if (ret < 0) {
 		err();
 		return ret;
 	}
 
-	ret = ncr_key_item_get_write( &newkey, key_lst, data.newkey);
+	ret = ncr_key_item_get_write( &newkey, lst, data.newkey);
 	if (ret < 0) {
 		err();
 		goto fail;
