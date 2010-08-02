@@ -448,7 +448,8 @@ size_t size;
 	algo = _ncr_algo_to_properties(gen.params.algorithm);
 	if (algo == NULL) {
 		err();
-		return ret;
+		ret = -EINVAL;
+		goto fail;
 	}
 	item->type = algo->key_type;
 	if (item->type == NCR_KEY_TYPE_SECRET) {
