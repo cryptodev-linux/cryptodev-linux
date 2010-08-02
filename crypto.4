@@ -1,0 +1,554 @@
+.\" A man page for /dev/crypto(4). -*- nroff -*-
+.\"
+.\" Copyright (C) 2010 Red Hat, Inc. All rights reserved.
+.\"
+.\" This copyrighted material is made available to anyone wishing to use,
+.\" modify, copy, or redistribute it subject to the terms and conditions of the
+.\" GNU General Public License v.2 or (at your option) any later version.
+.\"
+.\" This program is distributed in the hope that it will be useful, but WITHOUT
+.\" ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+.\" FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for
+.\" more details.
+.\"
+.\" You should have received a copy of the GNU General Public License along
+.\" with this program; if not, write to the Free Software Foundation, Inc.,
+.\" 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
+.\"
+.\" Author: Miloslav Trmač <mitr@redhat.com>
+.TH CRYPTO 4 2010-08-02 Linux "Linux Programmer's Manual"
+
+.SH NAME
+/dev/crypto \- kernel cryptographic module interface
+
+.SH SYNOPSIS
+
+.B #include <ncr.h>
+.br
+.B int fd = open("/dev/crypto", O_RDWR);
+.br
+.B int res = ioctl(fd, \fINCRIO...\fP, &\fIdata\fP);
+
+.SH DESCRIPTION
+The
+.I /dev/crypto
+device file provides an
+.BR ioctl (2)
+interface to the kernel-space crypto implementation.
+
+Each
+.BR open (2)
+of the
+.I /dev/crypto
+file establishes a separate namespace within which crypto operations work.
+The namespace can be shared across threads and processes
+by sharing the open file description.
+Last close of the open file description automatically destroys all objects
+allocated within the namespace.
+
+All
+.BR ioctl (2)s
+have the same form:
+The user sets up a data structure with input data,
+and passes a pointer to the data structure as the third parameter to
+.BR ioctl (2).
+On success, output data is available in the same structure.
+
+The following operations are defined:
+
+.TP
+.B NCRIO_KEY_INIT
+Allocate a kernel-space key object.
+The parameter is not used on input
+(key attributes are set later, when the key material is initialized).
+On success, an integer descriptor for the key object
+(valid within the current
+.I /dev/crypto
+namespace)
+is stored in the provided area.
+
+There is a per-process and per-user (not per-namespace) limit
+on the number key objects that can be allocated.
+
+.TP
+.B NCRIO_KEY_DEINIT
+Deallocate a kernel-space key object.
+The parameter specifies the integer descriptor of the key object.
+After all other operations using this key object (if any) terminate,
+the key material will be cleared and the object will be freed.
+Note that this may happen both before this operation returns,
+and after it returns, depending on other references to this key object.
+
+.TP
+.B NCRIO_KEY_GENERATE
+Clear existing key material in the specified key object,
+and generate new key material.
+
+The parameter points to \fBstruct ncr_key_generate_st\fP, which specifies:
+
+.RS
+.IP \fBdesc\fP
+The key descriptor
+.IP \fBparams.algorithm\fP
+The crypto algorithm with which the key will be used
+.IP \fBparams.keyflags\fP
+Key flags, a combination of
+.B NCR_KEY_FLAG_EXPORTABLE
+(the key material can be exported in plaintext to user space)
+and
+.B NCR_KEY_FLAG_WRAPPABLE
+(the key material can be wrapped and the result made available to user space).
+.IP \fBparams.params\fP
+Algorithm-specific key parameters:
+For symmetric keys, key length in bits.
+For RSA keys, the public exponent and modulus length in bits.
+For DSA keys,
+.I p
+and
+.I q
+length in bits.
+For DH keys, the prime and group generator.
+.RE
+
+.IP
+Currently only symmetric keys can be generated using this operation.
+
+In addition to generating the key material,
+the "persistent" key ID is reset to a random value.
+
+.TP
+.B NCRIO_KEY_GENERATE_PAIR
+Similar to \fBNCRIO_KEY_GENERATE\fP,
+except that a pair of public/private keys is generated.
+
+The parameter points to \fBstruct ncr_key_generate_st\fP as specified above,
+with the additional member
+.B desc2
+used to specify the key descriptor for the public key.
+
+The
+.B NCR_KEY_FLAG_EXPORTABLE
+and
+.B NCR_KEY_FLAG_WRAPPABLE
+flags are automatically set on the public key.
+
+.TP
+.B NCRIO_KEY_DERIVE
+Derive a new key using one key and additional data.
+
+The parameter points to \fBstruct ncr_key_derivation_params_st\fP,
+which specifies:
+
+.RS
+.IP \fBderive\fP
+The derivation algorithm.
+Currently only
+.B NCR_DERIVE_DH
+is supported.
+.IP \fBnewkey\fP
+The descriptor of the resulting key
+.IP \fBkeyflags\fP
+Flags to use for the resulting key
+.IP \fBkey\fP
+The source key descriptor
+.IP \fBparams\fP
+Key type-specific parameters.
+For \fBNCR_DERIVE_DH\fP,
+.B params.params.dh.pub
+and
+.B params.params.dh.pub_size
+specify the peer's public key.
+.RE
+
+.TP
+.B NCRIO_KEY_EXPORT
+
+Export key material in the specified key object to user space.
+Only keys with the
+.B NCR_KEY_FLAG_EXPORTABLE
+flag can be exported using this operation.
+
+The parameter points to \fBstruct ncr_key_data_st\fP, which specifies:
+
+.RS
+.IP \fBkey\fP
+The key descriptor
+.IP \fBidata\fP
+Destination buffer
+.IP \fBidata_size\fP
+Buffer size
+.RE
+
+.IP
+Symmetric keys are written directly into the destination buffer.
+Public and private keys are formatted using ASN.1,
+except for DH public keys, which are written a raw binary number.
+
+On success, the
+.B idata_size
+member is set to the size of the exported key.
+
+.TP
+.B NCRIO_KEY_IMPORT
+Clear existing key material in the specified key object,
+and import key material from user space.
+
+The parameter points to \fBstruct ncr_key_data_st\fP, which specifies:
+
+.RS
+.IP \fBkey\fP
+The key descriptor
+.IP \fBidata\fP
+Source data
+.IP \fBidata_size\fP
+Source data size
+.IP \fBkey_id\fP
+New "persistent" key ID.
+.IP \fBkey_id_size\fP
+Size of data in \fBkey_id\fP.
+.IP \fBtype\fP
+Key type, one of \fBNCR_KEY_TYPE_SECRET\fP, \fBNCR_KEY_TYPE_PUBLIC\fP and
+\fBNCR_KEY_TYPE_PRIVATE\fP.
+.IP \fBalgorithm\fP
+The crypto algorithm with which the key will be used
+.IP \fBflags\fP
+Key flags
+.RE
+
+.IP
+The data format is the same as in the
+.B NCRIO_KEY_EXPORT
+operation.
+
+.TP
+.B NCRIO_KEY_GET_INFO
+Get metadata of an existing key.
+
+The parameter points to \fBstruct ncr_key_info_st\fP,
+which specifies \fBkey\fP, the key descriptor.
+On success, the following members are set:
+
+.RS
+.IP \fBflags\fP
+Key flags
+.IP \fBtype\fP
+Key type
+.IP \fBalgorithm\fP
+Key algorithm
+.RE
+
+.TP
+.B NCRIO_KEY_WRAP
+Wrap one key using another, and write the result to user space.
+Only keys with the
+.B NCR_KEY_FLAG_WRAPPABLE
+flag can be wrapped using this operation.
+
+The parameter points to \fBstruct ncr_key_wrap_st\fP, which specifies:
+
+.RS
+.IP \fBalgorithm\fP
+The wrapping algorithm to use, one of
+.B NCR_WALG_AES_RFC3394
+and \fBNCR_WALG_AES_RFC5649\fP.
+.IP \fBkeytowrap\fP
+The descriptor of the key to wrap
+.IP \fBkey\fP
+The descriptor of the key used for wrapping
+.IP \fBparams\fP
+Key type-specific parameters.
+For the currently supported wrapping algorithms,
+.B params.params.cipher.iv
+and
+.B params.params.cipher.iv_size
+specify the IV.
+.IP \fBio\fP
+Destination buffer
+.IP \fBio_size\fP
+Size of the destination buffer
+.RE
+
+.IP
+Currently only secret keys can be wrapped,
+using one of the above-mentioned AES-based algorithms.
+
+On success, the
+.B io_size
+member is set to the size of the wrapped key.
+
+.TP
+.B NCRIO_KEY_UNWRAP
+Unwrap user-space data into a kernel-space key using another key.
+
+The parameter points to \fBstruct ncr_key_wrap_st\fP, which specifies:
+
+.RS
+.IP \fBalgorithm\fP
+The wrapping algorithm to use.
+.IP \fBkeytowrap\fP
+The descriptor of the target key object
+.IP \fBkey\fP
+The descriptor of the key used for wrapping
+.IP \fBparams\fP
+Key type-specific parameters.
+For the currently supported wrapping algorithms,
+.B params.params.cipher.iv
+and
+.B params.params.cipher.iv_size
+specify the IV.
+.IP \fBio\fP
+Pointer to the wrapped key
+.IP \fBio_size\fP
+Size of the wrapped key
+.RE
+
+.IP
+The unwrapped key will have the
+.B NCR_KEY_FLAG_WRAPPABLE
+flag set, and the
+.B NCR_KEY_FLAG_EXPORTABLE
+flag clear.
+
+.TP
+.B NCRIO_KEY_STORAGE_WRAP
+Wrap a key object and associated metadata using the system-wide storage master
+key,
+and write the result to user space.
+
+Only keys with the
+.B NCR_KEY_FLAG_WRAPPABLE
+flag can be wrapped using this operation.
+
+The parameter points to \fBstruct ncr_key_storage_wrap_st\fP, which specifies:
+
+.RS
+.IP \fBkeytowrap\fP
+The descriptor of the key to wrap
+.IP \fBio\fP
+Destination buffer
+.IP \fBio_size\fP
+Size of the destination buffer
+.RE
+
+.IP
+On success, the
+.B io_size
+member is set to the size of the wrapped key.
+
+Both symmetric and asymmetric keys can be wrapped using this operation.
+The wrapped data includes the following information in addition to the raw key
+material:
+
+.RS
+.IP \(bu
+Key type
+.IP \(bu
+Key flags
+.IP \(bu
+Key algorithm
+.IP \(bu
+"Persistent" key ID.
+.RE
+
+.TP
+.B NCRIO_KEY_STORAGE_UNWRAP
+Unwrap key and associated metadata created using \fBNCRIO_KEY_STORAGE_WRAP\fP,
+and restore the information into a specified key object.
+
+The parameter points to \fBstruct ncr_key_storage_wrap_st\fP, which specifies:
+
+.RS
+.IP \fBkeytowrap\fP
+The target key descriptor
+.IP \fBio\fP
+Wrapped data
+.IP \fBio_size\fP
+Size of the wrapped data
+.RE
+
+.IP
+See
+.B NCRIO_KEY_STORAGE_WRAP
+above for the list of attributes that will be restored.
+
+.TP
+.B NCRIO_SESSION_INIT
+Allocate a session for performing crypto operations.
+
+The parameter points to \fBstruct ncr_session_st\fP, which specifies:
+
+.RS
+.IP \fBalgorithm\fP
+The crypto algorithm to use.
+.IP \fBkey\fP
+The key to use for the operation, if required.
+.IP \fBparams\fP
+Parameters for the operation.
+For symmetric ciphers, the IV.
+For RSA operations, the format, used hash algorithms and PSS salt length.
+for DSA, the signature hash algorithm.
+.IP \fBop\fP
+The operation to perform, one of \fBNCR_OP_ENCRYPT\fP, \fBNCR_OP_DECRYPT\fP,
+\fBNCR_OP_SIGN\fP and \fBNCR_OP_VERIFY\FP.  Use
+.B NCR_OP_SIGN
+for computing an unkeyed hash as well as keyed hashes and signatures.
+.RE
+
+.IP
+On success, an integer descriptor for the created session
+(valid within the current
+.I /dev/crypto
+namespace)
+is stored into the
+.B ses
+member.
+
+.TP
+.B NCRIO_SESSION_UPDATE
+Update an existing crypto session with new data
+(for operations, such as hashing, for which data can be supplied in pieces),
+or perform a single operation using the session context (for operations, such
+as public key encryption, that work on separate units of data).
+
+The parameter points to \fBstruct ncr_session_op_st\fP, which specifies:
+
+.RS
+.IP \fBses\fP
+The integer descriptor of the session.
+.IP \fBtype\fP
+Type of the data references used for this operation, either
+.B NCR_KEY_DATA
+or
+.B NCR_DIRECT_DATA.
+.IP "\fBdata.udata.input\fP, \fBdata.udata.input_size\fP"
+If \fBtype == NCR_DIRECT_DATA\fP, input data for the operation.
+.IP \fBdata.kdata.input\fP
+If \fBtype == NCR_KEY_DATA\fP, integer key descriptor serving as input for
+the operation.
+This can be currently used only to compute or verify a signature or hash
+of a symmetric key:
+the keying material is directly used as input data for the underlying hash.
+.IP "\fBdata.udata.output\fP, \fBdata,udata.output_size\fP"
+If \fBtype == NCR_DIRECT_DATA\fP, output buffer for the operation.
+.IP "\fBdata.kdata.output\fP, \fBdata,kdata.output_size\fP"
+If \fBtype == NCR_KEY_DATA\fP, output buffer for the operation.
+.RE
+
+.IP
+For the
+.B NCR_OP_ENCRYPT
+and
+.B NCR_OP_DECRYPT
+operations using symmetric ciphers,
+the operation is performed on the input data,
+resulting in an output data block of the same size;
+for operations using public-key cryptography,
+a single operation is performed on the input data,
+resulting in output data.
+In both cases,
+the relevant
+.B output_data
+member is set to the size of valid output data on success.
+
+For the
+.B NCR_OP_SIGN
+and
+.B NCR_OP_VERIFY
+operations,
+the input data is supplied to the underlying hash function;
+no output data is produced.
+
+.TP
+.B NCRIO_SESSION_FINAL
+Finalize an existing crypto session and deallocate it.
+
+The parameter points to \fBstruct ncr_session_op_st\fP, as described in the
+.B NCRIO_SESSION_UPDATE
+section above.
+If the parameter specifies valid input data,
+it is processed as if using \fBNCRIO_SESSION_UPDATE\fP;
+thus, the last update operation can be performed together with the finalization
+in one step.
+
+There is no specific finalization operation performed for
+.B NCR_OP_ENCRYPT
+and \fBNCR_OP_DECRYPT\fP.
+
+For the
+.B NCR_OP_SIGN
+operation,
+the signature is created and written as output data.
+
+For the
+.B NCR_OP_VERIFY
+operation,
+a signature specified as input using the
+.I output data
+fields is verified;
+the result of this operation
+(\fBNCR_SUCCESS\fP or \fBNCR_VERIFICATION_FAILED\fP)
+will be stored into the
+.B err
+member.
+(Note that the
+.BR ioctl (2)
+operation will indicate success even if the signature verification fails,
+as long all inputs were specified correctly.)
+
+The session will be deallocated even if the
+.B NCRIO_SESSION_FINAL
+operation reports an error,
+as long as valid session descriptor was specified.
+
+.TP
+.B NCRIO_SESSION_ONCE
+Perform an one-shot crypto operation,
+allocating a temporary session,
+supplying a single instance of data,
+and finalizing the session in one operation.
+
+The parameter points to \fBstruct ncr_session_once_op_st\fP,
+which includes arguments for one
+.B NCRIO_SESSION_INIT
+and one
+.B NCRIO_SESSION_FINAL
+operation.
+The
+.B ses
+member for the
+.B NCRIO_SESSION_FINAL
+sub-operation is ignored,
+the sub-operation automatically uses the temporary session.
+
+.TP
+.B NCRIO_MASTER_KEY_SET
+Set the system-wide storage master key.
+Only a process with EUID 0 and the
+.B CAP_SYS_ADMIN
+capability is allowed to perform this operation.
+Once a master key is set,
+it can be changed only by rebooting the system
+and setting a different key.
+
+The parameter points to \fBstruct ncr_master_key_st\fP, which specifies:
+.RS
+.IP \fBkey\fP
+Pointer to the key material in user space.
+.IP \fBkey_size\fP
+Size of the key material in bytes.
+.RE
+
+Currently only an AES key with size 16, 24, or 32 bytes is acceptable.
+
+.SH CONFIGURATION
+The
+.B NCRIO_KEY_STORAGE_WRAP
+and
+.B NCRIO_KEY_STORAGE_UNWRAP
+.BR ioctl ()s
+work only after a storage master key is configured by the system
+administrator.
+See \fBNCRIO_MASTER_KEY_SET\fP above.
+
+.SH FILES
+.I /dev/crypto
