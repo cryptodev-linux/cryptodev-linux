@@ -25,10 +25,6 @@ int ncr_pk_generate(const struct algo_properties_st *algo,
 int ncr_pk_pack( const struct key_item_st * key, uint8_t * packed, uint32_t * packed_size);
 int ncr_pk_unpack( struct key_item_st * key, const void * packed, size_t packed_size);
 
-
-int ncr_pk_queue_init(void);
-void ncr_pk_queue_deinit(void);
-
 /* encryption/decryption */
 int ncr_pk_cipher_init(const struct algo_properties_st *algo,
 	struct ncr_pk_ctx* ctx, struct ncr_key_params_st* params,

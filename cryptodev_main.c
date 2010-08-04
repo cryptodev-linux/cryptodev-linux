@@ -975,17 +975,9 @@ cryptodev_register(void)
 	ncr_limits_init();
 	ncr_master_key_reset();
 	
-	rc = ncr_pk_queue_init();
-	if (unlikely(rc)) {
-		ncr_limits_deinit();
-		printk(KERN_ERR PFX "initialization of PK workqueue failed\n");
-		return rc;
-	}
-
 	rc = misc_register (&cryptodev);
 	if (unlikely(rc)) {
 		ncr_limits_deinit();
-		ncr_pk_queue_deinit();
 		printk(KERN_ERR PFX "registration of /dev/crypto failed\n");
 		return rc;
 	}
@@ -998,7 +990,6 @@ cryptodev_deregister(void)
 {
 	misc_deregister(&cryptodev);
 	ncr_limits_deinit();
-	ncr_pk_queue_deinit();
 }
 
 /* ====== Module init/exit ====== */
