@@ -59,7 +59,7 @@ typedef enum {
 
 typedef int ncr_key_t;
 
-#define NCR_KEY_INVALID (ncr_key_t)(0)
+#define NCR_KEY_INVALID ((ncr_key_t)-1)
 
 #define NCR_KEY_FLAG_EXPORTABLE 1
 #define NCR_KEY_FLAG_WRAPPABLE (1<<1)
@@ -249,7 +249,7 @@ typedef enum {
 } ncr_crypto_op_t;
 
 typedef int ncr_session_t;
-#define NCR_SESSION_INVALID (ncr_session_t)0
+#define NCR_SESSION_INVALID ((ncr_session_t)-1)
 
 /* input of CIOCGSESSION */
 struct ncr_session_st {
