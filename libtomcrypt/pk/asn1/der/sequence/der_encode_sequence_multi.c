@@ -10,6 +10,7 @@
  */
 #include "tomcrypt.h"
 #include <stdarg.h>
+#include <linux/slab.h>
 
 
 /**

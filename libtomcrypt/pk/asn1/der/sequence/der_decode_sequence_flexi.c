@@ -9,6 +9,7 @@
  * Tom St Denis, tomstdenis@gmail.com, http://libtom.org
  */
 #include "tomcrypt.h"
+#include <linux/slab.h>
 
 /**
   @file der_decode_sequence_flexi.c
