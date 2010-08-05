@@ -10,6 +10,7 @@
  */
 #include "tomcrypt.h"
 #include <ncr-int.h>
+#include <linux/slab.h>
 
 /**
   @file pkcs_1_oaep_encode.c

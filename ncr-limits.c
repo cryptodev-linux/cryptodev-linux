@@ -26,6 +26,7 @@
 #include <linux/mutex.h>
 #include <linux/types.h>
 #include <linux/mm.h>
+#include <linux/slab.h>
 #include <linux/highmem.h>
 #include <linux/random.h>
 #include "cryptodev.h"

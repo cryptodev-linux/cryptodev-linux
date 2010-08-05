@@ -10,8 +10,9 @@
  */
 #include "tomcrypt.h"
 #include <ncr-int.h>
+#include <linux/slab.h>
 
-/** 
+/**
   @file pkcs_1_mgf1.c
   The Mask Generation Function (MGF1) for LTC_PKCS #1, Tom St Denis 
 */

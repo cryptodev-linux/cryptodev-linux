@@ -10,8 +10,9 @@
  */
 #include "tomcrypt.h"
 #include <ncr-int.h>
+#include <linux/slab.h>
 
-/** 
+/**
   @file pkcs_1_pss_encode.c
   LTC_PKCS #1 PSS Signature Padding, Tom St Denis 
 */

@@ -23,6 +23,7 @@
  */
 
 #include <linux/mm.h>
+#include <linux/slab.h>
 #include "cryptodev.h"
 #include <asm/uaccess.h>
 #include <asm/ioctl.h>

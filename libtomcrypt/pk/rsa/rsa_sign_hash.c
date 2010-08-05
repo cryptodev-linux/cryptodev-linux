@@ -10,6 +10,7 @@
  */
 #include "tomcrypt.h"
 #include "ncr-int.h"
+#include <linux/slab.h>
 
 /**
   @file rsa_sign_hash.c
