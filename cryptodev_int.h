@@ -12,6 +12,7 @@
 #include <linux/moduleparam.h>
 #include <linux/scatterlist.h>
 #include <cryptodev.h>
+#include <ncr.h>
 
 #define PFX "cryptodev: "
 #define dprintk(level,severity,format,a...)			\
@@ -45,7 +46,7 @@ struct cipher_data
 		struct crypto_ablkcipher* s;
 		struct cryptodev_result *result;
 		struct ablkcipher_request *request;
-		uint8_t iv[EALG_MAX_BLOCK_LEN];
+		uint8_t iv[NCR_CIPHER_MAX_BLOCK_LEN];
 	} async;
 };
 
