@@ -38,8 +38,8 @@
 #include <linux/random.h>
 #include <linux/syscalls.h>
 #include <linux/pagemap.h>
+#include <linux/uaccess.h>
 #include "cryptodev.h"
-#include <asm/uaccess.h>
 #include <linux/scatterlist.h>
 #include "cryptodev_int.h"
 #include "ncr-int.h"

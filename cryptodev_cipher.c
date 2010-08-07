@@ -27,8 +27,8 @@
 #include <linux/highmem.h>
 #include <linux/ioctl.h>
 #include <linux/random.h>
-#include <asm/uaccess.h>
 #include <linux/scatterlist.h>
+#include <linux/uaccess.h>
 #include <crypto/algapi.h>
 #include <crypto/hash.h>
 #include "cryptodev.h"
