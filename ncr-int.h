@@ -1,6 +1,7 @@
 #ifndef NCR_INT_H
 # define NCR_INT_H
 
+#include <linux/mutex.h>
 #include "ncr.h"
 #include <asm/atomic.h>
 #include "cryptodev_int.h"
@@ -48,7 +49,7 @@ struct session_item_st {
 	struct page **pages;
 	unsigned array_size;
 	unsigned available_pages;
-	struct semaphore mem_mutex; /* down when the
+	struct mutex mem_mutex; /* down when the
 		* values above are changed.
 		*/
 

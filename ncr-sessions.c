@@ -24,6 +24,7 @@
  */
 
 #include <linux/crypto.h>
+#include <linux/mutex.h>
 #include "cryptodev.h"
 #include "ncr.h"
 #include "ncr-int.h"
@@ -119,7 +120,7 @@ struct session_item_st* ncr_session_new(struct list_sem_st* lst)
 		kfree(sess);
 		return NULL;
 	}
-	init_MUTEX(&sess->mem_mutex);
+	mutex_init(&sess->mem_mutex);
 
 	atomic_set(&sess->refcnt, 2); /* One for lst->list, one for "sess" */
 
@@ -636,7 +637,7 @@ static int _ncr_session_update(struct ncr_lists* lists, struct ncr_session_op_st
 		return -EINVAL;
 	}
 
-	if (down_interruptible(&sess->mem_mutex)) {
+	if (mutex_lock_interruptible(&sess->mem_mutex)) {
 		err();
 		_ncr_sessions_item_put(sess);
 		return -ERESTARTSYS;
@@ -717,7 +718,7 @@ fail:
 		release_user_pages(sess->pages, sess->available_pages);
 		sess->available_pages = 0;
 	}
-	up(&sess->mem_mutex);
+	mutex_unlock(&sess->mem_mutex);
 	_ncr_sessions_item_put(sess);
 
 	return ret;
@@ -763,7 +764,7 @@ static int _ncr_session_final(struct ncr_lists* lists, struct ncr_session_op_st*
 		return ret;
 	}
 
-	if (down_interruptible(&sess->mem_mutex)) {
+	if (mutex_lock_interruptible(&sess->mem_mutex)) {
 		err();
 		_ncr_sessions_item_put(sess);
 		return -ERESTARTSYS;
@@ -890,7 +891,7 @@ fail:
 		release_user_pages(sess->pages, sess->available_pages);
 		sess->available_pages = 0;
 	}
-	up(&sess->mem_mutex);
+	mutex_unlock(&sess->mem_mutex);
 
 	cryptodev_hash_deinit(&sess->hash);
 	if (sess->algorithm->is_symmetric) {
