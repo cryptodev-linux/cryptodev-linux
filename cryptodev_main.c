@@ -951,7 +951,7 @@ cryptodev_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg_)
 
 #endif /* CONFIG_COMPAT */
 
-static struct file_operations cryptodev_fops = {
+static const struct file_operations cryptodev_fops = {
 	.owner = THIS_MODULE,
 	.open = cryptodev_open,
 	.release = cryptodev_release,
