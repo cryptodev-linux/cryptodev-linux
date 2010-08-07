@@ -22,13 +22,13 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#include <linux/ioctl.h>
 #include <linux/mm.h>
 #include <linux/slab.h>
 #include <linux/highmem.h>
 #include <linux/random.h>
+#include <linux/uaccess.h>
 #include "cryptodev.h"
-#include <asm/uaccess.h>
-#include <asm/ioctl.h>
 #include <linux/scatterlist.h>
 #include "ncr.h"
 #include "ncr-int.h"

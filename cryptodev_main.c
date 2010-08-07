@@ -34,12 +34,12 @@
 #include <linux/crypto.h>
 #include <linux/mm.h>
 #include <linux/highmem.h>
+#include <linux/ioctl.h>
 #include <linux/random.h>
 #include <linux/syscalls.h>
 #include <linux/pagemap.h>
+#include <linux/uaccess.h>
 #include "cryptodev.h"
-#include <asm/uaccess.h>
-#include <asm/ioctl.h>
 #include <linux/scatterlist.h>
 #include "cryptodev_int.h"
 #include "ncr-int.h"
@@ -951,7 +951,7 @@ cryptodev_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg_)
 
 #endif /* CONFIG_COMPAT */
 
-static struct file_operations cryptodev_fops = {
+static const struct file_operations cryptodev_fops = {
 	.owner = THIS_MODULE,
 	.open = cryptodev_open,
 	.release = cryptodev_release,

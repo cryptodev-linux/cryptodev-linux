@@ -48,7 +48,7 @@ struct session_item_st {
 	struct page **pages;
 	unsigned array_size;
 	unsigned available_pages;
-	struct semaphore mem_mutex; /* down when the
+	struct mutex mem_mutex; /* down when the
 		* values above are changed.
 		*/
 
