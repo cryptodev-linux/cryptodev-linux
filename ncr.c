@@ -23,12 +23,12 @@
  */
 
 #include <linux/crypto.h>
+#include <linux/ioctl.h>
 #include <linux/mm.h>
 #include <linux/highmem.h>
 #include <linux/random.h>
 #include "cryptodev.h"
 #include <asm/uaccess.h>
-#include <asm/ioctl.h>
 #include <linux/scatterlist.h>
 #include <linux/cred.h>  
 #include <linux/capability.h>
