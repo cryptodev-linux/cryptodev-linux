@@ -5,10 +5,9 @@
 #ifndef L_CRYPTODEV_H
 #define L_CRYPTODEV_H
 
+#include <linux/types.h>
 #ifndef __KERNEL__
-#include <inttypes.h>
 #define __user
-#else
 #endif
 
 /* API extensions for linux */
@@ -71,15 +70,15 @@ typedef enum {
 struct session_op {
 	/* Specify either cipher or mac
 	 */
-	uint32_t	cipher;		/* cryptodev_crypto_op_t */
-	uint32_t	mac;		/* cryptodev_crypto_op_t */
+	__u32	cipher;		/* cryptodev_crypto_op_t */
+	__u32	mac;		/* cryptodev_crypto_op_t */
 
-	uint32_t	keylen;
-	uint8_t	__user *key;
-	uint32_t	mackeylen;
-	uint8_t	__user *mackey;
+	__u32	keylen;
+	__u8	__user *key;
+	__u32	mackeylen;
+	__u8	__user *mackey;
 
-	uint32_t	ses;		/* session identifier */
+	__u32	ses;		/* session identifier */
 };
 
 #define	COP_ENCRYPT	0
@@ -87,14 +86,14 @@ struct session_op {
 
 /* input of CIOCCRYPT */
  struct crypt_op {
-	uint32_t	ses;		/* session identifier */
-	uint16_t	op;		/* COP_ENCRYPT or COP_DECRYPT */
-	uint16_t	flags;		/* no usage so far, use 0 */
-	uint32_t	len;		/* length of source data */
-	uint8_t __user *src;		/* source data */
-	uint8_t __user *dst;		/* pointer to output data */
-	uint8_t	__user *mac;		/* pointer to output data for hash/MAC operations */
-	uint8_t	__user *iv;		/* initialization vector for encryption operations */
+	__u32	ses;		/* session identifier */
+	__u16	op;		/* COP_ENCRYPT or COP_DECRYPT */
+	__u16	flags;		/* no usage so far, use 0 */
+	__u32	len;		/* length of source data */
+	__u8	__user *src;		/* source data */
+	__u8	__user *dst;		/* pointer to output data */
+	__u8	__user *mac;		/* pointer to output data for hash/MAC operations */
+	__u8	__user *iv;		/* initialization vector for encryption operations */
 };
 
 /* Stuff for bignum arithmetic and public key
@@ -107,19 +106,19 @@ struct session_op {
 #define	CRYPTO_ALG_FLAG_DSA_SHA		4
 
 struct crparam {
-	uint8_t*	crp_p;
-	uint32_t	crp_nbits;
+	__u8*	crp_p;
+	__u32	crp_nbits;
 };
 
 #define CRK_MAXPARAM	8
 
 /* input of CIOCKEY */
 struct crypt_kop {
-	uint32_t	crk_op;		/* cryptodev_crk_ot_t */
-	uint32_t	crk_status;
-	uint16_t	crk_iparams;
-	uint16_t	crk_oparams;
-	uint32_t	crk_pad1;
+	__u32	crk_op;		/* cryptodev_crk_ot_t */
+	__u32	crk_status;
+	__u16	crk_iparams;
+	__u16	crk_oparams;
+	__u32	crk_pad1;
 	struct crparam	crk_param[CRK_MAXPARAM];
 };
 
@@ -145,11 +144,11 @@ typedef enum {
 
 /* ioctl's. Compatible with old linux cryptodev.h
  */
-#define CRIOGET         _IOWR('c', 101, uint32_t)
+#define CRIOGET         _IOWR('c', 101, __u32)
 #define CIOCGSESSION    _IOWR('c', 102, struct session_op)
-#define CIOCFSESSION    _IOW('c', 103, uint32_t)
+#define CIOCFSESSION    _IOW('c', 103, __u32)
 #define CIOCCRYPT       _IOWR('c', 104, struct crypt_op)
 #define CIOCKEY         _IOWR('c', 105, struct crypt_kop)
-#define CIOCASYMFEAT    _IOR('c', 106, uint32_t)
+#define CIOCASYMFEAT    _IOR('c', 106, __u32)
 
 #endif /* L_CRYPTODEV_H */
