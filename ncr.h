@@ -1,8 +1,8 @@
 #ifndef L_NCR_H
 #define L_NCR_H
 
+#include <linux/types.h>
 #ifndef __KERNEL__
-#include <inttypes.h>
 #define __user
 #endif
 
@@ -96,10 +96,10 @@ struct ncr_key_generate_params_st {
 			unsigned int q_bits;
 		} dsa;
 		struct {
-			uint8_t __user *p; /* prime */
-			size_t p_size;
-			uint8_t __user *g; /* generator */
-			size_t g_size;
+			__u8 __user *p; /* prime */
+			__kernel_size_t p_size;
+			__u8 __user *g; /* generator */
+			__kernel_size_t g_size;
 		} dh;
 	} params;
 };
@@ -126,12 +126,12 @@ struct ncr_key_params_st {
 	 * key */
 	union {
 		struct {
-			uint8_t iv[NCR_CIPHER_MAX_BLOCK_LEN];
-			size_t iv_size;
+			__u8 iv[NCR_CIPHER_MAX_BLOCK_LEN];
+			__kernel_size_t iv_size;
 		} cipher;
 		struct {
-			uint8_t __user *pub;
-			size_t pub_size;
+			__u8 __user *pub;
+			__kernel_size_t pub_size;
 		} dh;
 		struct {
 			ncr_rsa_type_t type;
@@ -168,19 +168,19 @@ struct ncr_key_info_st {
 	ncr_key_type_t type;
 	ncr_algorithm_t algorithm; /* valid for public/private keys */
 
-	uint8_t key_id[MAX_KEY_ID_SIZE];
-	size_t key_id_size;
+	__u8 key_id[MAX_KEY_ID_SIZE];
+	__kernel_size_t key_id_size;
 };
 
 struct ncr_key_data_st {
 	ncr_key_t key;
 
 	void __user *idata;
-	size_t idata_size; /* rw in get */
+	__kernel_size_t idata_size; /* rw in get */
 
 	/* in case of import this will be used as key id */
-	uint8_t key_id[MAX_KEY_ID_SIZE];
-	size_t key_id_size;
+	__u8 key_id[MAX_KEY_ID_SIZE];
+	__kernel_size_t key_id_size;
 	ncr_key_type_t type;
 	unsigned int flags;
 	ncr_algorithm_t algorithm; /* valid for public/private keys */
@@ -212,7 +212,8 @@ struct ncr_key_wrap_st {
 	struct ncr_key_params_st params;
 
 	void __user * io; /* encrypted keytowrap */
-	size_t io_size; /* this will be updated by the actual size on wrap */
+	/* this will be updated by the actual size on wrap */
+	__kernel_size_t io_size;
 };
 
 #define NCRIO_KEY_WRAP        _IOWR ('c', 250, struct ncr_key_wrap_st)
@@ -220,8 +221,8 @@ struct ncr_key_wrap_st {
 
 /* Internal ops  */
 struct ncr_master_key_st {
-	uint8_t __user * key;
-	uint16_t key_size;
+	__u8 __user * key;
+	__u16 key_size;
 };
 
 #define NCRIO_MASTER_KEY_SET        _IOR ('c', 260, struct ncr_master_key_st)
@@ -232,7 +233,8 @@ struct ncr_key_storage_wrap_st {
 	ncr_key_t keytowrap;
 
 	void __user * io; /* encrypted keytowrap */
-	size_t io_size; /* this will be updated by the actual size on wrap */
+	/* this will be updated by the actual size on wrap */
+	__kernel_size_t io_size;
 };
 
 #define NCRIO_KEY_STORAGE_WRAP        _IOWR ('c', 261, struct ncr_key_storage_wrap_st)
@@ -285,13 +287,13 @@ struct ncr_session_op_st {
 			void __user * output;  /* when verifying signature this is
 					* the place of the signature.
 					*/
-			size_t output_size;
+			__kernel_size_t output_size;
 		} kdata; /* NCR_KEY_DATA */
 		struct {
 			void __user * input;
-			size_t input_size;
+			__kernel_size_t input_size;
 			void __user * output;
-			size_t output_size;
+			__kernel_size_t output_size;
 		} udata; /* NCR_DIRECT_DATA */
 	} data;
 	ncr_data_type_t type;
