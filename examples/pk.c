@@ -346,13 +346,15 @@ struct ncr_key_derivation_params_st kderive;
 	}
 
 	/* generate a DH key */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &private1)) {
+	private1 = ioctl(cfd, NCRIO_KEY_INIT);
+	if (private1 == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
 
-	if (ioctl(cfd, NCRIO_KEY_INIT, &public1)) {
+	public1 = ioctl(cfd, NCRIO_KEY_INIT);
+	if (public1 == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
@@ -375,13 +377,15 @@ struct ncr_key_derivation_params_st kderive;
 	}
 	
 	/* generate another DH key */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &private2)) {
+	private2 = ioctl(cfd, NCRIO_KEY_INIT);
+	if (private2 == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
 
-	if (ioctl(cfd, NCRIO_KEY_INIT, &public2)) {
+	public2 = ioctl(cfd, NCRIO_KEY_INIT);
+	if (public2 == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
@@ -432,7 +436,8 @@ struct ncr_key_derivation_params_st kderive;
 	y2_size = keydata.idata_size;
 	
 	/* z1=y1^x2 */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &z1)) {
+	z1 = ioctl(cfd, NCRIO_KEY_INIT);
+	if (z1 == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
@@ -453,7 +458,8 @@ struct ncr_key_derivation_params_st kderive;
 	}
 	
 	/* z2=y2^x1 */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &z2)) {
+	z2 = ioctl(cfd, NCRIO_KEY_INIT);
+	if (z2 == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
@@ -889,13 +895,15 @@ static int test_ncr_rsa(int cfd)
 	fflush(stdout);
 
 	/* convert it to key */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &privkey)) {
+	privkey = ioctl(cfd, NCRIO_KEY_INIT);
+	if (privkey == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
 
-	if (ioctl(cfd, NCRIO_KEY_INIT, &pubkey)) {
+	pubkey = ioctl(cfd, NCRIO_KEY_INIT);
+	if (pubkey == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
@@ -1000,13 +1008,15 @@ static int test_ncr_dsa(int cfd)
 	fflush(stdout);
 
 	/* convert it to key */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &privkey)) {
+	privkey = ioctl(cfd, NCRIO_KEY_INIT);
+	if (privkey == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
 
-	if (ioctl(cfd, NCRIO_KEY_INIT, &pubkey)) {
+	pubkey = ioctl(cfd, NCRIO_KEY_INIT);
+	if (pubkey == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;

@@ -222,7 +222,7 @@ struct ncr_key_data_st {
 	ncr_algorithm_t algorithm; /* valid for public/private keys */
 };
 
-#define NCRIO_KEY_INIT			_IOW ('c', 204, ncr_key_t)
+#define NCRIO_KEY_INIT			_IO('c', 204)
 /* generate a secret key */
 #define NCRIO_KEY_GENERATE     	_IOR ('c', 205, struct ncr_key_generate_st)
 /* generate a public key pair */

@@ -117,7 +117,7 @@ void ncr_key_clear(struct key_item_st* item);
 void ncr_key_assign_flags(struct key_item_st* item, unsigned int flags);
 
 /* key handling */
-int ncr_key_init(struct ncr_lists *lst, void __user* arg);
+int ncr_key_init(struct ncr_lists *lst);
 int ncr_key_deinit(struct ncr_lists *lst, void __user* arg);
 int ncr_key_export(struct ncr_lists *lst, void __user* arg);
 int ncr_key_import(struct ncr_lists *lst, void __user* arg);

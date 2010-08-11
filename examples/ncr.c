@@ -51,7 +51,8 @@ test_ncr_key(int cfd)
 	memcpy(data_bak, data, sizeof(data));
 
 	/* convert it to key */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
+	key = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key == -1) {
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
@@ -112,7 +113,8 @@ test_ncr_key(int cfd)
 
 	fprintf(stdout, "\tKey import...\n");
 	/* convert it to key */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
+	key = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
@@ -162,7 +164,8 @@ test_ncr_key(int cfd)
 	 * try to export it.
 	 */
 	fprintf(stdout, "\tKey protection of non-exportable keys...\n");
-	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
+	key = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
@@ -224,7 +227,8 @@ test_ncr_wrap_key(int cfd)
 	fprintf(stdout, "\tKey Wrap test...\n");
 
 	/* convert it to key */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
+	key = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key == -1) {
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
@@ -248,7 +252,8 @@ test_ncr_wrap_key(int cfd)
 
 
 	/* convert it to key */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &key2)) {
+	key2 = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key2 == -1) {
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
@@ -315,7 +320,8 @@ test_ncr_wrap_key(int cfd)
 		return 1;
 	}
 
-	if (ioctl(cfd, NCRIO_KEY_INIT, &key2)) {
+	key2 = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key2 == -1) {
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
@@ -474,7 +480,8 @@ test_ncr_store_wrap_key(int cfd)
 	fprintf(stdout, "\tKey Storage wrap test...\n");
 
 	/* convert it to key */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &key2)) {
+	key2 = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key2 == -1) {
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
@@ -520,7 +527,8 @@ test_ncr_store_wrap_key(int cfd)
 		return 1;
 	}
 
-	if (ioctl(cfd, NCRIO_KEY_INIT, &key2)) {
+	key2 = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key2 == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
@@ -608,7 +616,8 @@ test_ncr_aes(int cfd)
 	int data_size;
 
 	/* convert it to key */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
+	key = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key == -1) {
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
@@ -816,7 +825,8 @@ test_ncr_hash(int cfd)
 	struct ncr_session_once_op_st nop;
 
 	/* convert it to key */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
+	key = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key == -1) {
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
@@ -902,7 +912,8 @@ test_ncr_hash_key(int cfd)
 	const uint8_t *output = (void*)"\xe2\xd7\x2c\x2e\x14\xad\x97\xc8\xd2\xdb\xce\xd8\xb3\x52\x9f\x1c\xb3\x2c\x5c\xec";
 
 	/* convert it to key */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
+	key = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key == -1) {
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}

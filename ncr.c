@@ -125,8 +125,8 @@ ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 		BUG();
 
 	switch (cmd) {
-		case NCRIO_KEY_INIT:
-			return ncr_key_init(lst, arg);
+	case NCRIO_KEY_INIT:
+		return ncr_key_init(lst);
 		case NCRIO_KEY_DEINIT:
 			return ncr_key_deinit(lst, arg);
 		case NCRIO_KEY_GENERATE:
@@ -173,6 +173,8 @@ ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 		BUG();
 
 	switch (cmd) {
+	case NCRIO_KEY_INIT:
+		return ncr_ioctl(lst, cmd, arg_);
 	default:
 		return -EINVAL;
 	}

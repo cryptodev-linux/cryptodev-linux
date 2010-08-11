@@ -79,7 +79,8 @@ int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 	struct ncr_key_generate_st kgen;
 	struct ncr_session_once_op_st nop;
 
-	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
+	key = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;

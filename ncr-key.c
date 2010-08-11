@@ -148,7 +148,7 @@ static void _ncr_key_remove(struct ncr_lists *lst, ncr_key_t desc)
 		_ncr_key_item_put(item);
 }
 
-int ncr_key_init(struct ncr_lists *lst, void __user* arg)
+int ncr_key_init(struct ncr_lists *lst)
 {
 	ncr_key_t desc;
 	struct key_item_st* key;
@@ -187,12 +187,7 @@ int ncr_key_init(struct ncr_lists *lst, void __user* arg)
 	desc = key->desc;
 	mutex_unlock(&lst->key_idr_mutex);
 
-	ret = copy_to_user(arg, &desc, sizeof(desc));
-	if (unlikely(ret)) {
-		_ncr_key_remove(lst, desc);
-		return -EFAULT;
-	}
-	return ret;
+	return desc;
 
 err_limits:
 	ncr_limits_remove(current_euid(), task_pid_nr(current), LIMIT_TYPE_KEY);
