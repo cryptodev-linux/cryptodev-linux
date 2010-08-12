@@ -31,6 +31,7 @@
 #include <net/netlink.h>
 #include "ncr.h"
 #include "ncr-int.h"
+#include "utils.h"
 
 static int key_list_deinit_fn(int id, void *item, void *unused)
 {
@@ -599,18 +600,15 @@ int bits;
 	}
 }
 
-int ncr_key_info(struct ncr_lists *lst, void __user* arg)
+int ncr_key_get_info(struct ncr_lists *lst, struct ncr_out *out,
+		     const struct ncr_key_get_info *info, struct nlattr *tb[])
 {
-struct ncr_key_info_st info;
+const struct nlattr *nla;
+const u16 *attr, *attr_end;
 struct key_item_st* item = NULL;
 int ret;
 
-	if (unlikely(copy_from_user(&info, arg, sizeof(info)))) {
-		err();
-		return -EFAULT;
-	}
-
-	ret = ncr_key_item_get_read(&item, lst, info.key);
+	ret = ncr_key_item_get_read(&item, lst, info->key);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -622,11 +620,41 @@ int ret;
 		goto fail;
 	}
 
-	info.flags = item->flags;
-	info.type = item->type;
-	info.algorithm = item->algorithm->algo;
-	
-	ret = 0;
+	nla = tb[NCR_ATTR_WANTED_ATTRS];
+	if (nla == NULL || nla_len(nla) % sizeof(u16) != 0) {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}
+	attr = nla_data(nla);
+	attr_end = attr + nla_len(nla) / sizeof(u16);
+	while (attr < attr_end) {
+		switch (*attr) {
+		case NCR_ATTR_KEY_FLAGS:
+			ret = ncr_out_put_u32(out, *attr, item->flags);
+			break;
+		case NCR_ATTR_KEY_TYPE:
+			ret = ncr_out_put_u32(out, *attr, item->type);
+			break;
+		case NCR_ATTR_ALGORITHM:
+			ret = ncr_out_put_u32(out, *attr,
+					      item->algorithm->algo);
+			break;
+		default:
+			break; /* Silently ignore */
+		}
+		if (ret != 0) {
+			err();
+			goto fail;
+		}
+		attr++;
+	}
+
+	ret = ncr_out_finish(out);
+	if (ret != 0) {
+		err();
+		goto fail;
+	}
 
 fail:
 	_ncr_key_item_put( item);

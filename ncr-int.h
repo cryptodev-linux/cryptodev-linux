@@ -15,6 +15,7 @@
 #define err() printk(KERN_DEBUG"ncr: %s: %s: %d\n", __FILE__, __func__, __LINE__)
 
 struct nlattr;
+struct ncr_out;
 
 struct algo_properties_st {
 	ncr_algorithm_t algo;
@@ -125,7 +126,8 @@ int ncr_key_import(struct ncr_lists *lst, void __user* arg);
 void ncr_key_list_deinit(struct ncr_lists *lst);
 int ncr_key_generate(struct ncr_lists *lst, const struct ncr_key_generate *gen,
 		     struct nlattr *tb[]);
-int ncr_key_info(struct ncr_lists *lst, void __user* arg);
+int ncr_key_get_info(struct ncr_lists *lst, struct ncr_out *out,
+		     const struct ncr_key_get_info *info, struct nlattr *tb[]);
 
 int ncr_key_generate_pair(struct ncr_lists *lst,
 			  const struct ncr_key_generate_pair *gen,

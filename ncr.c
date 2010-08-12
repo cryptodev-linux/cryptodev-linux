@@ -148,14 +148,30 @@ ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 	CASE_NO_OUTPUT(NCRIO_KEY_GENERATE_PAIR, ncr_key_generate_pair,
 		       ncr_key_generate_pair);
 	CASE_NO_OUTPUT(NCRIO_KEY_DERIVE, ncr_key_derive, ncr_key_derive);
+	case NCRIO_KEY_GET_INFO: {
+		struct ncr_key_get_info data;
+		struct ncr_out out;
+
+		attr_buf = NCR_GET_INPUT_ARGS(&data, tb, arg);
+		if (IS_ERR(attr_buf)) {
+			err();
+			return PTR_ERR(attr_buf);
+		}
+		ret = NCR_OUT_INIT(&out, &data, arg);
+		if (ret != 0) {
+			err();
+			break;
+		}
+		ret = ncr_key_get_info(lst, &out, &data, tb);
+		ncr_out_free(&out);
+		break;
+	}
 		case NCRIO_KEY_DEINIT:
 			return ncr_key_deinit(lst, arg);
 		case NCRIO_KEY_EXPORT:
 			return ncr_key_export(lst, arg);
 		case NCRIO_KEY_IMPORT:
 			return ncr_key_import(lst, arg);
-		case NCRIO_KEY_GET_INFO:
-			return ncr_key_info(lst, arg);
 		case NCRIO_KEY_WRAP:
 			return ncr_key_wrap(lst, arg);
 		case NCRIO_KEY_UNWRAP:
@@ -195,6 +211,7 @@ ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 	case NCRIO_KEY_GENERATE:
 	case NCRIO_KEY_GENERATE_PAIR:
 	case NCRIO_KEY_DERIVE:
+	case NCRIO_KEY_GET_INFO:
 		return ncr_ioctl(lst, cmd, arg_);
 	default:
 		return -EINVAL;

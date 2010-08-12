@@ -34,6 +34,7 @@ enum {
 	NCR_ATTR_ALGORITHM,	      /* NLA_U32 - ncr_algorithm_t */
 	NCR_ATTR_DERIVATION_ALGORITHM, /* NLA_U32 - ncr_algorithm_t */
 	NCR_ATTR_KEY_FLAGS,	      /* NLA_U32 - NCR_KEY_FLAG_* */
+	NCR_ATTR_KEY_TYPE,	      /* NLA_U32 - ncr_key_type_t */
 	NCR_ATTR_SECRET_KEY_BITS,     /* NLA_U32 */
 	NCR_ATTR_RSA_MODULUS_BITS,    /* NLA_U32 */
 	NCR_ATTR_RSA_E,		      /* NLA_BINARY */
@@ -42,6 +43,7 @@ enum {
 	NCR_ATTR_DH_PRIME,	      /* NLA_BINARY */
 	NCR_ATTR_DH_BASE,	      /* NLA_BINARY */
 	NCR_ATTR_DH_PUBLIC,	      /* NLA_BINARY */
+	NCR_ATTR_WANTED_ATTRS,	      /* NLA_BINARY - array of u16 IDs */
 
 	/* Add new attributes here */
 
@@ -174,15 +176,10 @@ struct ncr_key_derive {
 
 #define MAX_KEY_ID_SIZE 20
 
-struct ncr_key_info_st {
-	ncr_key_t key; /* input */
-
-	unsigned int flags;
-	ncr_key_type_t type;
-	ncr_algorithm_t algorithm; /* valid for public/private keys */
-
-	__u8 key_id[MAX_KEY_ID_SIZE];
-	__kernel_size_t key_id_size;
+struct ncr_key_get_info {
+	__u32 input_size, output_size;
+	ncr_key_t key;
+	__NL_ATTRIBUTES;
 };
 
 struct ncr_key_data_st {
@@ -207,7 +204,7 @@ struct ncr_key_data_st {
 /* derive a new key from an old one */
 #define NCRIO_KEY_DERIVE        _IOWR('c', 207, struct ncr_key_derive)
 /* return information on a key */
-#define NCRIO_KEY_GET_INFO      _IOWR('c', 208, struct ncr_key_info_st)
+#define NCRIO_KEY_GET_INFO      _IOWR('c', 208, struct ncr_key_get_info)
 
 /* export a secret key */
 #define NCRIO_KEY_EXPORT       	_IOWR('c', 209, struct ncr_key_data_st)

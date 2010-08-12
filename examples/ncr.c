@@ -46,10 +46,22 @@ test_ncr_key(int cfd)
 		struct nlattr bits_head ALIGN_NL;
 		uint32_t bits ALIGN_NL;
 	} kgen;
+	struct __attribute__((packed)) {
+		struct ncr_key_get_info f;
+		/* This union is only here to stop gcc from complaining about
+		   aliasing. */
+		union {
+			unsigned char __reserve[DATA_SIZE];
+			struct nlattr first_header;
+		} u ALIGN_NL;
+	} kinfo;
+	struct nlattr *nla;
 	ncr_key_t key;
 	struct ncr_key_data_st keydata;
 	uint8_t data[KEY_DATA_SIZE];
 	uint8_t data_bak[KEY_DATA_SIZE];
+	uint16_t *attr_p;
+	int got_algo, got_flags, got_type;
 
 	fprintf(stdout, "Tests on Keys:\n");
 
@@ -171,6 +183,79 @@ test_ncr_key(int cfd)
 			data[2], data[3], data[4], data[5], data[6], data[7], data[8],
 			data[9], data[10], data[11], data[12], data[13], data[14],
 			data[15]);
+		return 1;
+	}
+
+	memset(&kinfo.f, 0, sizeof(kinfo.f));
+	kinfo.f.output_size = sizeof(kinfo);
+	kinfo.f.key = key;
+	nla = &kinfo.u.first_header;
+	nla->nla_type = NCR_ATTR_WANTED_ATTRS;
+	attr_p = (uint16_t *)((char *)nla + NLA_HDRLEN);
+	*attr_p++ = NCR_ATTR_ALGORITHM;
+	*attr_p++ = NCR_ATTR_KEY_FLAGS;
+	*attr_p++ = NCR_ATTR_KEY_TYPE;
+	nla->nla_len = (char *)attr_p - (char *)nla;
+	kinfo.f.input_size = (char *)attr_p - (char *)&kinfo;
+
+	if (ioctl(cfd, NCRIO_KEY_GET_INFO, &kinfo)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_GET_INFO)");
+		return 1;
+	}
+
+	got_algo = got_flags = got_type = 0;
+	if (kinfo.f.output_size <
+	    (char *)&kinfo.u.first_header - (char *)&kinfo) {
+		fprintf(stderr, "No nlattr returned\n");
+		return 1;
+	}
+	nla = &kinfo.u.first_header;
+	for (;;) {
+		void *data;
+
+		if (nla->nla_len < NLA_HDRLEN + sizeof(uint32_t)) {
+			fprintf(stderr, "Attribute too small\n");
+			return 1;
+		}
+		if (nla->nla_len >
+		    kinfo.f.output_size - ((char *)nla - (char *)&kinfo)) {
+			fprintf(stderr, "Attributes overflow\n");
+			return 1;
+		}
+		data = (char *)nla + NLA_HDRLEN;
+		switch (nla->nla_type) {
+		case NCR_ATTR_ALGORITHM:
+			if (*(uint32_t *)data != NCR_ALG_AES_CBC) {
+				fprintf(stderr, "Unexpected algorithm\n");
+				return 1;
+			}
+			got_algo++;
+			break;
+		case NCR_ATTR_KEY_FLAGS:
+			if (*(uint32_t *)data != NCR_KEY_FLAG_EXPORTABLE) {
+				fprintf(stderr, "Unexpected key flags\n");
+				return 1;
+			}
+			got_flags++;
+			break;
+		case NCR_ATTR_KEY_TYPE:
+			if (*(uint32_t *)data != NCR_KEY_TYPE_SECRET) {
+				fprintf(stderr, "Unexpected key type\n");
+				return 1;
+			}
+			got_type++;
+			break;
+		}
+
+		if (NLA_ALIGN(nla->nla_len) + NLA_HDRLEN >
+		    kinfo.f.output_size - ((char *)nla - (char *)&kinfo))
+			break;
+		nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
+	}
+	if (got_algo != 1 || got_flags != 1 || got_type != 1) {
+		fprintf(stderr, "Unexpected attrs - %d, %d, %d\n", got_algo,
+			got_flags, got_type);
 		return 1;
 	}
 
