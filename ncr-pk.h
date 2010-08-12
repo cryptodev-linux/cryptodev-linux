@@ -3,6 +3,8 @@
 
 #include <tomcrypt.h>
 
+struct nlattr;
+
 struct ncr_pk_ctx {
 	const struct algo_properties_st *algorithm; /* algorithm */
 	
@@ -19,8 +21,7 @@ struct ncr_pk_ctx {
 
 /* PK */
 void ncr_pk_clear(struct key_item_st* key);
-int ncr_pk_generate(const struct algo_properties_st *algo,
-	struct ncr_key_generate_params_st * params,
+int ncr_pk_generate(const struct algo_properties_st *algo, struct nlattr *tb[],
 	struct key_item_st* private, struct key_item_st* public);
 int ncr_pk_pack( const struct key_item_st * key, uint8_t * packed, uint32_t * packed_size);
 int ncr_pk_unpack( struct key_item_st * key, const void * packed, size_t packed_size);

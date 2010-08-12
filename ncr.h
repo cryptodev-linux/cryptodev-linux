@@ -25,12 +25,19 @@
    and is treated equivalent to sizeof(struct ncr_*).  output_size 0 means no
    space for output attributes is available, and is not updated. */
 
+/* FIXME: better names for algorithm parameters? */
 enum {
 	NCR_ATTR_UNSPEC,	      /* 0 is special in lib/nlattr.c. */
 	/* FIXME: Use NLA_STRING for this, later */
 	NCR_ATTR_ALGORITHM,	      /* NLA_U32 - ncr_algorithm_t */
 	NCR_ATTR_KEY_FLAGS,	      /* NLA_U32 - NCR_KEY_FLAG_* */
 	NCR_ATTR_SECRET_KEY_BITS,     /* NLA_U32 */
+	NCR_ATTR_RSA_MODULUS_BITS,    /* NLA_U32 */
+	NCR_ATTR_RSA_E,		      /* NLA_BINARY */
+	NCR_ATTR_DSA_P_BITS,	      /* NLA_U32 */
+	NCR_ATTR_DSA_Q_BITS,	      /* NLA_U32 */
+	NCR_ATTR_DH_PRIME,	      /* NLA_BINARY */
+	NCR_ATTR_DH_BASE,	      /* NLA_BINARY */
 
 	/* Add new attributes here */
 
@@ -107,50 +114,16 @@ typedef __s32 ncr_key_t;
  */
 #define NCR_KEY_FLAG_WRAPPING (1<<4)
 
-struct ncr_key_generate_params_st {
-	ncr_algorithm_t algorithm; /* just a cipher algorithm when
-	* generating secret keys
-	*/
-
-	unsigned int keyflags;
-	union {
-		struct {
-			unsigned int bits;
-		} secret;
-		struct {
-			unsigned int bits;
-			unsigned long e; /* use zero for default */
-		} rsa;		
-		struct {
-			/* For DSS standard allowed values
-			 * are:            p:1024 q: 160
-			 *                 p:2048 q: 224
-			 *                 p:2048 q: 256
-			 *                 p:3072 q: 256
-			 */
-			unsigned int p_bits;
-			unsigned int q_bits;
-		} dsa;
-		struct {
-			__u8 __user *p; /* prime */
-			__kernel_size_t p_size;
-			__u8 __user *g; /* generator */
-			__kernel_size_t g_size;
-		} dh;
-	} params;
-};
-
-/* used in generation
- */
-struct ncr_key_generate_st {
-	ncr_key_t desc;
-	ncr_key_t desc2; /* public key when called with GENERATE_PAIR */
-	struct ncr_key_generate_params_st params;
-};
-
 struct ncr_key_generate {
 	__u32 input_size, output_size;
 	ncr_key_t key;
+	__NL_ATTRIBUTES;
+};
+
+struct ncr_key_generate_pair {
+	__u32 input_size, output_size;
+	ncr_key_t private_key;
+	ncr_key_t public_key;
 	__NL_ATTRIBUTES;
 };
 
@@ -232,7 +205,7 @@ struct ncr_key_data_st {
 /* generate a secret key */
 #define NCRIO_KEY_GENERATE     	_IOWR('c', 205, struct ncr_key_generate)
 /* generate a public key pair */
-#define NCRIO_KEY_GENERATE_PAIR _IOR ('c', 206, struct ncr_key_generate_st)
+#define NCRIO_KEY_GENERATE_PAIR _IOWR('c', 206, struct ncr_key_generate_pair)
 /* derive a new key from an old one */
 #define NCRIO_KEY_DERIVE        _IOR ('c', 207, struct ncr_key_derivation_params_st)
 /* return information on a key */

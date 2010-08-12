@@ -4,6 +4,7 @@
  * Placed under public domain.
  *
  */
+#include <assert.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
@@ -11,8 +12,10 @@
 #include <fcntl.h>
 #include <time.h>
 #include <sys/ioctl.h>
+#include <sys/socket.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <linux/netlink.h>
 #include "../ncr.h"
 #include <stdlib.h>
 #include <gnutls/gnutls.h>
@@ -22,6 +25,8 @@
 #endif
 
 #define DATA_SIZE 4096
+
+#define ALIGN_NL __attribute__((aligned(NLA_ALIGNTO)))
 
 static void
 print_hex_datum (gnutls_datum_t * dat)
@@ -307,7 +312,15 @@ const char dh_params_txt[] = "-----BEGIN DH PARAMETERS-----\n"\
 
 static int test_ncr_dh(int cfd)
 {
-struct ncr_key_generate_st kgen;
+struct __attribute__((packed)) {
+	struct ncr_key_generate_pair f;
+	struct nlattr algo_head ALIGN_NL;
+	uint32_t algo ALIGN_NL;
+	struct nlattr flags_head ALIGN_NL;
+	uint32_t flags ALIGN_NL;
+	unsigned char buffer[DATA_SIZE] ALIGN_NL;
+} kgen;
+struct nlattr *nla;
 ncr_key_t private1, public1, public2, private2;
 ncr_key_t z1, z2;
 int ret;
@@ -360,19 +373,30 @@ struct ncr_key_derivation_params_st kderive;
 		return 1;
 	}
 	
-	memset(&kgen, 0, sizeof(kgen));
-	kgen.desc = private1;
-	kgen.desc2 = public1;
-	kgen.params.algorithm = NCR_ALG_DH;
-	kgen.params.keyflags = NCR_KEY_FLAG_EXPORTABLE;
-	kgen.params.params.dh.p = p.data;
-	kgen.params.params.dh.p_size = p.size;
-	kgen.params.params.dh.g = g.data;
-	kgen.params.params.dh.g_size = g.size;
+	memset(&kgen.f, 0, sizeof(kgen.f));
+	kgen.f.private_key = private1;
+	kgen.f.public_key = public1;
+	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
+	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+	kgen.algo = NCR_ALG_DH;
+	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
+	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
+	kgen.flags = NCR_KEY_FLAG_EXPORTABLE;
+	nla = (struct nlattr *)kgen.buffer;
+	nla->nla_len = NLA_HDRLEN + p.size;
+	nla->nla_type = NCR_ATTR_DH_PRIME;
+	memcpy((char *)nla + NLA_HDRLEN, p.data, p.size);
+	nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
+	nla->nla_len = NLA_HDRLEN + g.size;
+	nla->nla_type = NCR_ATTR_DH_BASE;
+	memcpy((char *)nla + NLA_HDRLEN, g.data, g.size);
+	nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
+	kgen.f.input_size = (char *)nla - (char *)&kgen;
+	assert(kgen.f.input_size <= sizeof(kgen));
 
 	if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_GENERATE)");
+		perror("ioctl(NCRIO_KEY_GENERATE_PAIR)");
 		return 1;
 	}
 	
@@ -391,19 +415,30 @@ struct ncr_key_derivation_params_st kderive;
 		return 1;
 	}
 	
-	memset(&kgen, 0, sizeof(kgen));
-	kgen.desc = private2;
-	kgen.desc2 = public2;
-	kgen.params.algorithm = NCR_ALG_DH;
-	kgen.params.keyflags = NCR_KEY_FLAG_EXPORTABLE;
-	kgen.params.params.dh.p = p.data;
-	kgen.params.params.dh.p_size = p.size;
-	kgen.params.params.dh.g = g.data;
-	kgen.params.params.dh.g_size = g.size;
+	memset(&kgen.f, 0, sizeof(kgen.f));
+	kgen.f.private_key = private2;
+	kgen.f.public_key = public2;
+	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
+	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+	kgen.algo = NCR_ALG_DH;
+	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
+	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
+	kgen.flags = NCR_KEY_FLAG_EXPORTABLE;
+	nla = (struct nlattr *)kgen.buffer;
+	nla->nla_len = NLA_HDRLEN + p.size;
+	nla->nla_type = NCR_ATTR_DH_PRIME;
+	memcpy((char *)nla + NLA_HDRLEN, p.data, p.size);
+	nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
+	nla->nla_len = NLA_HDRLEN + g.size;
+	nla->nla_type = NCR_ATTR_DH_BASE;
+	memcpy((char *)nla + NLA_HDRLEN, g.data, g.size);
+	nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
+	kgen.f.input_size = (char *)nla - (char *)&kgen;
+	assert(kgen.f.input_size <= sizeof(kgen));
 
 	if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_GENERATE)");
+		perror("ioctl(NCRIO_KEY_GENERATE_PAIR)");
 		return 1;
 	}
 
@@ -540,7 +575,15 @@ test_ncr_wrap_key3(int cfd)
 	size_t data_size;
 	struct ncr_key_data_st keydata;
 	struct ncr_key_wrap_st kwrap;
-	struct ncr_key_generate_st kgen;
+	struct __attribute__((packed)) {
+		struct ncr_key_generate_pair f;
+		struct nlattr algo_head ALIGN_NL;
+		uint32_t algo ALIGN_NL;
+		struct nlattr flags_head ALIGN_NL;
+		uint32_t flags ALIGN_NL;
+		struct nlattr bits_head ALIGN_NL;
+		uint32_t bits ALIGN_NL;
+	} kgen;
 	ncr_key_t pubkey, privkey;
 	uint8_t data[DATA_SIZE];
 	/* only the first two should be allowed to be wrapped.
@@ -599,12 +642,19 @@ test_ncr_wrap_key3(int cfd)
 		fprintf(stdout, ".");
 		fflush(stdout);
 		
-		memset(&kgen, 0, sizeof(kgen));
-		kgen.desc = privkey;
-		kgen.desc2 = pubkey;
-		kgen.params.algorithm = NCR_ALG_RSA;
-		kgen.params.keyflags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
-		kgen.params.params.rsa.bits = sizes[i];
+		memset(&kgen.f, 0, sizeof(kgen.f));
+		kgen.f.input_size = sizeof(kgen);
+		kgen.f.private_key = privkey;
+		kgen.f.public_key = pubkey;
+		kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
+		kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+		kgen.algo = NCR_ALG_RSA;
+		kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
+		kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
+		kgen.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
+		kgen.bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.bits);
+		kgen.bits_head.nla_type = NCR_ATTR_RSA_MODULUS_BITS;
+		kgen.bits = sizes[i];
 
 		if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
 			fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i], __func__, __LINE__);
@@ -885,7 +935,15 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 static int test_ncr_rsa(int cfd)
 {
 	int ret;
-	struct ncr_key_generate_st kgen;
+	struct __attribute__((packed)) {
+		struct ncr_key_generate_pair f;
+		struct nlattr algo_head ALIGN_NL;
+		uint32_t algo ALIGN_NL;
+		struct nlattr flags_head ALIGN_NL;
+		uint32_t flags ALIGN_NL;
+		struct nlattr bits_head ALIGN_NL;
+		uint32_t bits ALIGN_NL;
+	} kgen;
 	ncr_key_t pubkey, privkey;
 	struct ncr_key_data_st keydata;
 	uint8_t data[DATA_SIZE];
@@ -910,11 +968,18 @@ static int test_ncr_rsa(int cfd)
 	}
 
 	memset(&kgen, 0, sizeof(kgen));
-	kgen.desc = privkey;
-	kgen.desc2 = pubkey;
-	kgen.params.algorithm = NCR_ALG_RSA;
-	kgen.params.keyflags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
-	kgen.params.params.rsa.bits = 1024;
+	kgen.f.input_size = sizeof(kgen);
+	kgen.f.private_key = privkey;
+	kgen.f.public_key = pubkey;
+	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
+	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+	kgen.algo = NCR_ALG_RSA;
+	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
+	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
+	kgen.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
+	kgen.bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.bits);
+	kgen.bits_head.nla_type = NCR_ATTR_RSA_MODULUS_BITS;
+	kgen.bits = 1024;
 
 	if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -998,7 +1063,17 @@ static int test_ncr_rsa(int cfd)
 static int test_ncr_dsa(int cfd)
 {
 	int ret;
-	struct ncr_key_generate_st kgen;
+	struct __attribute__((packed)) {
+		struct ncr_key_generate_pair f;
+		struct nlattr algo_head ALIGN_NL;
+		uint32_t algo ALIGN_NL;
+		struct nlattr flags_head ALIGN_NL;
+		uint32_t flags ALIGN_NL;
+		struct nlattr q_bits_head ALIGN_NL;
+		uint32_t q_bits ALIGN_NL;
+		struct nlattr p_bits_head ALIGN_NL;
+		uint32_t p_bits ALIGN_NL;
+	} kgen;
 	ncr_key_t pubkey, privkey;
 	struct ncr_key_data_st keydata;
 	uint8_t data[DATA_SIZE];
@@ -1023,12 +1098,21 @@ static int test_ncr_dsa(int cfd)
 	}
 
 	memset(&kgen, 0, sizeof(kgen));
-	kgen.desc = privkey;
-	kgen.desc2 = pubkey;
-	kgen.params.algorithm = NCR_ALG_DSA;
-	kgen.params.keyflags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
-	kgen.params.params.dsa.q_bits = 160;
-	kgen.params.params.dsa.p_bits = 1024;
+	kgen.f.input_size = sizeof(kgen);
+	kgen.f.private_key = privkey;
+	kgen.f.public_key = pubkey;
+	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
+	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+	kgen.algo = NCR_ALG_DSA;
+	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
+	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
+	kgen.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
+	kgen.q_bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.q_bits);
+	kgen.q_bits_head.nla_type = NCR_ATTR_DSA_Q_BITS;
+	kgen.q_bits = 160;
+	kgen.p_bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.p_bits);
+	kgen.p_bits_head.nla_type = NCR_ATTR_DSA_P_BITS;
+	kgen.p_bits = 1024;
 
 	if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);

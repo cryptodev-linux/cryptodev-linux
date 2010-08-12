@@ -28,6 +28,7 @@
 #include <linux/random.h>
 #include <linux/uaccess.h>
 #include <linux/scatterlist.h>
+#include <net/netlink.h>
 #include "ncr.h"
 #include "ncr-int.h"
 #include <tomcrypt.h>
@@ -222,75 +223,88 @@ int ncr_pk_unpack( struct key_item_st * key, const void * packed, size_t packed_
 	return 0;
 }
 
-struct keygen_st {
-};
+static int binary_to_ulong(unsigned long *dest, const struct nlattr *nla)
+{
+	unsigned long value;
+	const uint8_t *start, *end, *p;
 
-int ncr_pk_generate(const struct algo_properties_st *algo,
-	struct ncr_key_generate_params_st * params,
+	value = 0;
+	start = nla_data(nla);
+	end = start + nla_len(nla);
+	for (p = start; p < end; p++) {
+		if (value > (ULONG_MAX - *p) / 256)
+			return -EOVERFLOW;
+		value = value * 256 + *p;
+	}
+	*dest = value;
+	return 0;
+}
+
+int ncr_pk_generate(const struct algo_properties_st *algo, struct nlattr *tb[],
 	struct key_item_st* private, struct key_item_st* public) 
 {
+	const struct nlattr *nla;
 	unsigned long e;
 	int cret, ret;
-	uint8_t * tmp = NULL;
 
 	private->algorithm = public->algorithm = algo;
 
 	ret = 0;
 	switch(algo->algo) {
 		case NCR_ALG_RSA:
-			e = params->params.rsa.e;
-			
-			if (e == 0)
+			nla = tb[NCR_ATTR_RSA_E];
+			if (nla != NULL) {
+				ret = binary_to_ulong(&e, nla);
+				if (ret != 0)
+					break;
+			} else
 				e = 65537;
-			cret = rsa_make_key(params->params.rsa.bits/8, e, &private->key.pk.rsa);
-			if (cret != CRYPT_OK) {
-				err();
-				return _ncr_tomerr(cret);
-			}
-			break;
-		case NCR_ALG_DSA:
-			if (params->params.dsa.q_bits==0)
-				params->params.dsa.q_bits = 160;
-			if (params->params.dsa.p_bits==0)
-				params->params.dsa.p_bits = 1024;
 
-			cret = dsa_make_key(params->params.dsa.q_bits/8, 
-				params->params.dsa.p_bits/8, &private->key.pk.dsa);
+			nla = tb[NCR_ATTR_RSA_MODULUS_BITS];
+			if (nla == NULL) {
+				ret = -EINVAL;
+				break;
+			}
+			cret = rsa_make_key(nla_get_u32(nla) / 8, e, &private->key.pk.rsa);
 			if (cret != CRYPT_OK) {
 				err();
 				return _ncr_tomerr(cret);
 			}
 			break;
+		case NCR_ALG_DSA: {
+			u32 q_bits, p_bits;
+
+			nla = tb[NCR_ATTR_DSA_Q_BITS];
+			if (nla != NULL)
+				q_bits = nla_get_u32(nla);
+			else
+				q_bits = 160;
+			nla = tb[NCR_ATTR_DSA_P_BITS];
+			if (nla != NULL)
+				p_bits = nla_get_u32(nla);
+			else
+				p_bits = 1024;
+			cret = dsa_make_key(q_bits / 8, p_bits / 8,
+					    &private->key.pk.dsa);
+			if (cret != CRYPT_OK) {
+				err();
+				return _ncr_tomerr(cret);
+			}
+			break;
+		}
 		case NCR_ALG_DH: {
-			uint8_t * p, *g;
-			size_t p_size, g_size;
-		
-			p_size = params->params.dh.p_size;
-			g_size = params->params.dh.g_size;
-		
-			tmp = kmalloc(g_size+p_size, GFP_KERNEL);
-			if (tmp == NULL) {
-				err();
-				ret = -ENOMEM;
-				goto fail;
-			}
-		
-			p = tmp;
-			g = &tmp[p_size];
-		
-			if (unlikely(copy_from_user(p, params->params.dh.p, p_size))) {
-				err();
-				ret = -EFAULT;
+			const struct nlattr *p, *g;
+
+			p = tb[NCR_ATTR_DH_PRIME];
+			g = tb[NCR_ATTR_DH_BASE];
+			if (p == NULL || g == NULL) {
+				ret = -EINVAL;
 				goto fail;
 			}
 
-			if (unlikely(copy_from_user(g, params->params.dh.g, g_size))) {
-				err();
-				ret = -EFAULT;
-				goto fail;
-			}
-		
-			ret = dh_import_params(&private->key.pk.dh, p, p_size, g, g_size);
+			ret = dh_import_params(&private->key.pk.dh, nla_data(p),
+					       nla_len(p), nla_data(g),
+					       nla_len(g));
 			if (ret < 0) {
 				err();
 				goto fail;
@@ -309,8 +323,6 @@ int ncr_pk_generate(const struct algo_properties_st *algo,
 	}
 
 fail:
-	kfree(tmp);
-
 	if (ret < 0) {
 		err();
 		return ret;

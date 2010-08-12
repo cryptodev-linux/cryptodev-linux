@@ -634,25 +634,22 @@ fail:
 	return ret;
 }
 
-int ncr_key_generate_pair(struct ncr_lists *lst, void __user* arg)
+int ncr_key_generate_pair(struct ncr_lists *lst,
+			  const struct ncr_key_generate_pair *gen,
+			  struct nlattr *tb[])
 {
-struct ncr_key_generate_st gen;
+const struct nlattr *nla;
 struct key_item_st* private = NULL;
 struct key_item_st* public = NULL;
 int ret;
 
-	if (unlikely(copy_from_user(&gen, arg, sizeof(gen)))) {
-		err();
-		return -EFAULT;
-	}
-
-	ret = ncr_key_item_get_write( &private, lst, gen.desc);
+	ret = ncr_key_item_get_write(&private, lst, gen->private_key);
 	if (ret < 0) {
 		err();
 		goto fail;
 	}
 
-	ret = ncr_key_item_get_write( &public, lst, gen.desc2);
+	ret = ncr_key_item_get_write(&public, lst, gen->public_key);
 	if (ret < 0) {
 		err();
 		goto fail;
@@ -662,7 +659,8 @@ int ret;
 	ncr_key_clear(private);
 
 	/* we generate only secret keys */
-	private->algorithm = public->algorithm = _ncr_algo_to_properties(gen.params.algorithm);
+	private->algorithm = public->algorithm
+		= _ncr_nla_to_properties(tb[NCR_ATTR_ALGORITHM]);
 	if (private->algorithm == NULL) {
 		err();
 		ret = -EINVAL;
@@ -670,13 +668,16 @@ int ret;
 	}
 	public->type = public->algorithm->key_type;
 	private->type = NCR_KEY_TYPE_PRIVATE;
-	ncr_key_assign_flags(private, gen.params.keyflags);
-	ncr_key_assign_flags(public, gen.params.keyflags);
+	nla = tb[NCR_ATTR_KEY_FLAGS];
+	if (nla != NULL) {
+		ncr_key_assign_flags(private, nla_get_u32(nla));
+		ncr_key_assign_flags(public, nla_get_u32(nla));
+	}
 
 	public->flags |= (NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE);
 	
 	if (public->type == NCR_KEY_TYPE_PUBLIC) {
-		ret = ncr_pk_generate(public->algorithm, &gen.params, private, public);
+		ret = ncr_pk_generate(public->algorithm, tb, private, public);
 		if (ret < 0) {
 			err();
 			goto fail;

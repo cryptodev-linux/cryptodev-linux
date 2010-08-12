@@ -126,7 +126,9 @@ int ncr_key_generate(struct ncr_lists *lst, const struct ncr_key_generate *gen,
 		     struct nlattr *tb[]);
 int ncr_key_info(struct ncr_lists *lst, void __user* arg);
 
-int ncr_key_generate_pair(struct ncr_lists *lst, void __user* arg);
+int ncr_key_generate_pair(struct ncr_lists *lst,
+			  const struct ncr_key_generate_pair *gen,
+			  struct nlattr *tb[]);
 int ncr_key_get_public(struct ncr_lists *lst, void __user* arg);
 
 int ncr_key_item_get_read(struct key_item_st**st, struct ncr_lists *lst,
