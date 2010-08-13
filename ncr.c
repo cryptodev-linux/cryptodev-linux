@@ -166,10 +166,9 @@ ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 		ncr_out_free(&out);
 		break;
 	}
+	CASE_NO_OUTPUT(NCRIO_KEY_EXPORT, ncr_key_export, ncr_key_export);
 		case NCRIO_KEY_DEINIT:
 			return ncr_key_deinit(lst, arg);
-		case NCRIO_KEY_EXPORT:
-			return ncr_key_export(lst, arg);
 		case NCRIO_KEY_IMPORT:
 			return ncr_key_import(lst, arg);
 		case NCRIO_KEY_WRAP:
@@ -200,9 +199,31 @@ ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 }
 
 #ifdef CONFIG_COMPAT
+struct compat_ncr_key_export {
+	__u32 input_size, output_size;
+	ncr_key_t key;
+	compat_uptr_t buffer;
+	compat_int_t buffer_size;
+	__NL_ATTRIBUTES;
+};
+#define COMPAT_NCRIO_KEY_EXPORT _IOWR('c', 209, struct compat_ncr_key_export)
+
+static void convert_ncr_key_export(struct ncr_key_export *new,
+				   const struct compat_ncr_key_export *old)
+{
+	new->key = old->key;
+	new->buffer = compat_ptr(old->buffer);
+	new->buffer_size = old->buffer_size;
+}
+
 long
 ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 {
+	void __user *arg = (void __user *)arg_;
+	struct nlattr *tb[NCR_ATTR_MAX + 1];
+	void *attr_buf;
+	int ret;
+
 	if (unlikely(!lst))
 		BUG();
 
@@ -213,8 +234,28 @@ ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 	case NCRIO_KEY_DERIVE:
 	case NCRIO_KEY_GET_INFO:
 		return ncr_ioctl(lst, cmd, arg_);
+
+#define CASE_NO_OUTPUT(LABEL, STRUCT, FUNCTION)				\
+	case (LABEL): {							\
+		struct compat_##STRUCT old;				\
+		struct STRUCT new;					\
+									\
+		attr_buf = NCR_GET_INPUT_ARGS_NO_OUTPUT(&old, tb, arg);	\
+		if (IS_ERR(attr_buf)) {					\
+			err();						\
+			return PTR_ERR(attr_buf);			\
+		}							\
+		convert_##STRUCT(&new, &old);				\
+		ret = (FUNCTION)(lst, &new, tb);			\
+		break;							\
+	}
+
+	CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_EXPORT, ncr_key_export, ncr_key_export);
 	default:
 		return -EINVAL;
+#undef CASE_NO_OUTPUT
 	}
+	kfree(attr_buf);
+	return ret;
 }
 #endif

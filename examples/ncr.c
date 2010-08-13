@@ -58,6 +58,7 @@ test_ncr_key(int cfd)
 	struct nlattr *nla;
 	ncr_key_t key;
 	struct ncr_key_data_st keydata;
+	struct ncr_key_export kexport;
 	uint8_t data[KEY_DATA_SIZE];
 	uint8_t data_bak[KEY_DATA_SIZE];
 	uint16_t *attr_p;
@@ -101,20 +102,14 @@ test_ncr_key(int cfd)
 	/* now try to read it */
 	fprintf(stdout, "\tKey export...\n");
 
-	memset(&keydata, 0, sizeof(keydata));
-	keydata.key = key;
-	keydata.idata = data;
-	keydata.idata_size = sizeof(data);
+	memset(&kexport, 0, sizeof(kexport));
+	kexport.key = key;
+	kexport.buffer = data;
+	kexport.buffer_size = sizeof(data);
 
-	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+	if (ioctl(cfd, NCRIO_KEY_EXPORT, &kexport) != sizeof(data)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_IMPORT)");
-		return 1;
-	}
-	
-	if (keydata.idata_size !=  sizeof(data)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		fprintf(stderr, "data returned but differ!\n");
+		perror("ioctl(NCRIO_KEY_EXPORT)");
 		return 1;
 	}
 
@@ -165,18 +160,18 @@ test_ncr_key(int cfd)
 
 	memset(data, 0, sizeof(data));
 
-	memset(&keydata, 0, sizeof(keydata));
-	keydata.key = key;
-	keydata.idata = data;
-	keydata.idata_size = sizeof(data);
+	memset(&kexport, 0, sizeof(kexport));
+	kexport.key = key;
+	kexport.buffer = data;
+	kexport.buffer_size = sizeof(data);
 
-	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+	if (ioctl(cfd, NCRIO_KEY_EXPORT, &kexport) != sizeof(data)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_IMPORT)");
+		perror("ioctl(NCRIO_KEY_EXPORT)");
 		return 1;
 	}
 
-	if (keydata.idata_size == 0 || (data[0] == 0 && data[1] == 0 && data[2] == 0 && data[4] == 0)) {
+	if (data[0] == 0 && data[1] == 0 && data[2] == 0 && data[4] == 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		fprintf(stderr, "Generated key: %.2x.%.2x.%.2x.%.2x.%.2x.%.2x.%.2x.%.2x."
 			"%.2x.%.2x.%.2x.%.2x.%.2x.%.2x.%.2x.%.2x\n", data[0], data[1],
@@ -296,14 +291,14 @@ test_ncr_key(int cfd)
 
 	memset(data, 0, sizeof(data));
 
-	memset(&keydata, 0, sizeof(keydata));
-	keydata.key = key;
-	keydata.idata = data;
-	keydata.idata_size = sizeof(data);
+	memset(&kexport, 0, sizeof(kexport));
+	kexport.key = key;
+	kexport.buffer = data;
+	kexport.buffer_size = sizeof(data);
 
 	/* try to get the output data - should fail */
 
-	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)==0) {
+	if (ioctl(cfd, NCRIO_KEY_EXPORT, &kexport) >= 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		fprintf(stderr, "Data were exported, but shouldn't be!\n");
 		return 1;
@@ -580,6 +575,7 @@ test_ncr_store_wrap_key(int cfd)
 	int i;
 	ncr_key_t key2;
 	struct ncr_key_data_st keydata;
+	struct ncr_key_export kexport;
 	struct ncr_key_storage_wrap_st kwrap;
 	uint8_t data[DATA_SIZE];
 	int data_size;
@@ -659,20 +655,19 @@ test_ncr_store_wrap_key(int cfd)
 	}
 
 	/* now export the unwrapped */
-	memset(&keydata, 0, sizeof(keydata));
-	keydata.key = key2;
-	keydata.idata = data;
-	keydata.idata_size = sizeof(data);
+	memset(&kexport, 0, sizeof(kexport));
+	kexport.key = key2;
+	kexport.buffer = data;
+	kexport.buffer_size = sizeof(data);
 
-	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+	data_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
+	if (data_size != 16) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_IMPORT)");
+		perror("ioctl(NCRIO_KEY_EXPORT)");
 		return 1;
 	}
-	
-	data_size = keydata.idata_size;
 
-	if (data_size != 16 || memcmp(data, DKEY, 16) != 0) {
+	if (memcmp(data, DKEY, 16) != 0) {
 		fprintf(stderr, "Unwrapped data do not match.\n");
 		fprintf(stderr, "Data[%d]: ", (int) data_size);
 		for(i=0;i<data_size;i++)

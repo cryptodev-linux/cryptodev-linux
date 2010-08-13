@@ -210,23 +210,20 @@ int ncr_key_deinit(struct ncr_lists *lst, void __user* arg)
 	return 0;
 }
 
-/* "exports" a key to a data item. If the key is not exportable
- * to userspace then the data item will also not be.
- */
-int ncr_key_export(struct ncr_lists *lst, void __user* arg)
+int ncr_key_export(struct ncr_lists *lst, const struct ncr_key_export *data,
+		   struct nlattr *tb[])
 {
-struct ncr_key_data_st data;
 struct key_item_st* item = NULL;
 void* tmp = NULL;
 uint32_t tmp_size;
 int ret;
 
-	if (unlikely(copy_from_user(&data, arg, sizeof(data)))) {
+	if (data->buffer_size < 0) {
 		err();
-		return -EFAULT;
+		return -EINVAL;
 	}
 
-	ret = ncr_key_item_get_read( &item, lst, data.key);
+	ret = ncr_key_item_get_read(&item, lst, data->key);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -240,15 +237,15 @@ int ret;
 
 	switch (item->type) {
 		case NCR_KEY_TYPE_SECRET:
-			if (item->key.secret.size > data.idata_size) {
+			if (item->key.secret.size > data->buffer_size) {
 				err();
-				ret = -EINVAL;
+				ret = -ERANGE;
 				goto fail;
 			}
 
 			/* found */
 			if (item->key.secret.size > 0) {
-				ret = copy_to_user(data.idata, item->key.secret.data, item->key.secret.size);
+				ret = copy_to_user(data->buffer, item->key.secret.data, item->key.secret.size);
 				if (unlikely(ret)) {
 					err();
 					ret = -EFAULT;
@@ -256,11 +253,11 @@ int ret;
 				}
 			}
 
-			data.idata_size = item->key.secret.size;
+			ret = item->key.secret.size;
 			break;
 		case NCR_KEY_TYPE_PUBLIC:
 		case NCR_KEY_TYPE_PRIVATE:
-			tmp_size = data.idata_size;
+			tmp_size = data->buffer_size;
 			
 			tmp = kmalloc(tmp_size, GFP_KERNEL);
 			if (tmp == NULL) {
@@ -270,32 +267,25 @@ int ret;
 			}
 
 			ret = ncr_pk_pack(item, tmp, &tmp_size);
-			data.idata_size = tmp_size;
-			
 			if (ret < 0) {
 				err();
 				goto fail;
 			}
 
-			ret = copy_to_user(data.idata, tmp, tmp_size);
+			ret = copy_to_user(data->buffer, tmp, tmp_size);
 			if (unlikely(ret)) {
 				err();
 				ret = -EFAULT;
 				goto fail;
 			}
 			
+			ret = tmp_size;
 			break;
 		default:
 			err();
 			ret = -EINVAL;
 			goto fail;
 	}
-
-	if (unlikely(copy_to_user(arg, &data, sizeof(data)))) {
-		err();
-		ret = -EFAULT;
-	} else
-		ret = 0;
 
 fail:
 	kfree(tmp);

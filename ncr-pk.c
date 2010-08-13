@@ -37,7 +37,7 @@ int _ncr_tomerr(int err)
 {
 	switch (err) {
 		case CRYPT_BUFFER_OVERFLOW:
-			return -EOVERFLOW;
+			return -ERANGE;
 		case CRYPT_MEM:
 			return -ENOMEM;
 		default:

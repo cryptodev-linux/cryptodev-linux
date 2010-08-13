@@ -327,8 +327,8 @@ int ret;
 gnutls_datum g, p, params;
 gnutls_dh_params_t dhp;
 unsigned char y1[1024], y2[1024];
-size_t y1_size, y2_size;
-struct ncr_key_data_st keydata;
+ssize_t y1_size, y2_size;
+struct ncr_key_export kexport;
 struct __attribute__((packed)) {
 	struct ncr_key_derive f;
 	struct nlattr algo_head ALIGN_NL;
@@ -451,32 +451,30 @@ struct __attribute__((packed)) {
 	}
 
 	/* export y1=g^x1 */
-	memset(&keydata, 0, sizeof(keydata));
-	keydata.key = public1;
-	keydata.idata = y1;
-	keydata.idata_size = sizeof(y1);
+	memset(&kexport, 0, sizeof(kexport));
+	kexport.key = public1;
+	kexport.buffer = y1;
+	kexport.buffer_size = sizeof(y1);
 
-	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+	y1_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
+	if (y1_size < 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_EXPORT)");
 		return 1;
 	}
-	
-	y1_size = keydata.idata_size;
 
 	/* export y2=g^x2 */
-	memset(&keydata, 0, sizeof(keydata));
-	keydata.key = public2;
-	keydata.idata = y2;
-	keydata.idata_size = sizeof(y2);
+	memset(&kexport, 0, sizeof(kexport));
+	kexport.key = public2;
+	kexport.buffer = y2;
+	kexport.buffer_size = sizeof(y2);
 
-	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+	y2_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
+	if (y2_size < 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_EXPORT)");
 		return 1;
 	}
-	
-	y2_size = keydata.idata_size;
 	
 	/* z1=y1^x2 */
 	z1 = ioctl(cfd, NCRIO_KEY_INIT);
@@ -541,29 +539,29 @@ struct __attribute__((packed)) {
 	}
 	
 	/* z1==z2 */
-	memset(&keydata, 0, sizeof(keydata));
-	keydata.key = z1;
-	keydata.idata = y1;
-	keydata.idata_size = sizeof(y1);
+	memset(&kexport, 0, sizeof(kexport));
+	kexport.key = z1;
+	kexport.buffer = y1;
+	kexport.buffer_size = sizeof(y1);
 
-	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+	y1_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
+	if (y1_size < 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_EXPORT)");
 		return 1;
 	}
-	y1_size = keydata.idata_size;
 
-	memset(&keydata, 0, sizeof(keydata));
-	keydata.key = z2;
-	keydata.idata = y2;
-	keydata.idata_size = sizeof(y2);
+	memset(&kexport, 0, sizeof(kexport));
+	kexport.key = z2;
+	kexport.buffer = y2;
+	kexport.buffer_size = sizeof(y2);
 
-	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+	y2_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
+	if (y2_size < 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_EXPORT)");
 		return 1;
 	}
-	y2_size = keydata.idata_size;
 	
 	if (y1_size == 0 || y1_size != y2_size || memcmp(y1, y2, y1_size) != 0) {
 		int i;
@@ -971,7 +969,7 @@ static int test_ncr_rsa(int cfd)
 		uint32_t bits ALIGN_NL;
 	} kgen;
 	ncr_key_t pubkey, privkey;
-	struct ncr_key_data_st keydata;
+	struct ncr_key_export kexport;
 	uint8_t data[DATA_SIZE];
 	int data_size;
 
@@ -1015,18 +1013,17 @@ static int test_ncr_rsa(int cfd)
 
 	/* export the private key */
 	memset(data, 0, sizeof(data));
-	memset(&keydata, 0, sizeof(keydata));
-	keydata.key = privkey;
-	keydata.idata = data;
-	keydata.idata_size = sizeof(data);
+	memset(&kexport, 0, sizeof(kexport));
+	kexport.key = privkey;
+	kexport.buffer = data;
+	kexport.buffer_size = sizeof(data);
 
-	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+	data_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
+	if (data_size < 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_EXPORT)");
 		return 1;
 	}
-	
-	data_size = keydata.idata_size;
 
 	ret = privkey_info(data, data_size, 0);
 	if (ret != 0) {
@@ -1037,18 +1034,17 @@ static int test_ncr_rsa(int cfd)
 	/* export the public key */
 
 	memset(data, 0, sizeof(data));
-	memset(&keydata, 0, sizeof(keydata));
-	keydata.key = pubkey;
-	keydata.idata = data;
-	keydata.idata_size = sizeof(data);
+	memset(&kexport, 0, sizeof(kexport));
+	kexport.key = pubkey;
+	kexport.buffer = data;
+	kexport.buffer_size = sizeof(data);
 
-	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+	data_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
+	if (data_size < 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_IMPORT)");
+		perror("ioctl(NCRIO_KEY_EXPORT)");
 		return 1;
 	}
-	
-	data_size = keydata.idata_size;
 
 	ret = pubkey_info(data, data_size, 0);
 	if (ret != 0) {
@@ -1101,7 +1097,7 @@ static int test_ncr_dsa(int cfd)
 		uint32_t p_bits ALIGN_NL;
 	} kgen;
 	ncr_key_t pubkey, privkey;
-	struct ncr_key_data_st keydata;
+	struct ncr_key_export kexport;
 	uint8_t data[DATA_SIZE];
 	int data_size;
 
@@ -1146,18 +1142,18 @@ static int test_ncr_dsa(int cfd)
 		return 1;
 	}
 
-	memset(&keydata, 0, sizeof(keydata));
 	memset(data, 0, sizeof(data));
-	keydata.key = privkey;
-	keydata.idata = data;
-	keydata.idata_size = sizeof(data);
+	memset(&kexport, 0, sizeof(kexport));
+	kexport.key = privkey;
+	kexport.buffer = data;
+	kexport.buffer_size = sizeof(data);
 
-	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+	data_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
+	if (data_size < 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_EXPORT)");
 		return 1;
 	}
-	data_size = keydata.idata_size;
 
 	ret = privkey_info(data, data_size, 0);
 	if (ret != 0) {
@@ -1168,18 +1164,17 @@ static int test_ncr_dsa(int cfd)
 	/* export the public key */
 
 	memset(data, 0, sizeof(data));
-	memset(&keydata, 0, sizeof(keydata));
-	keydata.key = pubkey;
-	keydata.idata = data;
-	keydata.idata_size = sizeof(data);
+	memset(&kexport, 0, sizeof(kexport));
+	kexport.key = pubkey;
+	kexport.buffer = data;
+	kexport.buffer_size = sizeof(data);
 
-	if (ioctl(cfd, NCRIO_KEY_EXPORT, &keydata)) {
+	data_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
+	if (data_size < 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_IMPORT)");
+		perror("ioctl(NCRIO_KEY_EXPORT)");
 		return 1;
 	}
-	
-	data_size = keydata.idata_size;
 
 	ret = pubkey_info(data, data_size, 0);
 	if (ret != 0) {

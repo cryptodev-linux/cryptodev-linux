@@ -196,6 +196,14 @@ struct ncr_key_data_st {
 	ncr_algorithm_t algorithm; /* valid for public/private keys */
 };
 
+struct ncr_key_export {
+	__u32 input_size, output_size;
+	ncr_key_t key;
+	void __user *buffer;
+	int buffer_size;
+	__NL_ATTRIBUTES;
+};
+
 #define NCRIO_KEY_INIT			_IO('c', 204)
 /* generate a secret key */
 #define NCRIO_KEY_GENERATE     	_IOWR('c', 205, struct ncr_key_generate)
@@ -207,7 +215,7 @@ struct ncr_key_data_st {
 #define NCRIO_KEY_GET_INFO      _IOWR('c', 208, struct ncr_key_get_info)
 
 /* export a secret key */
-#define NCRIO_KEY_EXPORT       	_IOWR('c', 209, struct ncr_key_data_st)
+#define NCRIO_KEY_EXPORT       	_IOWR('c', 209, struct ncr_key_export)
 /* import a secret key */
 #define NCRIO_KEY_IMPORT       	_IOWR('c', 210, struct ncr_key_data_st)
 
