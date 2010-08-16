@@ -843,8 +843,18 @@ test_ncr_aes(int cfd)
 	} kimport;
 	uint8_t data[KEY_DATA_SIZE];
 	int i, j;
-	struct ncr_session_once_op_st nop;
-	int data_size;
+	struct __attribute__((packed)) {
+		struct ncr_session_once f;
+		struct nlattr algo_head ALIGN_NL;
+		uint32_t algo ALIGN_NL;
+		struct nlattr key_head ALIGN_NL;
+		uint32_t key ALIGN_NL;
+		struct nlattr input_head ALIGN_NL;
+		struct ncr_session_input_data input ALIGN_NL;
+		struct nlattr output_head ALIGN_NL;
+		struct ncr_session_output_buffer output ALIGN_NL;
+	} op;
+	size_t data_size;
 
 	/* convert it to key */
 	key = ioctl(cfd, NCRIO_KEY_INIT);
@@ -881,23 +891,30 @@ test_ncr_aes(int cfd)
 		}
 
 		/* encrypt */
-		memset(&nop, 0, sizeof(nop));
-		nop.init.algorithm = NCR_ALG_AES_ECB;
-		nop.init.key = key;
-		nop.init.op = NCR_OP_ENCRYPT;
-		nop.op.data.udata.input = (void*)aes_vectors[i].plaintext;
-		nop.op.data.udata.input_size = 16;
-		nop.op.data.udata.output = data;
-		nop.op.data.udata.output_size = sizeof(data);
-		nop.op.type = NCR_DIRECT_DATA;
+		memset(&op.f, 0, sizeof(op.f));
+		op.f.input_size = sizeof(op);
+		op.f.op = NCR_OP_ENCRYPT;
+		op.algo_head.nla_len = NLA_HDRLEN + sizeof(op.algo);
+		op.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+		op.algo = NCR_ALG_AES_ECB;
+		op.key_head.nla_len = NLA_HDRLEN + sizeof(op.key);
+		op.key_head.nla_type = NCR_ATTR_KEY;
+		op.key = key;
+		op.input_head.nla_len = NLA_HDRLEN + sizeof(op.input);
+		op.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
+		op.input.data = aes_vectors[i].plaintext;
+		op.input.data_size = 16;
+		op.output_head.nla_len = NLA_HDRLEN + sizeof(op.output);
+		op.output_head.nla_type = NCR_ATTR_UPDATE_OUTPUT_BUFFER;
+		op.output.buffer = data;
+		op.output.buffer_size = sizeof(data);
+		op.output.result_size_ptr = &data_size;
 
-		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
+		if (ioctl(cfd, NCRIO_SESSION_ONCE, &op)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 			perror("ioctl(NCRIO_SESSION_ONCE)");
 			return 1;
 		}
-
-		data_size = nop.op.data.udata.output_size;
 		/* verify */
 
 		if (data_size != 16 || memcmp(data, aes_vectors[i].ciphertext, 16) != 0) {
@@ -944,24 +961,30 @@ test_ncr_aes(int cfd)
 		}
 
 		/* decrypt */
-		memset(&nop, 0, sizeof(nop));
-		nop.init.algorithm = NCR_ALG_AES_ECB;
-		nop.init.key = key;
-		nop.init.op = NCR_OP_DECRYPT;
-		nop.op.data.udata.input = (void*)aes_vectors[i].ciphertext;
-		nop.op.data.udata.input_size = 16;
-		nop.op.data.udata.output = data;
-		nop.op.data.udata.output_size = sizeof(data);
-		nop.op.type = NCR_DIRECT_DATA;
+		memset(&op.f, 0, sizeof(op.f));
+		op.f.input_size = sizeof(op);
+		op.f.op = NCR_OP_DECRYPT;
+		op.algo_head.nla_len = NLA_HDRLEN + sizeof(op.algo);
+		op.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+		op.algo = NCR_ALG_AES_ECB;
+		op.key_head.nla_len = NLA_HDRLEN + sizeof(op.key);
+		op.key_head.nla_type = NCR_ATTR_KEY;
+		op.key = key;
+		op.input_head.nla_len = NLA_HDRLEN + sizeof(op.input);
+		op.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
+		op.input.data = aes_vectors[i].ciphertext;
+		op.input.data_size = 16;
+		op.output_head.nla_len = NLA_HDRLEN + sizeof(op.output);
+		op.output_head.nla_type = NCR_ATTR_UPDATE_OUTPUT_BUFFER;
+		op.output.buffer = data;
+		op.output.buffer_size = sizeof(data);
+		op.output.result_size_ptr = &data_size;
 
-		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
+		if (ioctl(cfd, NCRIO_SESSION_ONCE, &op)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 			perror("ioctl(NCRIO_SESSION_ONCE)");
 			return 1;
 		}
-		
-		data_size = nop.op.data.udata.output_size;
-
 
 		if (data_size != 16 || memcmp(data, aes_vectors[i].plaintext, 16) != 0) {
 			fprintf(stderr, "AES test vector %d failed!\n", i);
@@ -1084,8 +1107,19 @@ test_ncr_hash(int cfd)
 		uint32_t flags ALIGN_NL;
 	} kimport;
 	uint8_t data[HASH_DATA_SIZE];
-	int i, j, data_size;
-	struct ncr_session_once_op_st nop;
+	int i, j;
+	size_t data_size;
+	struct __attribute__((packed)) {
+		struct ncr_session_once f;
+		struct nlattr algo_head ALIGN_NL;
+		uint32_t algo ALIGN_NL;
+		struct nlattr key_head ALIGN_NL;
+		uint32_t key ALIGN_NL;
+		struct nlattr input_head ALIGN_NL;
+		struct ncr_session_input_data input ALIGN_NL;
+		struct nlattr output_head ALIGN_NL;
+		struct ncr_session_output_buffer output ALIGN_NL;
+	} op;
 
 	/* convert it to key */
 	key = ioctl(cfd, NCRIO_KEY_INIT);
@@ -1130,26 +1164,30 @@ test_ncr_hash(int cfd)
 			}
 		}
 
-		/* encrypt */
-		memset(&nop, 0, sizeof(nop));
-		nop.init.algorithm = hash_vectors[i].algorithm;
-		if (hash_vectors[i].key != NULL)
-			nop.init.key = key;
-		nop.init.op = hash_vectors[i].op;
-		nop.op.data.udata.input = (void*)hash_vectors[i].plaintext;
-		nop.op.data.udata.input_size = hash_vectors[i].plaintext_size;
-		nop.op.data.udata.output = data;
-		nop.op.data.udata.output_size = sizeof(data);
-		nop.op.type = NCR_DIRECT_DATA;
+		memset(&op.f, 0, sizeof(op.f));
+		op.f.input_size = sizeof(op);
+		op.f.op = hash_vectors[i].op;
+		op.algo_head.nla_len = NLA_HDRLEN + sizeof(op.algo);
+		op.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+		op.algo = hash_vectors[i].algorithm;
+		op.key_head.nla_len = NLA_HDRLEN + sizeof(op.key);
+		op.key_head.nla_type = NCR_ATTR_KEY;
+		op.key = hash_vectors[i].key != NULL ? key : NCR_KEY_INVALID;
+		op.input_head.nla_len = NLA_HDRLEN + sizeof(op.input);
+		op.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
+		op.input.data = hash_vectors[i].plaintext;
+		op.input.data_size = hash_vectors[i].plaintext_size;
+		op.output_head.nla_len = NLA_HDRLEN + sizeof(op.output);
+		op.output_head.nla_type = NCR_ATTR_FINAL_OUTPUT_BUFFER;
+		op.output.buffer = data;
+		op.output.buffer_size = sizeof(data);
+		op.output.result_size_ptr = &data_size;
 
-		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
+		if (ioctl(cfd, NCRIO_SESSION_ONCE, &op)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 			perror("ioctl(NCRIO_SESSION_ONCE)");
 			return 1;
 		}
-		
-		data_size = nop.op.data.udata.output_size;
-
 
 		if (data_size != hash_vectors[i].output_size ||
 			memcmp(data, hash_vectors[i].output, hash_vectors[i].output_size) != 0) {
@@ -1178,6 +1216,7 @@ static int
 test_ncr_hash_key(int cfd)
 {
 	ncr_key_t key;
+	ncr_session_t ses;
 	struct __attribute__((packed)) {
 		struct ncr_key_import f;
 		struct nlattr id_head ALIGN_NL;
@@ -1190,9 +1229,28 @@ test_ncr_hash_key(int cfd)
 		uint32_t flags ALIGN_NL;
 	} kimport;
 	uint8_t data[HASH_DATA_SIZE];
-	int j, data_size;
-	struct ncr_session_op_st op;
-	struct ncr_session_st op_init;
+	int j;
+	size_t data_size;
+	struct __attribute__((packed)) {
+		struct ncr_session_init f;
+		struct nlattr algo_head ALIGN_NL;
+		uint32_t algo ALIGN_NL;
+	} op_init;
+	struct __attribute__((packed)) {
+		struct ncr_session_update f;
+		struct nlattr data_head ALIGN_NL;
+		struct ncr_session_input_data data ALIGN_NL;
+	} op_up_data;
+	struct __attribute__((packed)) {
+		struct ncr_session_update f;
+		struct nlattr key_head ALIGN_NL;
+		uint32_t key;
+	} op_up_key;
+	struct __attribute__((packed)) {
+		struct ncr_session_final f;
+		struct nlattr output_head ALIGN_NL;
+		struct ncr_session_output_buffer output ALIGN_NL;
+	} op_final;
 	const uint8_t *output = (void*)"\xe2\xd7\x2c\x2e\x14\xad\x97\xc8\xd2\xdb\xce\xd8\xb3\x52\x9f\x1c\xb3\x2c\x5c\xec";
 
 	/* convert it to key */
@@ -1230,57 +1288,61 @@ test_ncr_hash_key(int cfd)
 		return 1;
 	}
 
-	/* encrypt */
-	memset(&op_init, 0, sizeof(op_init));
-	op_init.algorithm = hash_vectors[0].algorithm;
-	op_init.op = hash_vectors[0].op;
+	memset(&op_init.f, 0, sizeof(op_init.f));
+	op_init.f.input_size = sizeof(op_init);
+	op_init.f.op = hash_vectors[0].op;
+	op_init.algo_head.nla_len = NLA_HDRLEN + sizeof(op_init.algo);
+	op_init.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+	op_init.algo = hash_vectors[0].algorithm;
 
-	if (ioctl(cfd, NCRIO_SESSION_INIT, &op_init)) {
+	ses = ioctl(cfd, NCRIO_SESSION_INIT, &op_init);
+	if (ses < 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_SESSION_INIT)");
 		return 1;
 	}
 
-	memset(&op, 0, sizeof(op));
-	op.ses = op_init.ses;
-	op.data.udata.input = (void*)hash_vectors[0].plaintext;
-	op.data.udata.input_size = hash_vectors[0].plaintext_size;
-	op.data.udata.output = NULL;
-	op.data.udata.output_size = 0;
-	op.type = NCR_DIRECT_DATA;
+	memset(&op_up_data.f, 0, sizeof(op_up_data.f));
+	op_up_data.f.input_size = sizeof(op_up_data);
+	op_up_data.f.ses = ses;
+	op_up_data.data_head.nla_len = NLA_HDRLEN + sizeof(op_up_data.data);
+	op_up_data.data_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
+	op_up_data.data.data = hash_vectors[0].plaintext;
+	op_up_data.data.data_size = hash_vectors[0].plaintext_size;
 
-	if (ioctl(cfd, NCRIO_SESSION_UPDATE, &op)) {
+	if (ioctl(cfd, NCRIO_SESSION_UPDATE, &op_up_data)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_SESSION_UPDATE)");
 		return 1;
 	}
 
-	memset(&op, 0, sizeof(op));
-	op.ses = op_init.ses;
-	op.data.kdata.input = key;
-	op.data.kdata.output = NULL;
-	op.data.kdata.output_size = 0;
-	op.type = NCR_KEY_DATA;
+	memset(&op_up_key.f, 0, sizeof(op_up_key.f));
+	op_up_key.f.input_size = sizeof(op_up_key);
+	op_up_key.f.ses = ses;
+	op_up_key.key_head.nla_len = NLA_HDRLEN + sizeof(op_up_key.key);
+	op_up_key.key_head.nla_type = NCR_ATTR_UPDATE_INPUT_KEY_AS_DATA;
+	op_up_key.key = key;
 
-	if (ioctl(cfd, NCRIO_SESSION_UPDATE, &op)) {
+	if (ioctl(cfd, NCRIO_SESSION_UPDATE, &op_up_key)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_SESSION_UPDATE)");
 		return 1;
 	}
 
-	op.data.udata.input = NULL;
-	op.data.udata.input_size = 0;
-	op.data.udata.output = data;
-	op.data.udata.output_size = sizeof(data);
-	op.type = NCR_DIRECT_DATA;
+	memset(&op_final.f, 0, sizeof(op_final.f));
+	op_final.f.input_size = sizeof(op_final);
+	op_final.f.ses = ses;
+	op_final.output_head.nla_len = NLA_HDRLEN + sizeof(op_final.output);
+	op_final.output_head.nla_type = NCR_ATTR_FINAL_OUTPUT_BUFFER;
+	op_final.output.buffer = data;
+	op_final.output.buffer_size = sizeof(data);
+	op_final.output.result_size_ptr = &data_size;
 
-	if (ioctl(cfd, NCRIO_SESSION_FINAL, &op)) {
+	if (ioctl(cfd, NCRIO_SESSION_FINAL, &op_final)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_SESSION_FINAL)");
 		return 1;
 	}		
-
-	data_size = op.data.udata.output_size;
 
 
 	if (data_size != hash_vectors[0].output_size ||

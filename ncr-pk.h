@@ -28,8 +28,9 @@ int ncr_pk_unpack( struct key_item_st * key, const void * packed, size_t packed_
 
 /* encryption/decryption */
 int ncr_pk_cipher_init(const struct algo_properties_st *algo,
-	struct ncr_pk_ctx* ctx, struct ncr_key_params_st* params,
-	struct key_item_st *key, const struct algo_properties_st *sign_hash);
+		       struct ncr_pk_ctx* ctx, struct nlattr *tb[],
+		       struct key_item_st *key,
+		       const struct algo_properties_st *sign_hash);
 void ncr_pk_cipher_deinit(struct ncr_pk_ctx* ctx);
 
 int ncr_pk_cipher_encrypt(const struct ncr_pk_ctx* ctx, 
@@ -40,13 +41,11 @@ int ncr_pk_cipher_decrypt(const struct ncr_pk_ctx* ctx,
  	const struct scatterlist* isg, unsigned int isg_cnt, size_t isg_size,
 	struct scatterlist *osg, unsigned int osg_cnt, size_t* osg_size);
 
-int ncr_pk_cipher_sign(const struct ncr_pk_ctx* ctx, 
-	const struct scatterlist* isg, unsigned int isg_cnt, size_t isg_size,
-	struct scatterlist *osg, unsigned int osg_cnt, size_t* osg_size);
+int ncr_pk_cipher_sign(const struct ncr_pk_ctx *ctx, const void *hash,
+		       size_t hash_size, void *sig, size_t *sig_size);
 	
-int ncr_pk_cipher_verify(const struct ncr_pk_ctx* ctx, 
-	const struct scatterlist* sign_sg, unsigned int sign_sg_cnt, size_t sign_sg_size,
-	const void* hash, size_t hash_size, ncr_error_t*  err);
+int ncr_pk_cipher_verify(const struct ncr_pk_ctx* ctx, const void *sig,
+			 size_t sig_size, const void *hash, size_t hash_size);
 
 int _ncr_tomerr(int err);
 

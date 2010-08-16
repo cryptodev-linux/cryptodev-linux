@@ -1,6 +1,7 @@
 #ifndef NCR_INT_H
 # define NCR_INT_H
 
+#include <linux/compat.h>
 #include <linux/idr.h>
 #include <linux/mutex.h>
 #include "ncr.h"
@@ -170,10 +171,18 @@ void _ncr_sessions_item_put( struct session_item_st* item);
 struct session_item_st* ncr_sessions_item_get(struct ncr_lists *lst, ncr_session_t desc);
 void ncr_sessions_list_deinit(struct ncr_lists *lst);
 
-int ncr_session_init(struct ncr_lists* lists, void __user* arg);
-int ncr_session_update(struct ncr_lists* lists, void __user* arg);
-int ncr_session_final(struct ncr_lists* lists, void __user* arg);
-int ncr_session_once(struct ncr_lists* lists, void __user* arg);
+int ncr_session_init(struct ncr_lists *lists,
+		     const struct ncr_session_init *session,
+		    struct nlattr *tb[]);
+int ncr_session_update(struct ncr_lists *lists,
+		       const struct ncr_session_update *op, struct nlattr *tb[],
+		       int compat);
+int ncr_session_final(struct ncr_lists *lists,
+		      const struct ncr_session_final *op, struct nlattr *tb[],
+		      int compat);
+int ncr_session_once(struct ncr_lists *lists,
+		     const struct ncr_session_once *once, struct nlattr *tb[],
+		     int compat);
 
 /* master key */
 extern struct key_item_st master_key;
@@ -189,7 +198,30 @@ int key_to_storage_data( uint8_t** data, size_t * data_size, const struct key_it
 
 const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo);
 const struct algo_properties_st *_ncr_nla_to_properties(const struct nlattr *nla);
-const struct algo_properties_st *ncr_key_params_get_sign_hash(const struct algo_properties_st *algo, struct ncr_key_params_st * params);
 int _ncr_key_get_sec_level(struct key_item_st* item);
+
+/* CONFIG_COMPAT handling */
+
+#ifdef CONFIG_COMPAT
+struct compat_ncr_session_input_data {
+	compat_uptr_t data;
+	compat_size_t data_size;
+};
+
+struct compat_ncr_session_output_buffer {
+	compat_uptr_t buffer;
+	compat_size_t buffer_size;
+	compat_uptr_t result_size_ptr;
+};
+#endif
+
+int ncr_session_input_data_from_nla(struct ncr_session_input_data *dest,
+				    const struct nlattr *nla, int compat);
+
+int ncr_session_output_buffer_from_nla(struct ncr_session_output_buffer *dest,
+				       const struct nlattr *nla, int compat);
+
+int ncr_session_output_buffer_set_size(const struct ncr_session_output_buffer *dest,
+				       size_t size, int compat);
 
 #endif

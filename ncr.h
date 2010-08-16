@@ -33,7 +33,16 @@ enum {
 	/* FIXME: Use NLA_STRING for this, later */
 	NCR_ATTR_ALGORITHM,	      /* NLA_U32 - ncr_algorithm_t */
 	NCR_ATTR_DERIVATION_ALGORITHM, /* NLA_U32 - ncr_algorithm_t */
+	NCR_ATTR_SIGNATURE_HASH_ALGORITHM, /* NLA_U32 - ncr_algorithm_t */
 	NCR_ATTR_WRAPPING_ALGORITHM,  /* NLA_U32 - ncr_wrap_algorithm_t */
+	NCR_ATTR_UPDATE_INPUT_DATA,   /* NLA_BINARY - ncr_session_input_data */
+	/* NLA_BINARY - ncr_session_output_buffer */
+	NCR_ATTR_UPDATE_OUTPUT_BUFFER,
+	NCR_ATTR_UPDATE_INPUT_KEY_AS_DATA, /* NLA_U32 - ncr_key_t */
+	NCR_ATTR_FINAL_INPUT_DATA,    /* NLA_BINARY - ncr_session_input_data */
+	/* NLA_BINARY - ncr_session_output_buffer */
+	NCR_ATTR_FINAL_OUTPUT_BUFFER,
+	NCR_ATTR_KEY,	              /* NLA_U32 - ncr_key_t */
 	NCR_ATTR_KEY_FLAGS,	      /* NLA_U32 - NCR_KEY_FLAG_* */
 	NCR_ATTR_KEY_ID,	      /* NLA_BINARY */
 	NCR_ATTR_KEY_TYPE,	      /* NLA_U32 - ncr_key_type_t */
@@ -41,6 +50,9 @@ enum {
 	NCR_ATTR_SECRET_KEY_BITS,     /* NLA_U32 */
 	NCR_ATTR_RSA_MODULUS_BITS,    /* NLA_U32 */
 	NCR_ATTR_RSA_E,		      /* NLA_BINARY */
+	NCR_ATTR_RSA_ENCODING_METHOD, /* NLA_U32 - ncr_rsa_type_t */
+	NCR_ATTR_RSA_OAEP_HASH_ALGORITHM, /* NLA_U32 - ncr_algorithm_t */
+	NCR_ATTR_RSA_PSS_SALT_LENGTH, /* NLA_U32 */
 	NCR_ATTR_DSA_P_BITS,	      /* NLA_U32 */
 	NCR_ATTR_DSA_Q_BITS,	      /* NLA_U32 */
 	NCR_ATTR_DH_PRIME,	      /* NLA_BINARY */
@@ -141,29 +153,6 @@ typedef enum {
 	RSA_PKCS1_OAEP, /* for encryption only */
 	RSA_PKCS1_PSS, /* for signatures only */
 } ncr_rsa_type_t;
-
-/* used in encryption
- */
-struct ncr_key_params_st {
-	/* this structure always corresponds to a key. Hence the
-	 * parameters of the union selected are based on the corresponding
-	 * key */
-	union {
-		struct {
-			__u8 iv[NCR_CIPHER_MAX_BLOCK_LEN];
-			__kernel_size_t iv_size;
-		} cipher;
-		struct {
-			ncr_rsa_type_t type;
-			ncr_algorithm_t oaep_hash; /* for OAEP */
-			ncr_algorithm_t sign_hash; /* for signatures */
-			unsigned int pss_salt; /* PSS signatures */
-		} rsa;
-		struct {
-			ncr_algorithm_t sign_hash; /* for signatures */
-		} dsa;
-	} params;
-};
 
 typedef enum {
 	NCR_DERIVE_DH=1,
@@ -283,65 +272,46 @@ typedef enum {
 typedef __s32 ncr_session_t;
 #define NCR_SESSION_INVALID ((ncr_session_t)-1)
 
-/* input of CIOCGSESSION */
-struct ncr_session_st {
-	/* input */
-	ncr_algorithm_t algorithm;
-
-	ncr_key_t key;
-	struct ncr_key_params_st params;
-	ncr_crypto_op_t op;
-
-	/* output */
-	ncr_session_t	ses;		/* session identifier */
+struct ncr_session_input_data {
+	const void __user *data;
+	__kernel_size_t data_size;
 };
 
-typedef enum {
-	NCR_SUCCESS = 0,
-	NCR_ERROR_GENERIC = -1,
-	NCR_VERIFICATION_FAILED = -2,
-} ncr_error_t;
+struct ncr_session_output_buffer {
+	void __user *buffer;
+	__kernel_size_t buffer_size;
+	__kernel_size_t __user *result_size_ptr;
+};
 
-typedef enum {
-	NCR_KEY_DATA,
-	NCR_DIRECT_DATA,
-} ncr_data_type_t;
+struct ncr_session_init {
+	__u32 input_size, output_size;
+	__u32 op;		/* ncr_crypto_op_t */
+	__NL_ATTRIBUTES;
+};
 
-struct ncr_session_op_st {
-	/* input */
+struct ncr_session_update {
+	__u32 input_size, output_size;
 	ncr_session_t ses;
-
-	union {
-		struct {
-			ncr_key_t input;
-			void __user * output;  /* when verifying signature this is
-					* the place of the signature.
-					*/
-			__kernel_size_t output_size;
-		} kdata; /* NCR_KEY_DATA */
-		struct {
-			void __user * input;
-			__kernel_size_t input_size;
-			void __user * output;
-			__kernel_size_t output_size;
-		} udata; /* NCR_DIRECT_DATA */
-	} data;
-	ncr_data_type_t type;
-
-	/* output of verification */
-	ncr_error_t err;
+	__NL_ATTRIBUTES;
 };
 
-struct ncr_session_once_op_st {
-	struct ncr_session_st init;
-	struct ncr_session_op_st op;
+struct ncr_session_final {
+	__u32 input_size, output_size;
+	ncr_session_t ses;
+	__NL_ATTRIBUTES;
 };
 
-#define NCRIO_SESSION_INIT        _IOR ('c', 300, struct ncr_session_st)
-#define NCRIO_SESSION_UPDATE        _IOWR ('c', 301, struct ncr_session_op_st)
-#define NCRIO_SESSION_FINAL        _IOWR ('c', 302, struct ncr_session_op_st)
+struct ncr_session_once {
+	__u32 input_size, output_size;
+	ncr_crypto_op_t op;
+	__NL_ATTRIBUTES;
+};
+
+#define NCRIO_SESSION_INIT        _IOWR('c', 300, struct ncr_session_init)
+#define NCRIO_SESSION_UPDATE        _IOWR('c', 301, struct ncr_session_update)
+#define NCRIO_SESSION_FINAL        _IOWR('c', 302, struct ncr_session_final)
 
 /* everything in one call */
-#define NCRIO_SESSION_ONCE        _IOWR ('c', 303, struct ncr_session_once_op_st)
+#define NCRIO_SESSION_ONCE        _IOWR('c', 303, struct ncr_session_once)
 
 #endif

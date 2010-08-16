@@ -28,10 +28,44 @@
 #include "ncr-int.h"
 #include "utils.h"
 
+#ifdef CONFIG_COMPAT
+/* max() is too clever for compile-time constants */
+#define CONST_MAX(A, B) ((A) > (B) ? (A) : (B))
+
+#define MAX_SESSION_INPUT_DATA_SIZE					\
+	(CONST_MAX(sizeof(struct ncr_session_input_data),		\
+		   sizeof(struct compat_ncr_session_input_data)))
+#define MAX_SESSION_OUTPUT_BUFFER_SIZE					\
+	(CONST_MAX(sizeof(struct ncr_session_output_buffer),		\
+		   sizeof(struct compat_ncr_session_output_buffer)))
+
+#else /* !CONFIG_COMPAT */
+
+#define MAX_SESSION_INPUT_DATA_SIZE (sizeof(struct ncr_session_input_data))
+#define MAX_SESSION_OUTPUT_BUFFER_SIZE			\
+	(sizeof(struct ncr_session_output_buffer))
+
+#endif /* !CONFIG_COMPAT */
+
 static const struct nla_policy ncr_attr_policy[NCR_ATTR_MAX + 1] = {
 	[NCR_ATTR_ALGORITHM] = { NLA_U32, 0 },
 	[NCR_ATTR_DERIVATION_ALGORITHM] = { NLA_U32, 0 },
+	[NCR_ATTR_SIGNATURE_HASH_ALGORITHM] = { NLA_U32, 0 },
 	[NCR_ATTR_WRAPPING_ALGORITHM] = { NLA_U32, 0 },
+	[NCR_ATTR_UPDATE_INPUT_DATA] = {
+		NLA_BINARY, MAX_SESSION_INPUT_DATA_SIZE
+	},
+	[NCR_ATTR_UPDATE_OUTPUT_BUFFER] = {
+		NLA_BINARY, MAX_SESSION_OUTPUT_BUFFER_SIZE
+	},
+	[NCR_ATTR_UPDATE_INPUT_KEY_AS_DATA] = { NLA_U32, 0 },
+	[NCR_ATTR_FINAL_INPUT_DATA] = {
+		NLA_BINARY, MAX_SESSION_INPUT_DATA_SIZE
+	},
+	[NCR_ATTR_FINAL_OUTPUT_BUFFER] = {
+		NLA_BINARY, MAX_SESSION_OUTPUT_BUFFER_SIZE
+	},
+	[NCR_ATTR_KEY] = { NLA_U32, 0 },
 	[NCR_ATTR_KEY_FLAGS] = { NLA_U32, 0 },
 	[NCR_ATTR_KEY_ID] = { NLA_BINARY, 0 },
 	[NCR_ATTR_KEY_TYPE] = { NLA_U32, 0 },
@@ -39,6 +73,9 @@ static const struct nla_policy ncr_attr_policy[NCR_ATTR_MAX + 1] = {
 	[NCR_ATTR_SECRET_KEY_BITS] = { NLA_U32, 0 },
 	[NCR_ATTR_RSA_MODULUS_BITS] = { NLA_U32, 0 },
 	[NCR_ATTR_RSA_E] = { NLA_BINARY, 0 },
+	[NCR_ATTR_RSA_ENCODING_METHOD] = { NLA_U32, 0 },
+	[NCR_ATTR_RSA_OAEP_HASH_ALGORITHM] = { NLA_U32, 0 },
+	[NCR_ATTR_RSA_PSS_SALT_LENGTH] = { NLA_U32, 0 },
 	[NCR_ATTR_DSA_P_BITS] = { NLA_U32, 0 },
 	[NCR_ATTR_DSA_Q_BITS] = { NLA_U32, 0 },
 	[NCR_ATTR_DH_PRIME] = { NLA_BINARY, 0 },

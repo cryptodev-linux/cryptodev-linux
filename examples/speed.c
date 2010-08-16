@@ -88,7 +88,18 @@ int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 		struct nlattr bits_head ALIGN_NL;
 		uint32_t bits ALIGN_NL;
 	} kgen;
-	struct ncr_session_once_op_st nop;
+	struct __attribute__((packed)) {
+		struct ncr_session_once f;
+		struct nlattr algo_head ALIGN_NL;
+		uint32_t algo ALIGN_NL;
+		struct nlattr key_head ALIGN_NL;
+		uint32_t key ALIGN_NL;
+		struct nlattr input_head ALIGN_NL;
+		struct ncr_session_input_data input ALIGN_NL;
+		struct nlattr output_head ALIGN_NL;
+		struct ncr_session_output_buffer output ALIGN_NL;
+		struct nlattr iv_head ALIGN_NL;
+	} op;
 
 	key = ioctl(cfd, NCRIO_KEY_INIT);
 	if (key == -1) {
@@ -127,17 +138,30 @@ int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 
 	gettimeofday(&start, NULL);
 	do {
-		memset(&nop, 0, sizeof(nop));
-		nop.init.algorithm = algo;
-		nop.init.key = key;
-		nop.init.op = NCR_OP_ENCRYPT;
-		nop.op.data.udata.input = buffer;
-		nop.op.data.udata.input_size = chunksize;
-		nop.op.data.udata.output = buffer;
-		nop.op.data.udata.output_size = chunksize;
-		nop.op.type = NCR_DIRECT_DATA;
+		size_t output_size;
 
-		if (ioctl(cfd, NCRIO_SESSION_ONCE, &nop)) {
+		memset(&op.f, 0, sizeof(op.f));
+		op.f.input_size = sizeof(op);
+		op.f.op = NCR_OP_ENCRYPT;
+		op.algo_head.nla_len = NLA_HDRLEN + sizeof(op.algo);
+		op.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+		op.algo = algo;
+		op.key_head.nla_len = NLA_HDRLEN + sizeof(op.key);
+		op.key_head.nla_type = NCR_ATTR_KEY;
+		op.key = key;
+		op.input_head.nla_len = NLA_HDRLEN + sizeof(op.input);
+		op.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
+		op.input.data = buffer;
+		op.input.data_size = chunksize;
+		op.output_head.nla_len = NLA_HDRLEN + sizeof(op.output);
+		op.output_head.nla_type = NCR_ATTR_UPDATE_OUTPUT_BUFFER;
+		op.output.buffer = buffer;
+		op.output.buffer_size = chunksize;
+		op.output.result_size_ptr = &output_size;
+		op.iv_head.nla_len = NLA_HDRLEN + 0;
+		op.iv_head.nla_type = NCR_ATTR_IV;
+
+		if (ioctl(cfd, NCRIO_SESSION_ONCE, &op)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 			perror("ioctl(NCRIO_SESSION_ONCE)");
 			return 1;
