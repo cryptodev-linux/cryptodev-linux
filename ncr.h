@@ -251,6 +251,14 @@ struct ncr_master_key_st {
 
 /* These are similar to key_wrap and unwrap except that will store some extra
  * fields to be able to recover a key */
+struct ncr_key_storage_wrap {
+	__u32 input_size, output_size;
+	ncr_key_t key;
+	void __user *buffer;
+	int buffer_size;
+	__NL_ATTRIBUTES;
+};
+
 struct ncr_key_storage_wrap_st {
 	ncr_key_t keytowrap;
 
@@ -259,7 +267,7 @@ struct ncr_key_storage_wrap_st {
 	__kernel_size_t io_size;
 };
 
-#define NCRIO_KEY_STORAGE_WRAP        _IOWR ('c', 261, struct ncr_key_storage_wrap_st)
+#define NCRIO_KEY_STORAGE_WRAP        _IOWR('c', 261, struct ncr_key_storage_wrap)
 #define NCRIO_KEY_STORAGE_UNWRAP        _IOR ('c', 262, struct ncr_key_storage_wrap_st)
 
 /* Crypto Operations ioctls

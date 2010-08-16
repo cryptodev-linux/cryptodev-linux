@@ -157,7 +157,9 @@ int ncr_key_wrap(struct ncr_lists *lst, const struct ncr_key_wrap *wrap,
 		 struct nlattr *tb[]);
 int ncr_key_unwrap(struct ncr_lists *lst, const struct ncr_key_unwrap *wrap,
 		   struct nlattr *tb[]);
-int ncr_key_storage_wrap(struct ncr_lists *lst, void __user* arg);
+int ncr_key_storage_wrap(struct ncr_lists *lst,
+			 const struct ncr_key_storage_wrap *wrap,
+			 struct nlattr *tb[]);
 int ncr_key_storage_unwrap(struct ncr_lists *lst, void __user* arg);
 
 /* sessions */

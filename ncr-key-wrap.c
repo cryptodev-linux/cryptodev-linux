@@ -700,9 +700,10 @@ fail:
 	return ret;
 }
 
-int ncr_key_storage_wrap(struct ncr_lists *lst, void __user* arg)
+int ncr_key_storage_wrap(struct ncr_lists *lst,
+			 const struct ncr_key_storage_wrap *wrap,
+			 struct nlattr *tb[])
 {
-struct ncr_key_storage_wrap_st wrap;
 struct key_item_st* wkey = NULL;
 void* data = NULL;
 size_t data_size;
@@ -715,18 +716,18 @@ int ret;
 		return -ENOKEY;
 	}
 
-	if (unlikely(copy_from_user(&wrap, arg, sizeof(wrap)))) {
+	if (wrap->buffer_size < 0) {
 		err();
-		return -EFAULT;
+		return -EINVAL;
 	}
 
-	ret = ncr_key_item_get_read( &wkey, lst, wrap.keytowrap);
+	ret = ncr_key_item_get_read(&wkey, lst, wrap->key);
 	if (ret < 0) {
 		err();
 		return ret;
 	}
 
-	data_size = wrap.io_size;
+	data_size = wrap->buffer_size;
 	data = kmalloc(data_size, GFP_KERNEL);
 	if (data == NULL) {
 		err();
@@ -746,18 +747,13 @@ int ret;
 		goto fail;
 	}
 
-	ret = copy_to_user(wrap.io, data, data_size);
+	ret = copy_to_user(wrap->buffer, data, data_size);
 	if (unlikely(ret)) {
 		ret = -EFAULT;
 		goto fail;
 	}
 
-	wrap.io_size = data_size;
-
-	ret = copy_to_user(arg, &wrap, sizeof(wrap));
-	if (unlikely(ret)) {
-		ret = -EFAULT;
-	}
+	ret = data_size;
 
 fail:
 	if (wkey != NULL) _ncr_key_item_put(wkey);
