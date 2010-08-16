@@ -681,7 +681,7 @@ test_ncr_store_wrap_key(int cfd)
 	} kimport;
 	struct ncr_key_export kexport;
 	struct ncr_key_storage_wrap kwrap;
-	struct ncr_key_storage_wrap_st kunwrap;
+	struct ncr_key_storage_unwrap kunwrap;
 	uint8_t data[DATA_SIZE];
 	int data_size;
 
@@ -757,9 +757,9 @@ test_ncr_store_wrap_key(int cfd)
 	}
 
 	memset(&kunwrap, 0, sizeof(kunwrap));
-	kunwrap.keytowrap = key2;
-	kunwrap.io = data;
-	kunwrap.io_size = data_size;
+	kunwrap.key = key2;
+	kunwrap.data = data;
+	kunwrap.data_size = data_size;
 
 	if (ioctl(cfd, NCRIO_KEY_STORAGE_UNWRAP, &kunwrap)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);

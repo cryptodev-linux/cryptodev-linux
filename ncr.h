@@ -259,16 +259,16 @@ struct ncr_key_storage_wrap {
 	__NL_ATTRIBUTES;
 };
 
-struct ncr_key_storage_wrap_st {
-	ncr_key_t keytowrap;
-
-	void __user * io; /* encrypted keytowrap */
-	/* this will be updated by the actual size on wrap */
-	__kernel_size_t io_size;
+struct ncr_key_storage_unwrap {
+	__u32 input_size, output_size;
+	ncr_key_t key;
+	const void __user *data;
+	__u32 data_size;
+	__NL_ATTRIBUTES;
 };
 
 #define NCRIO_KEY_STORAGE_WRAP        _IOWR('c', 261, struct ncr_key_storage_wrap)
-#define NCRIO_KEY_STORAGE_UNWRAP        _IOR ('c', 262, struct ncr_key_storage_wrap_st)
+#define NCRIO_KEY_STORAGE_UNWRAP        _IOWR('c', 262, struct ncr_key_storage_wrap)
 
 /* Crypto Operations ioctls
  */

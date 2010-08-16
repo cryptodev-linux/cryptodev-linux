@@ -763,12 +763,10 @@ fail:
 	return ret;
 }
 
-/* Unwraps keys. All keys unwrapped are not accessible by 
- * userspace.
- */
-int ncr_key_storage_unwrap(struct ncr_lists *lst, void __user* arg)
+int ncr_key_storage_unwrap(struct ncr_lists *lst,
+			   const struct ncr_key_storage_unwrap *wrap,
+			   struct nlattr *tb[])
 {
-struct ncr_key_storage_wrap_st wrap;
 struct key_item_st* wkey = NULL;
 void* data = NULL;
 uint8_t * sdata = NULL;
@@ -780,18 +778,13 @@ int ret;
 		return -ENOKEY;
 	}
 
-	if (unlikely(copy_from_user(&wrap, arg, sizeof(wrap)))) {
-		err();
-		return -EFAULT;
-	}
-
-	ret = ncr_key_item_get_write( &wkey, lst, wrap.keytowrap);
+	ret = ncr_key_item_get_write(&wkey, lst, wrap->key);
 	if (ret < 0) {
 		err();
 		return ret;
 	}
 
-	data_size = wrap.io_size;
+	data_size = wrap->data_size;
 	data = kmalloc(data_size, GFP_KERNEL);
 	if (data == NULL) {
 		err();
@@ -799,7 +792,7 @@ int ret;
 		goto fail;
 	}
 
-	if (unlikely(copy_from_user(data, wrap.io, data_size))) {
+	if (unlikely(copy_from_user(data, wrap->data, data_size))) {
 		err();
 		ret = -EFAULT;
 		goto fail;

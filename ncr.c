@@ -182,8 +182,8 @@ ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 	CASE_NO_OUTPUT(NCRIO_KEY_UNWRAP, ncr_key_unwrap, ncr_key_unwrap);
 	CASE_NO_OUTPUT(NCRIO_KEY_STORAGE_WRAP, ncr_key_storage_wrap,
 		       ncr_key_storage_wrap);
-		case NCRIO_KEY_STORAGE_UNWRAP:
-			return ncr_key_storage_unwrap(lst, arg);
+	CASE_NO_OUTPUT(NCRIO_KEY_STORAGE_UNWRAP, ncr_key_storage_unwrap,
+		       ncr_key_storage_unwrap);
 		case NCRIO_SESSION_INIT:
 			return ncr_session_init(lst, arg);
 		case NCRIO_SESSION_UPDATE:
@@ -294,6 +294,24 @@ static void convert_ncr_key_storage_wrap(struct ncr_key_storage_wrap *new,
 	new->buffer_size = old->buffer_size;
 }
 
+struct compat_ncr_key_storage_unwrap {
+	__u32 input_size, output_size;
+	ncr_key_t key;
+	compat_uptr_t data;
+	__u32 data_size;
+	__NL_ATTRIBUTES;
+};
+#define COMPAT_NCRIO_KEY_STORAGE_UNWRAP				\
+	_IOWR('c', 262, struct compat_ncr_key_storage_wrap)
+
+static void convert_ncr_key_storage_unwrap(struct ncr_key_storage_unwrap *new,
+					   const struct compat_ncr_key_storage_unwrap *old)
+{
+	new->key = old->key;
+	new->data = compat_ptr(old->data);
+	new->data_size = old->data_size;
+}
+
 long
 ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 {
@@ -335,6 +353,8 @@ ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 	CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_UNWRAP, ncr_key_unwrap, ncr_key_unwrap);
 	CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_STORAGE_WRAP, ncr_key_storage_wrap,
 		       ncr_key_storage_wrap);
+	CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_STORAGE_UNWRAP, ncr_key_storage_unwrap,
+		       ncr_key_storage_unwrap);
 	default:
 		return -EINVAL;
 #undef CASE_NO_OUTPUT
