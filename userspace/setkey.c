@@ -23,7 +23,7 @@ int main(int argc, char** argv)
 {
 	int fd = -1;
 	FILE* fp;
-	struct ncr_master_key_st key;
+	struct ncr_master_key_set key;
 	int size, ret;
 	struct stat st;
 	uint8_t rawkey[32];

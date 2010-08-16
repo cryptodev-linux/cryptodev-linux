@@ -77,26 +77,20 @@ void ncr_master_key_reset(void)
 	memset(&master_key, 0, sizeof(master_key));
 }
 
-static int ncr_master_key_set(void __user *arg)
+static int ncr_master_key_set(const struct ncr_master_key_set *st,
+			      struct nlattr *tb[])
 {
-struct ncr_master_key_st st;
-
 	if (current_euid() != 0 && !capable(CAP_SYS_ADMIN)) {
 		err();
 		return -EPERM;
 	}
 
-	if (unlikely(copy_from_user(&st, arg, sizeof(st)))) {
-		err();
-		return -EFAULT;
-	}
-
-	if (st.key_size > sizeof(master_key.key.secret.data)) {
+	if (st->key_size > sizeof(master_key.key.secret.data)) {
 		err();
 		return -EINVAL;
 	}
 
-	if (st.key_size != 16 && st.key_size != 24 && st.key_size != 32) {
+	if (st->key_size != 16 && st->key_size != 24 && st->key_size != 32) {
 		dprintk(0, KERN_DEBUG, "Master key size must be 16,24 or 32.\n");
 		return -EINVAL;
 	}
@@ -105,7 +99,8 @@ struct ncr_master_key_st st;
 		dprintk(0, KERN_DEBUG, "Master key was previously initialized.\n");
 	}
 
-	if (unlikely(copy_from_user(master_key.key.secret.data, st.key, st.key_size))) {
+	if (unlikely(copy_from_user(master_key.key.secret.data, st->key,
+				    st->key_size))) {
 		err();
 		return -EFAULT;
 	}
@@ -113,7 +108,7 @@ struct ncr_master_key_st st;
 	dprintk(0, KERN_INFO, "Initializing master key.\n");
 
 	master_key.type = NCR_KEY_TYPE_SECRET;
-	master_key.key.secret.size = st.key_size;
+	master_key.key.secret.size = st->key_size;
 
 	return 0;
 }
@@ -196,11 +191,10 @@ ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 			      ncr_session_final);
 	CASE_NO_OUTPUT_COMPAT(NCRIO_SESSION_ONCE, ncr_session_once,
 			      ncr_session_once);
-
-		case NCRIO_MASTER_KEY_SET:
-			return ncr_master_key_set(arg);
-		default:
-			return -EINVAL;
+	CASE_(NCRIO_MASTER_KEY_SET, ncr_master_key_set, ncr_master_key_set,
+	      (&data, tb));
+	default:
+		return -EINVAL;
 #undef CASE_
 #undef CASE_NO_OUTPUT
 #undef CASE_NO_OUTPUT_COMPAT
@@ -318,6 +312,22 @@ static void convert_ncr_key_storage_unwrap(struct ncr_key_storage_unwrap *new,
 	new->data_size = old->data_size;
 }
 
+struct compat_ncr_master_key_set {
+	__u32 input_size, output_size;
+	compat_uptr_t key;
+	__u32 key_size;
+	__NL_ATTRIBUTES;
+};
+#define COMPAT_NCRIO_MASTER_KEY_SET				\
+	_IOWR('c', 260, struct compat_ncr_master_key_set)
+
+static void convert_ncr_master_key_set(struct ncr_master_key_set *new,
+				       const struct compat_ncr_master_key_set *old)
+{
+	new->key = compat_ptr(old->key);
+	new->key_size = old->key_size;
+}
+
 long
 ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 {
@@ -339,7 +349,7 @@ ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 	case NCRIO_SESSION_INIT:
 		return ncr_ioctl(lst, cmd, arg_);
 
-#define CASE_NO_OUTPUT(LABEL, STRUCT, FUNCTION)				\
+#define CASE_(LABEL, STRUCT, FUNCTION, ARGS)				\
 	case (LABEL): {							\
 		struct compat_##STRUCT old;				\
 		struct STRUCT new;					\
@@ -350,9 +360,11 @@ ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 			return PTR_ERR(attr_buf);			\
 		}							\
 		convert_##STRUCT(&new, &old);				\
-		ret = (FUNCTION)(lst, &new, tb);			\
+		ret = (FUNCTION)ARGS;					\
 		break;							\
 	}
+#define CASE_NO_OUTPUT(LABEL, STRUCT, FUNCTION)			\
+		CASE_(LABEL, STRUCT, FUNCTION, (lst, &new, tb))
 
 #define CASE_COMPAT_ONLY(LABEL, STRUCT, FUNCTION)			\
 	case (LABEL): {							\
@@ -381,8 +393,11 @@ ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 			 ncr_session_final);
 	CASE_COMPAT_ONLY(NCRIO_SESSION_ONCE, ncr_session_once,
 			 ncr_session_once);
+	CASE_(COMPAT_NCRIO_MASTER_KEY_SET, ncr_master_key_set,
+	      ncr_master_key_set, (&new, tb));
 	default:
 		return -EINVAL;
+#undef CASE_
 #undef CASE_NO_OUTPUT
 #undef CASE_COMPAT_ONLY
 	}

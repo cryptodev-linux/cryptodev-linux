@@ -231,12 +231,14 @@ struct ncr_key_unwrap {
 #define NCRIO_KEY_UNWRAP        _IOWR('c', 251, struct ncr_key_unwrap)
 
 /* Internal ops  */
-struct ncr_master_key_st {
-	__u8 __user * key;
-	__u16 key_size;
+struct ncr_master_key_set {
+	__u32 input_size, output_size;
+	const void __user *key;
+	__u32 key_size;
+	__NL_ATTRIBUTES;
 };
 
-#define NCRIO_MASTER_KEY_SET        _IOR ('c', 260, struct ncr_master_key_st)
+#define NCRIO_MASTER_KEY_SET        _IOWR('c', 260, struct ncr_master_key_set)
 
 /* These are similar to key_wrap and unwrap except that will store some extra
  * fields to be able to recover a key */
