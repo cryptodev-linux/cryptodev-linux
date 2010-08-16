@@ -32,6 +32,7 @@ static const struct nla_policy ncr_attr_policy[NCR_ATTR_MAX + 1] = {
 	[NCR_ATTR_ALGORITHM] = { NLA_U32, 0 },
 	[NCR_ATTR_DERIVATION_ALGORITHM] = { NLA_U32, 0 },
 	[NCR_ATTR_KEY_FLAGS] = { NLA_U32, 0 },
+	[NCR_ATTR_KEY_ID] = { NLA_BINARY, 0 },
 	[NCR_ATTR_KEY_TYPE] = { NLA_U32, 0 },
 	[NCR_ATTR_SECRET_KEY_BITS] = { NLA_U32, 0 },
 	[NCR_ATTR_RSA_MODULUS_BITS] = { NLA_U32, 0 },

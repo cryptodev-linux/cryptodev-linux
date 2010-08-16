@@ -167,10 +167,9 @@ ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 		break;
 	}
 	CASE_NO_OUTPUT(NCRIO_KEY_EXPORT, ncr_key_export, ncr_key_export);
+	CASE_NO_OUTPUT(NCRIO_KEY_IMPORT, ncr_key_import, ncr_key_import);
 		case NCRIO_KEY_DEINIT:
 			return ncr_key_deinit(lst, arg);
-		case NCRIO_KEY_IMPORT:
-			return ncr_key_import(lst, arg);
 		case NCRIO_KEY_WRAP:
 			return ncr_key_wrap(lst, arg);
 		case NCRIO_KEY_UNWRAP:
@@ -216,6 +215,23 @@ static void convert_ncr_key_export(struct ncr_key_export *new,
 	new->buffer_size = old->buffer_size;
 }
 
+struct compat_ncr_key_import {
+	__u32 input_size, output_size;
+	ncr_key_t key;
+	compat_uptr_t data;
+	__u32 data_size;
+	__NL_ATTRIBUTES;
+};
+#define COMPAT_NCRIO_KEY_IMPORT _IOWR('c', 210, struct compat_ncr_key_import)
+
+static void convert_ncr_key_import(struct ncr_key_import *new,
+				   const struct compat_ncr_key_import *old)
+{
+	new->key = old->key;
+	new->data = compat_ptr(old->data);
+	new->data_size = old->data_size;
+}
+
 long
 ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 {
@@ -251,6 +267,7 @@ ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 	}
 
 	CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_EXPORT, ncr_key_export, ncr_key_export);
+	CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_IMPORT, ncr_key_import, ncr_key_import);
 	default:
 		return -EINVAL;
 #undef CASE_NO_OUTPUT

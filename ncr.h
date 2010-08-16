@@ -34,6 +34,7 @@ enum {
 	NCR_ATTR_ALGORITHM,	      /* NLA_U32 - ncr_algorithm_t */
 	NCR_ATTR_DERIVATION_ALGORITHM, /* NLA_U32 - ncr_algorithm_t */
 	NCR_ATTR_KEY_FLAGS,	      /* NLA_U32 - NCR_KEY_FLAG_* */
+	NCR_ATTR_KEY_ID,	      /* NLA_BINARY */
 	NCR_ATTR_KEY_TYPE,	      /* NLA_U32 - ncr_key_type_t */
 	NCR_ATTR_SECRET_KEY_BITS,     /* NLA_U32 */
 	NCR_ATTR_RSA_MODULUS_BITS,    /* NLA_U32 */
@@ -182,18 +183,12 @@ struct ncr_key_get_info {
 	__NL_ATTRIBUTES;
 };
 
-struct ncr_key_data_st {
+struct ncr_key_import {
+	__u32 input_size, output_size;
 	ncr_key_t key;
-
-	void __user *idata;
-	__kernel_size_t idata_size; /* rw in get */
-
-	/* in case of import this will be used as key id */
-	__u8 key_id[MAX_KEY_ID_SIZE];
-	__kernel_size_t key_id_size;
-	ncr_key_type_t type;
-	unsigned int flags;
-	ncr_algorithm_t algorithm; /* valid for public/private keys */
+	const void __user *data;
+	__u32 data_size;
+	__NL_ATTRIBUTES;
 };
 
 struct ncr_key_export {
@@ -217,7 +212,7 @@ struct ncr_key_export {
 /* export a secret key */
 #define NCRIO_KEY_EXPORT       	_IOWR('c', 209, struct ncr_key_export)
 /* import a secret key */
-#define NCRIO_KEY_IMPORT       	_IOWR('c', 210, struct ncr_key_data_st)
+#define NCRIO_KEY_IMPORT       	_IOWR('c', 210, struct ncr_key_import)
 
 #define NCRIO_KEY_DEINIT       _IOR ('c', 215, ncr_key_t)
 

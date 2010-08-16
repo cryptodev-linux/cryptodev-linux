@@ -597,7 +597,17 @@ test_ncr_wrap_key3(int cfd)
 	int ret, i;
 	ncr_key_t key;
 	size_t data_size;
-	struct ncr_key_data_st keydata;
+	struct __attribute__((packed)) {
+		struct ncr_key_import f;
+		struct nlattr id_head ALIGN_NL;
+		uint8_t id[2] ALIGN_NL;
+		struct nlattr type_head ALIGN_NL;
+		uint32_t type ALIGN_NL;
+		struct nlattr algo_head ALIGN_NL;
+		uint32_t algo ALIGN_NL;
+		struct nlattr flags_head ALIGN_NL;
+		uint32_t flags ALIGN_NL;
+	} kimport;
 	struct ncr_key_wrap_st kwrap;
 	struct __attribute__((packed)) {
 		struct ncr_key_generate_pair f;
@@ -644,18 +654,26 @@ test_ncr_wrap_key3(int cfd)
 		return 1;
 	}
 
-	keydata.key_id[0] = 'a';
-	keydata.key_id[2] = 'b';
-	keydata.key_id_size = 2;
-	keydata.type = NCR_KEY_TYPE_SECRET;
-	keydata.algorithm = NCR_ALG_AES_CBC;
-	keydata.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING;
-	
-	keydata.key = key;
-	keydata.idata = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
-	keydata.idata_size = 16;
+	memset(&kimport.f, 0, sizeof(kimport.f));
+	kimport.f.input_size = sizeof(kimport);
+	kimport.f.key = key;
+	kimport.f.data = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
+	kimport.f.data_size = 16;
+	kimport.id_head.nla_len = NLA_HDRLEN + sizeof(kimport.id);
+	kimport.id_head.nla_type = NCR_ATTR_KEY_ID;
+	kimport.id[0] = 'a';
+	kimport.id[1] = 'b';
+	kimport.type_head.nla_len = NLA_HDRLEN + sizeof(kimport.type);
+	kimport.type_head.nla_type = NCR_ATTR_KEY_TYPE;
+	kimport.type = NCR_KEY_TYPE_SECRET;
+	kimport.algo_head.nla_len = NLA_HDRLEN + sizeof(kimport.algo);
+	kimport.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+	kimport.algo = NCR_ALG_AES_CBC;
+	kimport.flags_head.nla_len = NLA_HDRLEN + sizeof(kimport.flags);
+	kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
+	kimport.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING;
 
-	if (ioctl(cfd, NCRIO_KEY_IMPORT, &keydata)) {
+	if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_IMPORT)");
 		return 1;

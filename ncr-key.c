@@ -304,23 +304,16 @@ void ncr_key_assign_flags(struct key_item_st* item, unsigned int flags)
 	}
 }
 
-/* "imports" a key from a data item. If the key is not exportable
- * to userspace then the key item will also not be.
- */
-int ncr_key_import(struct ncr_lists *lst, void __user* arg)
+int ncr_key_import(struct ncr_lists *lst, const struct ncr_key_import *data,
+		   struct nlattr *tb[])
 {
-struct ncr_key_data_st data;
+const struct nlattr *nla;
 struct key_item_st* item = NULL;
 int ret;
 void* tmp = NULL;
 size_t tmp_size;
 
-	if (unlikely(copy_from_user(&data, arg, sizeof(data)))) {
-		err();
-		return -EFAULT;
-	}
-
-	ret = ncr_key_item_get_write( &item, lst, data.key);
+	ret = ncr_key_item_get_write( &item, lst, data->key);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -328,38 +321,50 @@ size_t tmp_size;
 
 	ncr_key_clear(item);
 
-	tmp = kmalloc(data.idata_size, GFP_KERNEL);
+	tmp = kmalloc(data->data_size, GFP_KERNEL);
 	if (tmp == NULL) {
 		err();
 		ret = -ENOMEM;
 		goto fail;
 	}
 	
-	if (unlikely(copy_from_user(tmp, data.idata, data.idata_size))) {
+	if (unlikely(copy_from_user(tmp, data->data, data->data_size))) {
 		err();
 		ret = -EFAULT;
 		goto fail;
 	}
-	tmp_size = data.idata_size;
-	
-	item->type = data.type;
-	item->algorithm = _ncr_algo_to_properties(data.algorithm);
+	tmp_size = data->data_size;
+
+	nla = tb[NCR_ATTR_KEY_TYPE];
+	if (tb == NULL) {
+		err();
+		ret = -EINVAL;
+		goto fail;
+	}
+	item->type = nla_get_u32(nla);
+
+	item->algorithm = _ncr_nla_to_properties(tb[NCR_ATTR_ALGORITHM]);
 	if (item->algorithm == NULL) {
 		err();
 		ret = -EINVAL;
 		goto fail;
 	}
-	ncr_key_assign_flags(item, data.flags);
 
-	if (data.key_id_size > MAX_KEY_ID_SIZE) {
-		err();
-		ret = -EINVAL;
-		goto fail;
+	nla = tb[NCR_ATTR_KEY_FLAGS];
+	if (nla != NULL)
+		ncr_key_assign_flags(item, nla_get_u32(nla));
+
+	nla = tb[NCR_ATTR_KEY_ID];
+	if (nla != NULL) {
+		if (nla_len(nla) > MAX_KEY_ID_SIZE) {
+			err();
+			ret = -EOVERFLOW;
+			goto fail;
+		}
+
+		item->key_id_size = nla_len(nla);
+		memcpy(item->key_id, nla_data(nla), item->key_id_size);
 	}
-
-	item->key_id_size = data.key_id_size;
-	if (data.key_id_size > 0)
-		memcpy(item->key_id, data.key_id, data.key_id_size);
 
 	switch(item->type) {
 		case NCR_KEY_TYPE_SECRET:
