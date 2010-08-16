@@ -196,17 +196,9 @@ err_limits:
 	return ret;
 }
 
-int ncr_key_deinit(struct ncr_lists *lst, void __user* arg)
+int ncr_key_deinit(struct ncr_lists *lst, ncr_key_t desc)
 {
-	ncr_key_t desc;
-
-	if (unlikely(copy_from_user(&desc, arg, sizeof(desc)))) {
-		err();
-		return -EFAULT;
-	}
-
 	_ncr_key_remove(lst, desc);
-
 	return 0;
 }
 

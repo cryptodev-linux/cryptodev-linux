@@ -168,8 +168,16 @@ ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 	}
 	CASE_NO_OUTPUT(NCRIO_KEY_EXPORT, ncr_key_export, ncr_key_export);
 	CASE_NO_OUTPUT(NCRIO_KEY_IMPORT, ncr_key_import, ncr_key_import);
-		case NCRIO_KEY_DEINIT:
-			return ncr_key_deinit(lst, arg);
+	case NCRIO_KEY_DEINIT: {
+		ncr_key_t key;
+
+		ret = get_user(key, (const ncr_key_t __user *)arg);
+		if (unlikely(ret)) {
+			err();
+			return ret;
+		}
+		return ncr_key_deinit(lst, key);
+	}
 		case NCRIO_KEY_WRAP:
 			return ncr_key_wrap(lst, arg);
 		case NCRIO_KEY_UNWRAP:
@@ -249,6 +257,7 @@ ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 	case NCRIO_KEY_GENERATE_PAIR:
 	case NCRIO_KEY_DERIVE:
 	case NCRIO_KEY_GET_INFO:
+	case NCRIO_KEY_DEINIT:
 		return ncr_ioctl(lst, cmd, arg_);
 
 #define CASE_NO_OUTPUT(LABEL, STRUCT, FUNCTION)				\
