@@ -337,7 +337,7 @@ test_ncr_key(int cfd)
 static int
 test_ncr_wrap_key(int cfd)
 {
-	int i, ret;
+	int i;
 	ncr_key_t key, key2;
 	struct __attribute__((packed)) {
 		struct ncr_key_import f;
@@ -350,7 +350,12 @@ test_ncr_wrap_key(int cfd)
 		struct nlattr flags_head ALIGN_NL;
 		uint32_t flags ALIGN_NL;
 	} kimport;
-	struct ncr_key_wrap_st kwrap;
+	struct __attribute__((packed)) {
+		struct ncr_key_wrap f;
+		struct nlattr algo_head ALIGN_NL;
+		uint32_t algo ALIGN_NL;
+	} kwrap;
+	struct ncr_key_wrap_st kunwrap;
 	uint8_t data[WRAPPED_KEY_DATA_SIZE];
 	int data_size;
 
@@ -429,16 +434,18 @@ test_ncr_wrap_key(int cfd)
 	}
 
 	/* now try wrapping key2 using key */
-	memset(&kwrap, 0, sizeof(kwrap));
-	kwrap.algorithm = NCR_WALG_AES_RFC3394;
-	kwrap.keytowrap = key2;
-	kwrap.key = key;
-	kwrap.io = data;
-	kwrap.io_size = sizeof(data);
+	memset(&kwrap.f, 0, sizeof(kwrap.f));
+	kwrap.f.input_size = sizeof(kwrap);
+	kwrap.f.wrapping_key = key;
+	kwrap.f.source_key = key2;
+	kwrap.f.buffer = data;
+	kwrap.f.buffer_size = sizeof(data);
+	kwrap.algo_head.nla_len = NLA_HDRLEN + sizeof(kwrap.algo);
+	kwrap.algo_head.nla_type = NCR_ATTR_WRAPPING_ALGORITHM;
+	kwrap.algo = NCR_WALG_AES_RFC3394;
 
-	ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
-	
-	if (geteuid() == 0 && ret) {
+	data_size = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
+	if (geteuid() == 0 && data_size < 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_WRAP)");
 		return 1;
@@ -450,14 +457,12 @@ test_ncr_wrap_key(int cfd)
 		return 0;
 	}
 
-	data_size = kwrap.io_size;
-
-	if (kwrap.io_size != 24 || memcmp(data,
+	if (data_size != 24 || memcmp(data,
 		"\x1F\xA6\x8B\x0A\x81\x12\xB4\x47\xAE\xF3\x4B\xD8\xFB\x5A\x7B\x82\x9D\x3E\x86\x23\x71\xD2\xCF\xE5", 24) != 0) {
 		fprintf(stderr, "Wrapped data do not match.\n");
 
-		fprintf(stderr, "Data[%d]: ",(int) kwrap.io_size);
-		for(i=0;i<kwrap.io_size;i++)
+		fprintf(stderr, "Data[%d]: ",(int) data_size);
+		for(i=0;i<data_size;i++)
 			fprintf(stderr, "%.2x:", data[i]);
 		fprintf(stderr, "\n");
 		return 1;
@@ -478,14 +483,14 @@ test_ncr_wrap_key(int cfd)
 		return 1;
 	}
 
-	memset(&kwrap, 0, sizeof(kwrap));
-	kwrap.algorithm = NCR_WALG_AES_RFC3394;
-	kwrap.keytowrap = key2;
-	kwrap.key = key;
-	kwrap.io = data;
-	kwrap.io_size = data_size;
+	memset(&kunwrap, 0, sizeof(kunwrap));
+	kunwrap.algorithm = NCR_WALG_AES_RFC3394;
+	kunwrap.keytowrap = key2;
+	kunwrap.key = key;
+	kunwrap.io = data;
+	kunwrap.io_size = data_size;
 
-	if (ioctl(cfd, NCRIO_KEY_UNWRAP, &kwrap)) {
+	if (ioctl(cfd, NCRIO_KEY_UNWRAP, &kunwrap)) {
 		perror("ioctl(NCRIO_KEY_UNWRAP)");
 		return 1;
 	}
@@ -543,7 +548,11 @@ test_ncr_wrap_key2(int cfd)
 		struct nlattr flags_head ALIGN_NL;
 		uint32_t flags ALIGN_NL;
 	} kimport;
-	struct ncr_key_wrap_st kwrap;
+	struct __attribute__((packed)) {
+		struct ncr_key_wrap f;
+		struct nlattr algo_head ALIGN_NL;
+		uint32_t algo ALIGN_NL;
+	} kwrap;
 	uint8_t data[WRAPPED_KEY_DATA_SIZE];
 
 	/* test 1: generate a key in userspace import it
@@ -622,15 +631,18 @@ test_ncr_wrap_key2(int cfd)
 	}
 
 	/* now try wrapping key2 using key */
-	memset(&kwrap, 0, sizeof(kwrap));
-	kwrap.algorithm = NCR_WALG_AES_RFC3394;
-	kwrap.keytowrap = key2;
-	kwrap.key = key;
-	kwrap.io = data;
-	kwrap.io_size = sizeof(data);
+	memset(&kwrap.f, 0, sizeof(kwrap.f));
+	kwrap.f.input_size = sizeof(kwrap);
+	kwrap.f.wrapping_key = key;
+	kwrap.f.source_key = key2;
+	kwrap.f.buffer = data;
+	kwrap.f.buffer_size = sizeof(data);
+	kwrap.algo_head.nla_len = NLA_HDRLEN + sizeof(kwrap.algo);
+	kwrap.algo_head.nla_type = NCR_ATTR_WRAPPING_ALGORITHM;
+	kwrap.algo = NCR_WALG_AES_RFC3394;
 
 	ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
-	if (!ret) {
+	if (ret < 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		/* wrapping shouldn't have been allowed */
 		return 1;

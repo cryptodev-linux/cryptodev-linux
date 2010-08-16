@@ -153,7 +153,8 @@ int ncr_limits_add_and_check(uid_t uid, pid_t pid, limits_type_t type);
 void ncr_limits_init(void);
 void ncr_limits_deinit(void);
 
-int ncr_key_wrap(struct ncr_lists *lst, void __user* arg);
+int ncr_key_wrap(struct ncr_lists *lst, const struct ncr_key_wrap *wrap,
+		 struct nlattr *tb[]);
 int ncr_key_unwrap(struct ncr_lists *lst, void __user* arg);
 int ncr_key_storage_wrap(struct ncr_lists *lst, void __user* arg);
 int ncr_key_storage_unwrap(struct ncr_lists *lst, void __user* arg);

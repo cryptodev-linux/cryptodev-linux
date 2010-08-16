@@ -608,7 +608,12 @@ test_ncr_wrap_key3(int cfd)
 		struct nlattr flags_head ALIGN_NL;
 		uint32_t flags ALIGN_NL;
 	} kimport;
-	struct ncr_key_wrap_st kwrap;
+	struct __attribute__((packed)) {
+		struct ncr_key_wrap f;
+		struct nlattr algo_head ALIGN_NL;
+		uint32_t algo ALIGN_NL;
+	} kwrap;
+	struct ncr_key_wrap_st kunwrap;
 	struct __attribute__((packed)) {
 		struct ncr_key_generate_pair f;
 		struct nlattr algo_head ALIGN_NL;
@@ -705,52 +710,58 @@ test_ncr_wrap_key3(int cfd)
 		}
 
 		/* now try wrapping key2 using key */
-		memset(&kwrap, 0, sizeof(kwrap));
-		kwrap.algorithm = NCR_WALG_AES_RFC5649;
-		kwrap.keytowrap = pubkey;
-		kwrap.key = key;
-		kwrap.io = data;
-		kwrap.io_size = sizeof(data);
+		memset(&kwrap.f, 0, sizeof(kwrap.f));
+		kwrap.f.input_size = sizeof(kwrap);
+		kwrap.f.wrapping_key = key;
+		kwrap.f.source_key = pubkey;
+		kwrap.f.buffer = data;
+		kwrap.f.buffer_size = sizeof(data);
+		kwrap.algo_head.nla_len = NLA_HDRLEN + sizeof(kwrap.algo);
+		kwrap.algo_head.nla_type = NCR_ATTR_WRAPPING_ALGORITHM;
+		kwrap.algo = NCR_WALG_AES_RFC5649;
 
 		ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
-		if (ret) {
+		if (ret < 0) {
 			fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i], __func__, __LINE__);
 			/* wrapping of public key should have been allowed! */
 			return 1;
 		}
 
 		/* now try wrapping private using key */
-		memset(&kwrap, 0, sizeof(kwrap));
-		kwrap.algorithm = NCR_WALG_AES_RFC5649;
-		kwrap.keytowrap = privkey;
-		kwrap.key = key;
-		kwrap.io = data;
-		kwrap.io_size = sizeof(data);
+		memset(&kwrap.f, 0, sizeof(kwrap.f));
+		kwrap.f.input_size = sizeof(kwrap);
+		kwrap.f.wrapping_key = key;
+		kwrap.f.source_key = privkey;
+		kwrap.f.buffer = data;
+		kwrap.f.buffer_size = sizeof(data);
+		kwrap.algo_head.nla_len = NLA_HDRLEN + sizeof(kwrap.algo);
+		kwrap.algo_head.nla_type = NCR_ATTR_WRAPPING_ALGORITHM;
+		kwrap.algo = NCR_WALG_AES_RFC5649;
 
 		ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
-		if (ret && i != 2) {
+		if (ret < 0 && i != 2) {
 			fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i], __func__, __LINE__);
 			/* wrapping should have been allowed */
 			return 1;
-		} else if (ret == 0 && i == 2) {
+		} else if (ret >= 0 && i == 2) {
 			fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i], __func__, __LINE__);
 			/* wrapping shouldn't have been allowed */
 			return 1;
 		}			
 
-		if (ret == 0) {
-			data_size = kwrap.io_size;
+		if (ret >= 0) {
+			data_size = ret;
 
 			/* try unwrapping */
-			memset(&kwrap, 0, sizeof(kwrap));
-			kwrap.algorithm = NCR_WALG_AES_RFC5649;
-			kwrap.wrapped_key_algorithm = NCR_ALG_RSA;
-			kwrap.keytowrap = privkey;
-			kwrap.key = key;
-			kwrap.io = data;
-			kwrap.io_size = data_size;
+			memset(&kunwrap, 0, sizeof(kunwrap));
+			kunwrap.algorithm = NCR_WALG_AES_RFC5649;
+			kunwrap.wrapped_key_algorithm = NCR_ALG_RSA;
+			kunwrap.keytowrap = privkey;
+			kunwrap.key = key;
+			kunwrap.io = data;
+			kunwrap.io_size = data_size;
 
-			ret = ioctl(cfd, NCRIO_KEY_UNWRAP, &kwrap);
+			ret = ioctl(cfd, NCRIO_KEY_UNWRAP, &kunwrap);
 			if (ret) {
 				fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i], __func__, __LINE__);
 				return 1;

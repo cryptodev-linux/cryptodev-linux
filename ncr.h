@@ -33,9 +33,11 @@ enum {
 	/* FIXME: Use NLA_STRING for this, later */
 	NCR_ATTR_ALGORITHM,	      /* NLA_U32 - ncr_algorithm_t */
 	NCR_ATTR_DERIVATION_ALGORITHM, /* NLA_U32 - ncr_algorithm_t */
+	NCR_ATTR_WRAPPING_ALGORITHM,  /* NLA_U32 - ncr_wrap_algorithm_t */
 	NCR_ATTR_KEY_FLAGS,	      /* NLA_U32 - NCR_KEY_FLAG_* */
 	NCR_ATTR_KEY_ID,	      /* NLA_BINARY */
 	NCR_ATTR_KEY_TYPE,	      /* NLA_U32 - ncr_key_type_t */
+	NCR_ATTR_IV,		      /* NLA_BINARY */
 	NCR_ATTR_SECRET_KEY_BITS,     /* NLA_U32 */
 	NCR_ATTR_RSA_MODULUS_BITS,    /* NLA_U32 */
 	NCR_ATTR_RSA_E,		      /* NLA_BINARY */
@@ -218,6 +220,15 @@ struct ncr_key_export {
 
 /* Key wrap ioctls
  */
+struct ncr_key_wrap {
+	__u32 input_size, output_size;
+	ncr_key_t wrapping_key;
+	ncr_key_t source_key;
+	void __user *buffer;
+	int buffer_size;
+	__NL_ATTRIBUTES;
+};
+
 struct ncr_key_wrap_st {
 	ncr_wrap_algorithm_t algorithm;
 	
@@ -237,7 +248,7 @@ struct ncr_key_wrap_st {
 	__kernel_size_t io_size;
 };
 
-#define NCRIO_KEY_WRAP        _IOWR ('c', 250, struct ncr_key_wrap_st)
+#define NCRIO_KEY_WRAP        _IOWR('c', 250, struct ncr_key_wrap)
 #define NCRIO_KEY_UNWRAP        _IOR ('c', 251, struct ncr_key_wrap_st)
 
 /* Internal ops  */
