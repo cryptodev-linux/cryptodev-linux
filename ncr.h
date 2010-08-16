@@ -229,27 +229,17 @@ struct ncr_key_wrap {
 	__NL_ATTRIBUTES;
 };
 
-struct ncr_key_wrap_st {
-	ncr_wrap_algorithm_t algorithm;
-	
-	/* when unwrapping the algorithm of the wrapped key.
-	 * For symmetric ciphers AES would do.
-	 */
-	ncr_algorithm_t wrapped_key_algorithm;
-	unsigned int wrapped_key_flags; /* flags for the newly unwrapped key */
-
-	ncr_key_t keytowrap;
-
-	ncr_key_t key;
-	struct ncr_key_params_st params;
-
-	void __user * io; /* encrypted keytowrap */
-	/* this will be updated by the actual size on wrap */
-	__kernel_size_t io_size;
+struct ncr_key_unwrap {
+	__u32 input_size, output_size;
+	ncr_key_t wrapping_key;
+	ncr_key_t dest_key;
+	const void __user *data;
+	__u32 data_size;
+	__NL_ATTRIBUTES;
 };
 
 #define NCRIO_KEY_WRAP        _IOWR('c', 250, struct ncr_key_wrap)
-#define NCRIO_KEY_UNWRAP        _IOR ('c', 251, struct ncr_key_wrap_st)
+#define NCRIO_KEY_UNWRAP        _IOWR('c', 251, struct ncr_key_unwrap)
 
 /* Internal ops  */
 struct ncr_master_key_st {

@@ -355,7 +355,13 @@ test_ncr_wrap_key(int cfd)
 		struct nlattr algo_head ALIGN_NL;
 		uint32_t algo ALIGN_NL;
 	} kwrap;
-	struct ncr_key_wrap_st kunwrap;
+	struct __attribute__((packed)) {
+		struct ncr_key_unwrap f;
+		struct nlattr wrap_algo_head ALIGN_NL;
+		uint32_t wrap_algo ALIGN_NL;
+		struct nlattr algo_head ALIGN_NL;
+		uint32_t algo ALIGN_NL;
+	} kunwrap;
 	uint8_t data[WRAPPED_KEY_DATA_SIZE];
 	int data_size;
 
@@ -483,12 +489,18 @@ test_ncr_wrap_key(int cfd)
 		return 1;
 	}
 
-	memset(&kunwrap, 0, sizeof(kunwrap));
-	kunwrap.algorithm = NCR_WALG_AES_RFC3394;
-	kunwrap.keytowrap = key2;
-	kunwrap.key = key;
-	kunwrap.io = data;
-	kunwrap.io_size = data_size;
+	memset(&kunwrap.f, 0, sizeof(kunwrap.f));
+	kunwrap.f.input_size = sizeof(kunwrap);
+	kunwrap.f.wrapping_key = key;
+	kunwrap.f.dest_key = key2;
+	kunwrap.f.data = data;
+	kunwrap.f.data_size = data_size;
+	kunwrap.wrap_algo_head.nla_len = NLA_HDRLEN + sizeof(kunwrap.wrap_algo);
+	kunwrap.wrap_algo_head.nla_type = NCR_ATTR_WRAPPING_ALGORITHM;
+	kunwrap.wrap_algo = NCR_WALG_AES_RFC3394;
+	kunwrap.algo_head.nla_len = NLA_HDRLEN + sizeof(kunwrap.algo);
+	kunwrap.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+	kunwrap.algo = NCR_ALG_AES_CBC;
 
 	if (ioctl(cfd, NCRIO_KEY_UNWRAP, &kunwrap)) {
 		perror("ioctl(NCRIO_KEY_UNWRAP)");
