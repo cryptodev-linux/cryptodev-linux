@@ -136,7 +136,7 @@ cryptodev_ioctl(struct inode *inode, struct file *filp,
 	if (unlikely(!ncr))
 		BUG();
 
-	return ncr_ioctl(ncr, filp, cmd, arg);
+	return ncr_ioctl(ncr, cmd, arg);
 }
 
 /* compatibility code for 32bit userlands */
