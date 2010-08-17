@@ -105,6 +105,8 @@ void* ncr_init_lists(void);
 void ncr_deinit_lists(struct ncr_lists *lst);
 
 int ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg);
+long ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd,
+		      unsigned long arg);
 
 /* key derivation */
 int ncr_key_derive(struct ncr_lists *lst, void __user* arg);

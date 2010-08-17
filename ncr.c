@@ -22,6 +22,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
+#include <linux/compat.h>
 #include <linux/crypto.h>
 #include <linux/ioctl.h>
 #include <linux/mm.h>
@@ -163,3 +164,17 @@ ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 			return -EINVAL;
 	}
 }
+
+#ifdef CONFIG_COMPAT
+long
+ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
+{
+	if (unlikely(!lst))
+		BUG();
+
+	switch (cmd) {
+	default:
+		return -EINVAL;
+	}
+}
+#endif

@@ -150,10 +150,7 @@ cryptodev_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	if (unlikely(!ncr))
 		BUG();
 
-	switch (cmd) {
-	default:
-		return -EINVAL;
-	}
+	return ncr_compat_ioctl(ncr, cmd, arg);
 }
 
 #endif /* CONFIG_COMPAT */
