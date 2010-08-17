@@ -828,7 +828,7 @@ cryptodev_ioctl(struct inode *inode, struct file *filp,
 			return 0;
 
 		default:
-			return ncr_ioctl(pcr->ncr, filp, cmd, arg_);
+			return ncr_ioctl(pcr->ncr, cmd, arg_);
 	}
 }
 
