@@ -632,30 +632,27 @@ int ret;
 		err();
 		return -EINVAL;
 	}
-	switch(nla_get_u32(nla)) {
-		case NCR_DERIVE_DH:
-			if (oldkey->type != NCR_KEY_TYPE_PRIVATE &&
-				oldkey->algorithm->algo != NCR_ALG_DH) {
-				err();
-				return -EINVAL;
-			}
-
-			nla = tb[NCR_ATTR_DH_PUBLIC];
-			if (nla == NULL) {
-				err();
-				return -EINVAL;
-			}
-			ret = dh_derive_gxy(newkey, &oldkey->key.pk.dh,
-					    nla_data(nla), nla_len(nla));
-			if (ret < 0) {
-				err();
-				return ret;
-			}
-		
-			break;
-		default:
+	if (nla_strcmp(nla, NCR_DERIVE_DH) == 0) {
+		if (oldkey->type != NCR_KEY_TYPE_PRIVATE &&
+		    oldkey->algorithm->algo != NCR_ALG_DH) {
 			err();
 			return -EINVAL;
+		}
+
+		nla = tb[NCR_ATTR_DH_PUBLIC];
+		if (nla == NULL) {
+			err();
+			return -EINVAL;
+		}
+		ret = dh_derive_gxy(newkey, &oldkey->key.pk.dh, nla_data(nla),
+				    nla_len(nla));
+		if (ret < 0) {
+			err();
+			return ret;
+		}
+	} else {
+		err();
+		return -EINVAL;
 	}
 
 	return 0;

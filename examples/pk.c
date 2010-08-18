@@ -339,7 +339,7 @@ struct ncr_key_export kexport;
 struct __attribute__((packed)) {
 	struct ncr_key_derive f;
 	struct nlattr algo_head ALIGN_NL;
-	uint32_t algo ALIGN_NL;
+	char algo[sizeof(NCR_DERIVE_DH)] ALIGN_NL;
 	struct nlattr flags_head ALIGN_NL;
 	uint32_t flags ALIGN_NL;
 	struct nlattr public_head ALIGN_NL;
@@ -496,7 +496,7 @@ struct __attribute__((packed)) {
 	kderive.f.new_key = z1;
 	kderive.algo_head.nla_len = NLA_HDRLEN + sizeof(kderive.algo);
 	kderive.algo_head.nla_type = NCR_ATTR_DERIVATION_ALGORITHM;
-	kderive.algo = NCR_DERIVE_DH;
+	strcpy(kderive.algo, NCR_DERIVE_DH);
 	kderive.flags_head.nla_len = NLA_HDRLEN + sizeof(kderive.flags);
 	kderive.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
 	kderive.flags = NCR_KEY_FLAG_EXPORTABLE;
@@ -527,7 +527,7 @@ struct __attribute__((packed)) {
 	kderive.f.new_key = z2;
 	kderive.algo_head.nla_len = NLA_HDRLEN + sizeof(kderive.algo);
 	kderive.algo_head.nla_type = NCR_ATTR_DERIVATION_ALGORITHM;
-	kderive.algo = NCR_DERIVE_DH;
+	strcpy(kderive.algo, NCR_DERIVE_DH);
 	kderive.flags_head.nla_len = NLA_HDRLEN + sizeof(kderive.flags);
 	kderive.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
 	kderive.flags = NCR_KEY_FLAG_EXPORTABLE;

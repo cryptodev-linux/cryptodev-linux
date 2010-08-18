@@ -31,7 +31,7 @@
 enum {
 	NCR_ATTR_UNSPEC,	      /* 0 is special in lib/nlattr.c. */
 	NCR_ATTR_ALGORITHM,	      /* NLA_NUL_STRING */
-	NCR_ATTR_DERIVATION_ALGORITHM, /* NLA_U32 - ncr_algorithm_t */
+	NCR_ATTR_DERIVATION_ALGORITHM, /* NLA_NUL_STRING - NCR_DERIVE_* */
 	NCR_ATTR_SIGNATURE_HASH_ALGORITHM, /* NLA_NUL_STRING */
 	NCR_ATTR_WRAPPING_ALGORITHM,  /* NLA_U32 - ncr_wrap_algorithm_t */
 	NCR_ATTR_UPDATE_INPUT_DATA,   /* NLA_BINARY - ncr_session_input_data */
@@ -120,9 +120,7 @@ typedef enum {
 	RSA_PKCS1_PSS, /* for signatures only */
 } ncr_rsa_type_t;
 
-typedef enum {
-	NCR_DERIVE_DH=1,
-} ncr_derive_t;
+#define NCR_DERIVE_DH "dh"
 
 
 struct ncr_key_derive {
