@@ -6,6 +6,38 @@
 #define __user
 #endif
 
+/* Serves to make sure the structure is suitably aligned to continue with
+   a struct nlattr without external padding.
+
+   4 is NLA_ALIGNTO from <linux/netlink.h>, but if we
+   included <linux/netlink.h>, the user would have to include <sys/socket.h>
+   as well for no obvious reason.  "4" is fixed by ABI. */
+#define __NL_ATTRIBUTES char __align[] __attribute__((aligned(4)))
+
+/* In all ioctls, input_size specifies size of the ncr_* structure and the
+   following attributes.
+
+   output_size specifies space available for returning output, including the
+   initial ncr_* structure, and is updated by the ioctl() with the space
+   actually used.
+
+   There are two special cases: input_size 0 means not attributes are supplied,
+   and is treated equivalent to sizeof(struct ncr_*).  output_size 0 means no
+   space for output attributes is available, and is not updated. */
+
+enum {
+	NCR_ATTR_UNSPEC,	      /* 0 is special in lib/nlattr.c. */
+	/* FIXME: Use NLA_STRING for this, later */
+	NCR_ATTR_ALGORITHM,	      /* NLA_U32 - ncr_algorithm_t */
+	NCR_ATTR_KEY_FLAGS,	      /* NLA_U32 - NCR_KEY_FLAG_* */
+	NCR_ATTR_SECRET_KEY_BITS,     /* NLA_U32 */
+
+	/* Add new attributes here */
+
+	NCR_ATTR_END__,
+	NCR_ATTR_MAX = NCR_ATTR_END__ - 1
+};
+
 #define NCR_CIPHER_MAX_BLOCK_LEN 32
 #define NCR_HASH_MAX_OUTPUT_SIZE  64
 
