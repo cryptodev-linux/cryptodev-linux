@@ -32,6 +32,7 @@
 #include "cryptodev_int.h"
 
 struct packed_key {
+	uint32_t version;
 	uint8_t type;
 	uint32_t flags;
 	uint16_t algorithm; /* valid for public/private keys */
@@ -41,6 +42,8 @@ struct packed_key {
 	uint8_t raw[KEY_DATA_MAX_SIZE];
 	uint32_t raw_size;
 } __attribute__((__packed__));
+
+#define THIS_VERSION 1
 
 int key_to_storage_data( uint8_t** sdata, size_t * sdata_size, const struct key_item_st *key)
 {
@@ -53,6 +56,7 @@ int key_to_storage_data( uint8_t** sdata, size_t * sdata_size, const struct key_
 		return -ENOMEM;
 	}
 
+	pkey->version = THIS_VERSION;
 	pkey->type = key->type;
 	pkey->flags = key->flags;
 	pkey->algorithm = key->algorithm->algo;
@@ -90,7 +94,8 @@ int key_from_storage_data(struct key_item_st* key, const void* data, size_t data
 	const struct packed_key * pkey = data;
 	int ret;
 
-	if (data_size != sizeof(*pkey) || pkey->key_id_size > MAX_KEY_ID_SIZE) {
+	if (data_size != sizeof(*pkey) || pkey->version != THIS_VERSION
+	    || pkey->key_id_size > MAX_KEY_ID_SIZE) {
 		err();
 		return -EINVAL;
 	}
