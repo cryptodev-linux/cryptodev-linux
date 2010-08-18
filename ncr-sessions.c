@@ -29,6 +29,7 @@
 #include "ncr-int.h"
 #include <linux/mm_types.h>
 #include <linux/scatterlist.h>
+#include <net/netlink.h>
 
 static int _ncr_session_update_key(struct ncr_lists* lists, struct ncr_session_op_st* op);
 static void _ncr_session_remove(struct ncr_lists *lst, ncr_session_t desc);
@@ -212,6 +213,13 @@ const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo)
 	}
 
 	return NULL;
+}
+
+const struct algo_properties_st *_ncr_nla_to_properties(const struct nlattr *nla)
+{
+	if (nla == NULL)
+		return NULL;
+	return _ncr_algo_to_properties(nla_get_u32(nla));
 }
 
 static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* session)

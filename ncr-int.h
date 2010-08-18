@@ -14,6 +14,8 @@
 
 #define err() printk(KERN_DEBUG"ncr: %s: %s: %d\n", __FILE__, __func__, __LINE__)
 
+struct nlattr;
+
 struct algo_properties_st {
 	ncr_algorithm_t algo;
 	const char *kstr;
@@ -172,6 +174,7 @@ int key_to_storage_data( uint8_t** data, size_t * data_size, const struct key_it
 /* misc helper macros */
 
 const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo);
+const struct algo_properties_st *_ncr_nla_to_properties(const struct nlattr *nla);
 const struct algo_properties_st *ncr_key_params_get_sign_hash(const struct algo_properties_st *algo, struct ncr_key_params_st * params);
 int _ncr_key_get_sec_level(struct key_item_st* item);
 
