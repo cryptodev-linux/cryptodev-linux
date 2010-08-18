@@ -30,10 +30,9 @@
    of attributes used for the frequent operations? */
 enum {
 	NCR_ATTR_UNSPEC,	      /* 0 is special in lib/nlattr.c. */
-	/* FIXME: Use NLA_STRING for this, later */
-	NCR_ATTR_ALGORITHM,	      /* NLA_U32 - ncr_algorithm_t */
+	NCR_ATTR_ALGORITHM,	      /* NLA_NUL_STRING */
 	NCR_ATTR_DERIVATION_ALGORITHM, /* NLA_U32 - ncr_algorithm_t */
-	NCR_ATTR_SIGNATURE_HASH_ALGORITHM, /* NLA_U32 - ncr_algorithm_t */
+	NCR_ATTR_SIGNATURE_HASH_ALGORITHM, /* NLA_NUL_STRING */
 	NCR_ATTR_WRAPPING_ALGORITHM,  /* NLA_U32 - ncr_wrap_algorithm_t */
 	NCR_ATTR_UPDATE_INPUT_DATA,   /* NLA_BINARY - ncr_session_input_data */
 	/* NLA_BINARY - ncr_session_output_buffer */
@@ -51,7 +50,7 @@ enum {
 	NCR_ATTR_RSA_MODULUS_BITS,    /* NLA_U32 */
 	NCR_ATTR_RSA_E,		      /* NLA_BINARY */
 	NCR_ATTR_RSA_ENCODING_METHOD, /* NLA_U32 - ncr_rsa_type_t */
-	NCR_ATTR_RSA_OAEP_HASH_ALGORITHM, /* NLA_U32 - ncr_algorithm_t */
+	NCR_ATTR_RSA_OAEP_HASH_ALGORITHM, /* NLA_NUL_STRING */
 	NCR_ATTR_RSA_PSS_SALT_LENGTH, /* NLA_U32 */
 	NCR_ATTR_DSA_P_BITS,	      /* NLA_U32 */
 	NCR_ATTR_DSA_Q_BITS,	      /* NLA_U32 */
@@ -68,39 +67,6 @@ enum {
 
 #define NCR_CIPHER_MAX_BLOCK_LEN 32
 #define NCR_HASH_MAX_OUTPUT_SIZE  64
-
-typedef enum {
-	NCR_ALG_NONE,
-	NCR_ALG_NULL,
-	NCR_ALG_3DES_CBC,
-	NCR_ALG_AES_CBC,
-	NCR_ALG_CAMELLIA_CBC,
-	NCR_ALG_ARCFOUR,
-	NCR_ALG_AES_ECB,
-	NCR_ALG_CAMELLIA_ECB,
-	NCR_ALG_AES_CTR,
-	NCR_ALG_CAMELLIA_CTR,
-
-	NCR_ALG_SHA1=40,
-	NCR_ALG_MD5,
-	NCR_ALG_SHA2_224,
-	NCR_ALG_SHA2_256,
-	NCR_ALG_SHA2_384,
-	NCR_ALG_SHA2_512,
-
-	NCR_ALG_HMAC_SHA1=80,
-	NCR_ALG_HMAC_MD5,
-	NCR_ALG_HMAC_SHA2_224,
-	NCR_ALG_HMAC_SHA2_256,
-	NCR_ALG_HMAC_SHA2_384,
-	NCR_ALG_HMAC_SHA2_512,
-
-	NCR_ALG_RSA=140,
-	NCR_ALG_DSA,
-	NCR_ALG_DH, /* DH as in PKCS #3 */
-} ncr_algorithm_t;
-
-
 
 typedef enum {
 	NCR_WALG_AES_RFC3394, /* for secret keys only */

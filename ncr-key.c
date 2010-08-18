@@ -624,8 +624,8 @@ int ret;
 			ret = ncr_out_put_u32(out, *attr, item->type);
 			break;
 		case NCR_ATTR_ALGORITHM:
-			ret = ncr_out_put_u32(out, *attr,
-					      item->algorithm->algo);
+			ret = ncr_out_put_string(out, *attr,
+						 item->algorithm->kstr);
 			break;
 		default:
 			break; /* Silently ignore */

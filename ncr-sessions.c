@@ -130,87 +130,91 @@ err_sess:
 }
 
 static const struct algo_properties_st algo_properties[] = {
-	{ .algo = NCR_ALG_NULL, .kstr = "ecb(cipher_null)", 
+#define KSTR(x) .kstr = x, .kstr_len = sizeof(x) - 1
+	{ .algo = NCR_ALG_NULL, KSTR("ecb(cipher_null)"),
 		.needs_iv = 0, .is_symmetric=1, .can_encrypt=1,
 		.key_type = NCR_KEY_TYPE_INVALID },
-	{ .algo = NCR_ALG_3DES_CBC, .kstr = "cbc(des3_ede)", 
+	{ .algo = NCR_ALG_3DES_CBC, KSTR("cbc(des3_ede)"),
 		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1,
 		.key_type = NCR_KEY_TYPE_SECRET },
-	{ .algo = NCR_ALG_AES_CBC, .kstr = "cbc(aes)", 
+	{ KSTR("cbc(aes)"),
 		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1,
 		.key_type = NCR_KEY_TYPE_SECRET },
-	{ .algo = NCR_ALG_CAMELLIA_CBC, .kstr = "cbc(camelia)", 
+	{ KSTR("cbc(camelia)"),
 		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1,
 		.key_type = NCR_KEY_TYPE_SECRET },
-	{ .algo = NCR_ALG_AES_CTR, .kstr = "ctr(aes)", 
+	{ KSTR("ctr(aes)"),
 		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1,
 		.key_type = NCR_KEY_TYPE_SECRET },
-	{ .algo = NCR_ALG_CAMELLIA_CTR, .kstr = "ctr(camelia)", 
+	{ KSTR("ctr(camelia)"),
 		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1,
 		.key_type = NCR_KEY_TYPE_SECRET },
-	{ .algo = NCR_ALG_ARCFOUR, .kstr = NULL, 
+	{ KSTR("ecb(aes)"),
 		.needs_iv = 0, .is_symmetric=1, .can_encrypt=1,
 		.key_type = NCR_KEY_TYPE_SECRET },
-	{ .algo = NCR_ALG_AES_ECB, .kstr = "ecb(aes)", 
+	{ KSTR("ecb(camelia)"),
 		.needs_iv = 0, .is_symmetric=1, .can_encrypt=1,
 		.key_type = NCR_KEY_TYPE_SECRET },
-	{ .algo = NCR_ALG_CAMELLIA_ECB, .kstr = "ecb(camelia)", 
-		.needs_iv = 0, .is_symmetric=1, .can_encrypt=1,
-		.key_type = NCR_KEY_TYPE_SECRET },
-	{ .algo = NCR_ALG_SHA1, .kstr = "sha1", 
+	{ .algo = NCR_ALG_SHA1, KSTR("sha1"),
 		.digest_size = 20, .can_digest=1,
 		.key_type = NCR_KEY_TYPE_INVALID },
-	{ .algo = NCR_ALG_MD5, .kstr = "md5", 
+	{ .algo = NCR_ALG_MD5, KSTR("md5"),
 		.digest_size = 16, .can_digest=1,
 		.key_type = NCR_KEY_TYPE_INVALID },
-	{ .algo = NCR_ALG_SHA2_224, .kstr = "sha224", 
+	{ .algo = NCR_ALG_SHA2_224, KSTR("sha224"),
 		.digest_size = 28, .can_digest=1,
 		.key_type = NCR_KEY_TYPE_INVALID },
-	{ .algo = NCR_ALG_SHA2_256, .kstr = "sha256", 
+	{ .algo = NCR_ALG_SHA2_256, KSTR("sha256"),
 		.digest_size = 32, .can_digest=1,
 		.key_type = NCR_KEY_TYPE_INVALID },
-	{ .algo = NCR_ALG_SHA2_384, .kstr = "sha384", 
+	{ .algo = NCR_ALG_SHA2_384, KSTR("sha384"),
 		.digest_size = 48, .can_digest=1,
 		.key_type = NCR_KEY_TYPE_INVALID },
-	{ .algo = NCR_ALG_SHA2_512, .kstr = "sha512", 
+	{ .algo = NCR_ALG_SHA2_512, KSTR("sha512"),
 		.digest_size = 64, .can_digest=1,
 		.key_type = NCR_KEY_TYPE_INVALID },
-	{ .algo = NCR_ALG_HMAC_SHA1, .is_hmac = 1, .kstr = "hmac(sha1)", 
+	{ .is_hmac = 1, KSTR("hmac(sha1)"),
 		.digest_size = 20, .can_sign=1,
 		.key_type = NCR_KEY_TYPE_SECRET },
-	{ .algo = NCR_ALG_HMAC_MD5, .is_hmac = 1, .kstr = "hmac(md5)", 
+	{ .is_hmac = 1, KSTR("hmac(md5)"),
 		.digest_size = 16, .can_sign=1,
 		.key_type = NCR_KEY_TYPE_SECRET },
-	{ .algo = NCR_ALG_HMAC_SHA2_224, .is_hmac = 1, .kstr = "hmac(sha224)", 
+	{ .is_hmac = 1, KSTR("hmac(sha224)"),
 		.digest_size = 28, .can_sign=1,
 		.key_type = NCR_KEY_TYPE_SECRET },
-	{ .algo = NCR_ALG_HMAC_SHA2_256, .is_hmac = 1, .kstr = "hmac(sha256)", 
+	{ .is_hmac = 1, KSTR("hmac(sha256)"),
 		.digest_size = 32, .can_sign=1,
 		.key_type = NCR_KEY_TYPE_SECRET },
-	{ .algo = NCR_ALG_HMAC_SHA2_384, .is_hmac = 1, .kstr = "hmac(sha384)", 
+	{ .is_hmac = 1, KSTR("hmac(sha384)"),
 		.digest_size = 48, .can_sign=1,
 		.key_type = NCR_KEY_TYPE_SECRET },
-	{ .algo = NCR_ALG_HMAC_SHA2_512, .is_hmac = 1, .kstr = "hmac(sha512)", 
+	{ .is_hmac = 1, KSTR("hmac(sha512)"),
 		.digest_size = 64, .can_sign=1,
 		.key_type = NCR_KEY_TYPE_SECRET },
-	{ .algo = NCR_ALG_RSA, .kstr = NULL, .is_pk = 1,
+	/* NOTE: These algorithm names are not available through the kernel API
+	   (yet). */
+	{ .algo = NCR_ALG_RSA, KSTR("rsa"), .is_pk = 1,
 		.can_encrypt=1, .can_sign=1, .key_type = NCR_KEY_TYPE_PUBLIC },
-	{ .algo = NCR_ALG_DSA, .kstr = NULL, .is_pk = 1,
+	{ .algo = NCR_ALG_DSA, KSTR("dsa"), .is_pk = 1,
 		.can_sign=1, .key_type = NCR_KEY_TYPE_PUBLIC },
-	{ .algo = NCR_ALG_DH, .kstr = NULL, .is_pk = 1,
+	{ .algo = NCR_ALG_DH, KSTR("dh"), .is_pk = 1,
 		.can_kx=1, .key_type = NCR_KEY_TYPE_PUBLIC },
-	{ .algo = NCR_ALG_NONE }
-
+#undef KSTR
 };
 
-const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo)
+/* The lookups by string are inefficient - can we look up all we need from
+   crypto API? */
+const struct algo_properties_st *_ncr_algo_to_properties(const char *algo)
 {
-	ncr_algorithm_t a;
-	int i = 0;
+	const struct algo_properties_st *a;
+	size_t name_len;
 
-	for (i = 0; (a = algo_properties[i].algo) != NCR_ALG_NONE; i++) {
-		if (a == algo)
-			return &algo_properties[i];
+	name_len = strlen(algo);
+	for (a = algo_properties;
+	     a < algo_properties + ARRAY_SIZE(algo_properties); a++) {
+		if (a->kstr_len == name_len
+		    && memcmp(a->kstr, algo, name_len) == 0)
+			return a;
 	}
 
 	return NULL;
@@ -218,9 +222,21 @@ const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo)
 
 const struct algo_properties_st *_ncr_nla_to_properties(const struct nlattr *nla)
 {
+	const struct algo_properties_st *a;
+	size_t name_len;
+
 	if (nla == NULL)
 		return NULL;
-	return _ncr_algo_to_properties(nla_get_u32(nla));
+
+	/* nla_len() >= 1 ensured by validate_nla() case NLA_NUL_STRING */
+	name_len = nla_len(nla) - 1;
+	for (a = algo_properties;
+	     a < algo_properties + ARRAY_SIZE(algo_properties); a++) {
+		if (a->kstr_len == name_len
+		    && memcmp(a->kstr, nla_data(nla), name_len + 1) == 0)
+			return a;
+	}
+	return NULL;
 }
 
 static int key_item_get_nla_read(struct key_item_st **st,
@@ -294,7 +310,7 @@ static int _ncr_session_init(struct ncr_lists *lists, ncr_crypto_op_t op,
 				if (ns->algorithm->algo == NCR_ALG_NULL)
 				  keysize = 0;
 				
-				if (ns->algorithm->kstr == NULL) {
+				if (ns->algorithm->is_pk) {
 					err();
 					ret = -EINVAL;
 					goto fail;
@@ -341,7 +357,7 @@ static int _ncr_session_init(struct ncr_lists *lists, ncr_crypto_op_t op,
 			}
 
 			if (ns->algorithm->can_digest) {
-				if (ns->algorithm->kstr == NULL) {
+				if (ns->algorithm->is_pk) {
 					err();
 					ret = -EINVAL;
 					goto fail;
@@ -371,7 +387,7 @@ static int _ncr_session_init(struct ncr_lists *lists, ncr_crypto_op_t op,
 				}
 
 				if (ns->algorithm->is_hmac && ns->key->type == NCR_KEY_TYPE_SECRET) {
-					if (ns->algorithm->kstr == NULL) {
+					if (ns->algorithm->is_pk) {
 						err();
 						ret = -EINVAL;
 						goto fail;
@@ -399,7 +415,7 @@ static int _ncr_session_init(struct ncr_lists *lists, ncr_crypto_op_t op,
 						goto fail;
 					}
 
-					if (sign_hash->kstr == NULL) {
+					if (sign_hash->is_pk) {
 						err();
 						ret = -EINVAL;
 						goto fail;

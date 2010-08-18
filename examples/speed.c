@@ -32,6 +32,7 @@
 #include "../ncr.h"
 
 #define ALIGN_NL __attribute__((aligned(NLA_ALIGNTO)))
+#define ALG_AES_CBC "cbc(aes)"
 
 static double udifftimeval(struct timeval start, struct timeval end)
 {
@@ -72,7 +73,7 @@ static void value2human(double bytes, double time, double* data, double* speed,c
 }
 
 
-int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
+int encrypt_data_ncr_direct(int cfd, const char *algo, int chunksize)
 {
 	char *buffer, iv[32];
 	static int val = 23;
@@ -84,14 +85,12 @@ int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 	struct __attribute__((packed)) {
 		struct ncr_key_generate f;
 		struct nlattr algo_head ALIGN_NL;
-		uint32_t algo ALIGN_NL;
+		char algo[sizeof(ALG_AES_CBC)] ALIGN_NL;
 		struct nlattr bits_head ALIGN_NL;
 		uint32_t bits ALIGN_NL;
 	} kgen;
 	struct __attribute__((packed)) {
 		struct ncr_session_once f;
-		struct nlattr algo_head ALIGN_NL;
-		uint32_t algo ALIGN_NL;
 		struct nlattr key_head ALIGN_NL;
 		uint32_t key ALIGN_NL;
 		struct nlattr input_head ALIGN_NL;
@@ -99,8 +98,12 @@ int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 		struct nlattr output_head ALIGN_NL;
 		struct ncr_session_output_buffer output ALIGN_NL;
 		struct nlattr iv_head ALIGN_NL;
+		struct nlattr algo_head ALIGN_NL;
+		char algo[128] ALIGN_NL;
 	} op;
+	size_t algo_size;
 
+	algo_size = strlen(algo) + 1;
 	key = ioctl(cfd, NCRIO_KEY_INIT);
 	if (key == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -113,7 +116,7 @@ int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 	kgen.f.key = key;
 	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
 	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	kgen.algo = NCR_ALG_AES_CBC;
+	strcpy(kgen.algo, ALG_AES_CBC);
 	kgen.bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.bits);
 	kgen.bits_head.nla_type = NCR_ATTR_SECRET_KEY_BITS;
 	kgen.bits = 128; /* 16 bytes */
@@ -141,11 +144,7 @@ int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 		size_t output_size;
 
 		memset(&op.f, 0, sizeof(op.f));
-		op.f.input_size = sizeof(op);
 		op.f.op = NCR_OP_ENCRYPT;
-		op.algo_head.nla_len = NLA_HDRLEN + sizeof(op.algo);
-		op.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-		op.algo = algo;
 		op.key_head.nla_len = NLA_HDRLEN + sizeof(op.key);
 		op.key_head.nla_type = NCR_ATTR_KEY;
 		op.key = key;
@@ -160,6 +159,10 @@ int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 		op.output.result_size_ptr = &output_size;
 		op.iv_head.nla_len = NLA_HDRLEN + 0;
 		op.iv_head.nla_type = NCR_ATTR_IV;
+		op.algo_head.nla_len = NLA_HDRLEN + algo_size;
+		op.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+		memcpy(op.algo, algo, algo_size);
+		op.f.input_size = op.algo + algo_size - (char *)&op;
 
 		if (ioctl(cfd, NCRIO_SESSION_ONCE, &op)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -193,14 +196,14 @@ int main(void)
 
 	fprintf(stderr, "\nTesting NCR-DIRECT with NULL cipher: \n");
 	for (i = 256; i <= (64 * 1024); i *= 2) {
-		if (encrypt_data_ncr_direct(fd, NCR_ALG_NULL, i))
+		if (encrypt_data_ncr_direct(fd, "ecb(cipher_null)", i))
 			break;
 	}
 
 
 	fprintf(stderr, "\nTesting NCR-DIRECT with AES-128-CBC cipher: \n");
 	for (i = 256; i <= (64 * 1024); i *= 2) {
-		if (encrypt_data_ncr_direct(fd, NCR_ALG_AES_CBC, i))
+		if (encrypt_data_ncr_direct(fd, "cbc(aes)", i))
 			break;
 	}
 

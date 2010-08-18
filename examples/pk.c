@@ -28,6 +28,13 @@
 
 #define ALIGN_NL __attribute__((aligned(NLA_ALIGNTO)))
 
+#define SIGNATURE_HASH "sha1"
+
+#define ALG_AES_CBC "cbc(aes)"
+#define ALG_DH "dh"
+#define ALG_DSA "dsa"
+#define ALG_RSA "rsa"
+
 static void
 print_hex_datum (gnutls_datum_t * dat)
 {
@@ -315,7 +322,7 @@ static int test_ncr_dh(int cfd)
 struct __attribute__((packed)) {
 	struct ncr_key_generate_pair f;
 	struct nlattr algo_head ALIGN_NL;
-	uint32_t algo ALIGN_NL;
+	char algo[sizeof(ALG_DH)] ALIGN_NL;
 	struct nlattr flags_head ALIGN_NL;
 	uint32_t flags ALIGN_NL;
 	unsigned char buffer[DATA_SIZE] ALIGN_NL;
@@ -386,7 +393,7 @@ struct __attribute__((packed)) {
 	kgen.f.public_key = public1;
 	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
 	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	kgen.algo = NCR_ALG_DH;
+	strcpy(kgen.algo, ALG_DH);
 	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
 	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
 	kgen.flags = NCR_KEY_FLAG_EXPORTABLE;
@@ -428,7 +435,7 @@ struct __attribute__((packed)) {
 	kgen.f.public_key = public2;
 	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
 	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	kgen.algo = NCR_ALG_DH;
+	strcpy(kgen.algo, ALG_DH);
 	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
 	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
 	kgen.flags = NCR_KEY_FLAG_EXPORTABLE;
@@ -604,7 +611,7 @@ test_ncr_wrap_key3(int cfd)
 		struct nlattr type_head ALIGN_NL;
 		uint32_t type ALIGN_NL;
 		struct nlattr algo_head ALIGN_NL;
-		uint32_t algo ALIGN_NL;
+		char algo[sizeof(ALG_AES_CBC)] ALIGN_NL;
 		struct nlattr flags_head ALIGN_NL;
 		uint32_t flags ALIGN_NL;
 	} kimport;
@@ -618,12 +625,12 @@ test_ncr_wrap_key3(int cfd)
 		struct nlattr wrap_algo_head ALIGN_NL;
 		uint32_t wrap_algo ALIGN_NL;
 		struct nlattr algo_head ALIGN_NL;
-		uint32_t algo ALIGN_NL;
+		char algo[sizeof(ALG_RSA)] ALIGN_NL;
 	} kunwrap;
 	struct __attribute__((packed)) {
 		struct ncr_key_generate_pair f;
 		struct nlattr algo_head ALIGN_NL;
-		uint32_t algo ALIGN_NL;
+		char algo[sizeof(ALG_RSA)] ALIGN_NL;
 		struct nlattr flags_head ALIGN_NL;
 		uint32_t flags ALIGN_NL;
 		struct nlattr bits_head ALIGN_NL;
@@ -679,7 +686,7 @@ test_ncr_wrap_key3(int cfd)
 	kimport.type = NCR_KEY_TYPE_SECRET;
 	kimport.algo_head.nla_len = NLA_HDRLEN + sizeof(kimport.algo);
 	kimport.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	kimport.algo = NCR_ALG_AES_CBC;
+	strcpy(kimport.algo, ALG_AES_CBC);
 	kimport.flags_head.nla_len = NLA_HDRLEN + sizeof(kimport.flags);
 	kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
 	kimport.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING;
@@ -701,7 +708,7 @@ test_ncr_wrap_key3(int cfd)
 		kgen.f.public_key = pubkey;
 		kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
 		kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-		kgen.algo = NCR_ALG_RSA;
+		strcpy(kgen.algo, ALG_RSA);
 		kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
 		kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
 		kgen.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
@@ -773,7 +780,7 @@ test_ncr_wrap_key3(int cfd)
 			kunwrap.algo_head.nla_len
 				= NLA_HDRLEN + sizeof(kunwrap.algo);
 			kunwrap.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-			kunwrap.algo = NCR_ALG_RSA;
+			strcpy(kunwrap.algo, ALG_RSA);
 
 			ret = ioctl(cfd, NCRIO_KEY_UNWRAP, &kunwrap);
 			if (ret) {
@@ -797,13 +804,13 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 	struct __attribute__((packed)) {
 		struct ncr_session_once f;
 		struct nlattr algo_head ALIGN_NL;
-		uint32_t algo ALIGN_NL;
+		char algo[sizeof(ALG_RSA)] ALIGN_NL;
 		struct nlattr key_head ALIGN_NL;
 		uint32_t key ALIGN_NL;
 		struct nlattr rsa_head ALIGN_NL;
 		uint32_t rsa ALIGN_NL;
 		struct nlattr oaep_hash_head ALIGN_NL;
-		uint32_t oaep_hash ALIGN_NL;
+		char oaep_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
 		struct nlattr input_head ALIGN_NL;
 		struct ncr_session_input_data input ALIGN_NL;
 		struct nlattr output_head ALIGN_NL;
@@ -825,7 +832,7 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 	op.f.op = NCR_OP_ENCRYPT;
 	op.algo_head.nla_len = NLA_HDRLEN + sizeof(op.algo);
 	op.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	op.algo = NCR_ALG_RSA;
+	strcpy(op.algo, ALG_RSA);
 	op.key_head.nla_len = NLA_HDRLEN + sizeof(op.key);
 	op.key_head.nla_type = NCR_ATTR_KEY;
 	op.key = pubkey;
@@ -838,7 +845,7 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 	}
 	op.oaep_hash_head.nla_len = NLA_HDRLEN + sizeof(op.oaep_hash);
 	op.oaep_hash_head.nla_type = NCR_ATTR_RSA_OAEP_HASH_ALGORITHM;
-	op.oaep_hash = NCR_ALG_SHA1; /* Ignored if not using OAEP */
+	strcpy(op.oaep_hash, SIGNATURE_HASH); /* Ignored if not using OAEP */
 	op.input_head.nla_len = NLA_HDRLEN + sizeof(op.input);
 	op.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
 	op.input.data = data;
@@ -861,7 +868,7 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 	op.f.op = NCR_OP_DECRYPT;
 	op.algo_head.nla_len = NLA_HDRLEN + sizeof(op.algo);
 	op.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	op.algo = NCR_ALG_RSA;
+	strcpy(op.algo, ALG_RSA);
 	op.key_head.nla_len = NLA_HDRLEN + sizeof(op.key);
 	op.key_head.nla_type = NCR_ATTR_KEY;
 	op.key = privkey;
@@ -874,7 +881,7 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 	}
 	op.oaep_hash_head.nla_len = NLA_HDRLEN + sizeof(op.oaep_hash);
 	op.oaep_hash_head.nla_type = NCR_ATTR_RSA_OAEP_HASH_ALGORITHM;
-	op.oaep_hash = NCR_ALG_SHA1; /* Ignored if not using OAEP */
+	strcpy(op.oaep_hash, SIGNATURE_HASH); /* Ignored if not using OAEP */
 	op.input_head.nla_len = NLA_HDRLEN + sizeof(op.input);
 	op.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
 	op.input.data = data;
@@ -911,13 +918,13 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 	struct __attribute__((packed)) {
 		struct ncr_session_once f;
 		struct nlattr algo_head ALIGN_NL;
-		uint32_t algo ALIGN_NL;
+		char algo[sizeof(ALG_RSA)] ALIGN_NL;
 		struct nlattr key_head ALIGN_NL;
 		uint32_t key ALIGN_NL;
 		struct nlattr rsa_head ALIGN_NL;
 		uint32_t rsa ALIGN_NL;
 		struct nlattr sign_hash_head ALIGN_NL;
-		uint32_t sign_hash ALIGN_NL;
+		char sign_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
 		struct nlattr input_head ALIGN_NL;
 		struct ncr_session_input_data input ALIGN_NL;
 		struct nlattr signature_head ALIGN_NL;
@@ -926,13 +933,13 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 	struct __attribute__((packed)) {
 		struct ncr_session_once f;
 		struct nlattr algo_head ALIGN_NL;
-		uint32_t algo ALIGN_NL;
+		char algo[sizeof(ALG_RSA)] ALIGN_NL;
 		struct nlattr key_head ALIGN_NL;
 		uint32_t key ALIGN_NL;
 		struct nlattr rsa_head ALIGN_NL;
 		uint32_t rsa ALIGN_NL;
 		struct nlattr sign_hash_head ALIGN_NL;
-		uint32_t sign_hash ALIGN_NL;
+		char sign_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
 		struct nlattr input_head ALIGN_NL;
 		struct ncr_session_input_data input ALIGN_NL;
 		struct nlattr signature_head ALIGN_NL;
@@ -954,7 +961,7 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 	ksign.f.op = NCR_OP_SIGN;
 	ksign.algo_head.nla_len = NLA_HDRLEN + sizeof(ksign.algo);
 	ksign.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	ksign.algo = NCR_ALG_RSA;
+	strcpy(ksign.algo, ALG_RSA);
 	ksign.key_head.nla_len = NLA_HDRLEN + sizeof(ksign.key);
 	ksign.key_head.nla_type = NCR_ATTR_KEY;
 	ksign.key = privkey;
@@ -963,7 +970,7 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 	ksign.rsa = (pss != 0) ? RSA_PKCS1_PSS : RSA_PKCS1_V1_5;
 	ksign.sign_hash_head.nla_len = NLA_HDRLEN + sizeof(ksign.sign_hash);
 	ksign.sign_hash_head.nla_type = NCR_ATTR_SIGNATURE_HASH_ALGORITHM;
-	ksign.sign_hash = NCR_ALG_SHA1;
+	strcpy(ksign.sign_hash, SIGNATURE_HASH);
 	ksign.input_head.nla_len = NLA_HDRLEN + sizeof(ksign.input);
 	ksign.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
 	ksign.input.data = data;
@@ -988,7 +995,7 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 	kverify.f.op = NCR_OP_VERIFY;
 	kverify.algo_head.nla_len = NLA_HDRLEN + sizeof(kverify.algo);
 	kverify.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	kverify.algo = NCR_ALG_RSA;
+	strcpy(kverify.algo, ALG_RSA);
 	kverify.key_head.nla_len = NLA_HDRLEN + sizeof(kverify.key);
 	kverify.key_head.nla_type = NCR_ATTR_KEY;
 	kverify.key = pubkey;
@@ -997,7 +1004,7 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 	kverify.rsa = (pss != 0) ? RSA_PKCS1_PSS : RSA_PKCS1_V1_5;
 	kverify.sign_hash_head.nla_len = NLA_HDRLEN + sizeof(kverify.sign_hash);
 	kverify.sign_hash_head.nla_type = NCR_ATTR_SIGNATURE_HASH_ALGORITHM;
-	kverify.sign_hash = NCR_ALG_SHA1;
+	strcpy(kverify.sign_hash, SIGNATURE_HASH);
 	kverify.input_head.nla_len = NLA_HDRLEN + sizeof(kverify.input);
 	kverify.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
 	kverify.input.data = data;
@@ -1030,11 +1037,11 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 	struct __attribute__((packed)) {
 		struct ncr_session_once f;
 		struct nlattr algo_head ALIGN_NL;
-		uint32_t algo ALIGN_NL;
+		char algo[sizeof(ALG_DSA)] ALIGN_NL;
 		struct nlattr key_head ALIGN_NL;
 		uint32_t key ALIGN_NL;
 		struct nlattr sign_hash_head ALIGN_NL;
-		uint32_t sign_hash ALIGN_NL;
+		char sign_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
 		struct nlattr input_head ALIGN_NL;
 		struct ncr_session_input_data input ALIGN_NL;
 		struct nlattr signature_head ALIGN_NL;
@@ -1043,11 +1050,11 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 	struct __attribute__((packed)) {
 		struct ncr_session_once f;
 		struct nlattr algo_head ALIGN_NL;
-		uint32_t algo ALIGN_NL;
+		char algo[sizeof(ALG_DSA)] ALIGN_NL;
 		struct nlattr key_head ALIGN_NL;
 		uint32_t key ALIGN_NL;
 		struct nlattr sign_hash_head ALIGN_NL;
-		uint32_t sign_hash ALIGN_NL;
+		char sign_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
 		struct nlattr input_head ALIGN_NL;
 		struct ncr_session_input_data input ALIGN_NL;
 		struct nlattr signature_head ALIGN_NL;
@@ -1069,13 +1076,13 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 	ksign.f.op = NCR_OP_SIGN;
 	ksign.algo_head.nla_len = NLA_HDRLEN + sizeof(ksign.algo);
 	ksign.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	ksign.algo = NCR_ALG_DSA;
+	strcpy(ksign.algo, ALG_DSA);
 	ksign.key_head.nla_len = NLA_HDRLEN + sizeof(ksign.key);
 	ksign.key_head.nla_type = NCR_ATTR_KEY;
 	ksign.key = privkey;
 	ksign.sign_hash_head.nla_len = NLA_HDRLEN + sizeof(ksign.sign_hash);
 	ksign.sign_hash_head.nla_type = NCR_ATTR_SIGNATURE_HASH_ALGORITHM;
-	ksign.sign_hash = NCR_ALG_SHA1;
+	strcpy(ksign.sign_hash, SIGNATURE_HASH);
 	ksign.input_head.nla_len = NLA_HDRLEN + sizeof(ksign.input);
 	ksign.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
 	ksign.input.data = data;
@@ -1098,13 +1105,13 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 	kverify.f.op = NCR_OP_VERIFY;
 	kverify.algo_head.nla_len = NLA_HDRLEN + sizeof(kverify.algo);
 	kverify.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	kverify.algo = NCR_ALG_DSA;
+	strcpy(kverify.algo, ALG_DSA);
 	kverify.key_head.nla_len = NLA_HDRLEN + sizeof(kverify.key);
 	kverify.key_head.nla_type = NCR_ATTR_KEY;
 	kverify.key = pubkey;
 	kverify.sign_hash_head.nla_len = NLA_HDRLEN + sizeof(kverify.sign_hash);
 	kverify.sign_hash_head.nla_type = NCR_ATTR_SIGNATURE_HASH_ALGORITHM;
-	kverify.sign_hash = NCR_ALG_SHA1;
+	strcpy(kverify.sign_hash, SIGNATURE_HASH);
 	kverify.input_head.nla_len = NLA_HDRLEN + sizeof(kverify.input);
 	kverify.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
 	kverify.input.data = data;
@@ -1139,7 +1146,7 @@ static int test_ncr_rsa(int cfd)
 	struct __attribute__((packed)) {
 		struct ncr_key_generate_pair f;
 		struct nlattr algo_head ALIGN_NL;
-		uint32_t algo ALIGN_NL;
+		char algo[sizeof(ALG_RSA)] ALIGN_NL;
 		struct nlattr flags_head ALIGN_NL;
 		uint32_t flags ALIGN_NL;
 		struct nlattr bits_head ALIGN_NL;
@@ -1174,7 +1181,7 @@ static int test_ncr_rsa(int cfd)
 	kgen.f.public_key = pubkey;
 	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
 	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	kgen.algo = NCR_ALG_RSA;
+	strcpy(kgen.algo, ALG_RSA);
 	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
 	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
 	kgen.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
@@ -1265,7 +1272,7 @@ static int test_ncr_dsa(int cfd)
 	struct __attribute__((packed)) {
 		struct ncr_key_generate_pair f;
 		struct nlattr algo_head ALIGN_NL;
-		uint32_t algo ALIGN_NL;
+		char algo[sizeof(ALG_DSA)] ALIGN_NL;
 		struct nlattr flags_head ALIGN_NL;
 		uint32_t flags ALIGN_NL;
 		struct nlattr q_bits_head ALIGN_NL;
@@ -1302,7 +1309,7 @@ static int test_ncr_dsa(int cfd)
 	kgen.f.public_key = pubkey;
 	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
 	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	kgen.algo = NCR_ALG_DSA;
+	strcpy(kgen.algo, ALG_DSA);
 	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
 	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
 	kgen.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;

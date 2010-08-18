@@ -18,9 +18,29 @@
 struct nlattr;
 struct ncr_out;
 
+// Not all known algorithms - only for quick internal identification
+enum ncr_algorithm {
+	NCR_ALG_NONE__,
+	NCR_ALG_NULL,
+
+	NCR_ALG_3DES_CBC,
+
+	NCR_ALG_MD5,
+	NCR_ALG_SHA1,
+	NCR_ALG_SHA2_224,
+	NCR_ALG_SHA2_256,
+	NCR_ALG_SHA2_384,
+	NCR_ALG_SHA2_512,
+
+	NCR_ALG_RSA,
+	NCR_ALG_DSA,
+	NCR_ALG_DH,
+};
+
 struct algo_properties_st {
-	ncr_algorithm_t algo;
+	enum ncr_algorithm algo;
 	const char *kstr;
+	size_t kstr_len;
 	unsigned needs_iv:1;
 	unsigned is_hmac:1;
 	unsigned can_sign:1;
@@ -196,7 +216,7 @@ int key_to_storage_data( uint8_t** data, size_t * data_size, const struct key_it
 
 /* misc helper macros */
 
-const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo);
+const struct algo_properties_st *_ncr_algo_to_properties(const char *algo);
 const struct algo_properties_st *_ncr_nla_to_properties(const struct nlattr *nla);
 int _ncr_key_get_sec_level(struct key_item_st* item);
 
