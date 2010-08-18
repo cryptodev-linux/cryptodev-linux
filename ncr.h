@@ -148,6 +148,12 @@ struct ncr_key_generate_st {
 	struct ncr_key_generate_params_st params;
 };
 
+struct ncr_key_generate {
+	__u32 input_size, output_size;
+	ncr_key_t key;
+	__NL_ATTRIBUTES;
+};
+
 typedef enum {
 	RSA_PKCS1_V1_5, /* both signatures and encryption */
 	RSA_PKCS1_OAEP, /* for encryption only */
@@ -224,7 +230,7 @@ struct ncr_key_data_st {
 
 #define NCRIO_KEY_INIT			_IO('c', 204)
 /* generate a secret key */
-#define NCRIO_KEY_GENERATE     	_IOR ('c', 205, struct ncr_key_generate_st)
+#define NCRIO_KEY_GENERATE     	_IOWR('c', 205, struct ncr_key_generate)
 /* generate a public key pair */
 #define NCRIO_KEY_GENERATE_PAIR _IOR ('c', 206, struct ncr_key_generate_st)
 /* derive a new key from an old one */

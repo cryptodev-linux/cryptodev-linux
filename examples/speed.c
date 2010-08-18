@@ -17,6 +17,7 @@
  *  Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  */
 #include <fcntl.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,9 +25,13 @@
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
 #include <signal.h>
 #include <unistd.h>
+#include <linux/netlink.h>
 #include "../ncr.h"
+
+#define ALIGN_NL __attribute__((aligned(NLA_ALIGNTO)))
 
 static double udifftimeval(struct timeval start, struct timeval end)
 {
@@ -76,7 +81,13 @@ int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 	double secs, ddata, dspeed;
 	char metric[16];
 	ncr_key_t key;
-	struct ncr_key_generate_st kgen;
+	struct __attribute__((packed)) {
+		struct ncr_key_generate f;
+		struct nlattr algo_head ALIGN_NL;
+		uint32_t algo ALIGN_NL;
+		struct nlattr bits_head ALIGN_NL;
+		uint32_t bits ALIGN_NL;
+	} kgen;
 	struct ncr_session_once_op_st nop;
 
 	key = ioctl(cfd, NCRIO_KEY_INIT);
@@ -86,14 +97,19 @@ int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 		return 1;
 	}
 
-	kgen.desc = key;
-	kgen.params.algorithm = NCR_ALG_AES_CBC;
-	kgen.params.keyflags = NCR_KEY_FLAG_EXPORTABLE;
-	kgen.params.params.secret.bits = 128; /* 16  bytes */
-	
+	memset(&kgen.f, 0, sizeof(kgen.f));
+	kgen.f.input_size = sizeof(kgen);
+	kgen.f.key = key;
+	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
+	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+	kgen.algo = NCR_ALG_AES_CBC;
+	kgen.bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.bits);
+	kgen.bits_head.nla_type = NCR_ATTR_SECRET_KEY_BITS;
+	kgen.bits = 128; /* 16 bytes */
+
 	if (ioctl(cfd, NCRIO_KEY_GENERATE, &kgen)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_IMPORT)");
+		perror("ioctl(NCRIO_KEY_GENERATE)");
 		return 1;
 	}
 

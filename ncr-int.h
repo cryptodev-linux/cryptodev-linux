@@ -122,7 +122,8 @@ int ncr_key_deinit(struct ncr_lists *lst, void __user* arg);
 int ncr_key_export(struct ncr_lists *lst, void __user* arg);
 int ncr_key_import(struct ncr_lists *lst, void __user* arg);
 void ncr_key_list_deinit(struct ncr_lists *lst);
-int ncr_key_generate(struct ncr_lists *lst, void __user* arg);
+int ncr_key_generate(struct ncr_lists *lst, const struct ncr_key_generate *gen,
+		     struct nlattr *tb[]);
 int ncr_key_info(struct ncr_lists *lst, void __user* arg);
 
 int ncr_key_generate_pair(struct ncr_lists *lst, void __user* arg);

@@ -13,10 +13,14 @@
 #include <sys/ioctl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/socket.h>
+#include <linux/netlink.h>
 #include "../ncr.h"
 #include <stdlib.h>
 
 #define DATA_SIZE 4096
+
+#define ALIGN_NL __attribute__((aligned(NLA_ALIGNTO)))
 
 static void randomize_data(uint8_t * data, size_t data_size)
 {
@@ -33,7 +37,15 @@ int i;
 static int
 test_ncr_key(int cfd)
 {
-	struct ncr_key_generate_st kgen;
+	struct __attribute__((packed)) {
+		struct ncr_key_generate f;
+		struct nlattr algo_head ALIGN_NL;
+		uint32_t algo ALIGN_NL;
+		struct nlattr flags_head ALIGN_NL;
+		uint32_t flags ALIGN_NL;
+		struct nlattr bits_head ALIGN_NL;
+		uint32_t bits ALIGN_NL;
+	} kgen;
 	ncr_key_t key;
 	struct ncr_key_data_st keydata;
 	uint8_t data[KEY_DATA_SIZE];
@@ -120,14 +132,22 @@ test_ncr_key(int cfd)
 		return 1;
 	}
 
-	kgen.desc = key;
-	kgen.params.algorithm = NCR_ALG_AES_CBC;
-	kgen.params.keyflags = NCR_KEY_FLAG_EXPORTABLE;
-	kgen.params.params.secret.bits = 128; /* 16  bytes */
-	
+	memset(&kgen.f, 0, sizeof(kgen.f));
+	kgen.f.input_size = sizeof(kgen);
+	kgen.f.key = key;
+	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
+	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+	kgen.algo = NCR_ALG_AES_CBC;
+	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
+	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
+	kgen.flags = NCR_KEY_FLAG_EXPORTABLE;
+	kgen.bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.bits);
+	kgen.bits_head.nla_type = NCR_ATTR_SECRET_KEY_BITS;
+	kgen.bits = 128; /* 16 bytes */
+
 	if (ioctl(cfd, NCRIO_KEY_GENERATE, &kgen)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_IMPORT)");
+		perror("ioctl(NCRIO_KEY_GENERATE)");
 		return 1;
 	}
 
@@ -171,13 +191,21 @@ test_ncr_key(int cfd)
 		return 1;
 	}
 
-	kgen.desc = key;
-	kgen.params.algorithm = NCR_ALG_AES_CBC;
-	kgen.params.keyflags = 0;
-	kgen.params.params.secret.bits = 128; /* 16  bytes */
-	
+	memset(&kgen.f, 0, sizeof(kgen.f));
+	kgen.f.input_size = sizeof(kgen);
+	kgen.f.key = key;
+	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
+	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+	kgen.algo = NCR_ALG_AES_CBC;
+	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
+	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
+	kgen.flags = 0;
+	kgen.bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
+	kgen.bits_head.nla_type = NCR_ATTR_SECRET_KEY_BITS;
+	kgen.bits = 128; /* 16 bytes */
+
 	if (ioctl(cfd, NCRIO_KEY_GENERATE, &kgen)) {
-		perror("ioctl(NCRIO_KEY_IMPORT)");
+		perror("ioctl(NCRIO_KEY_GENERATE)");
 		return 1;
 	}
 

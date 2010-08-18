@@ -34,6 +34,7 @@
 #include <linux/capability.h>
 #include "ncr.h"
 #include "ncr-int.h"
+#include "utils.h"
 #include <linux/workqueue.h>
 
 /* This is the master wrapping key for storage of keys
@@ -120,17 +121,32 @@ int
 ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 {
 	void __user *arg = (void __user *)arg_;
+	struct nlattr *tb[NCR_ATTR_MAX + 1];
+	void *attr_buf;
+	int ret;
 
 	if (unlikely(!lst))
 		BUG();
 
 	switch (cmd) {
+#define CASE_NO_OUTPUT(LABEL, STRUCT, FUNCTION)				\
+	case (LABEL): {							\
+		struct STRUCT data;					\
+									\
+		attr_buf = NCR_GET_INPUT_ARGS_NO_OUTPUT(&data, tb, arg); \
+		if (IS_ERR(attr_buf)) {					\
+			err();						\
+			return PTR_ERR(attr_buf);			\
+		}							\
+		ret = (FUNCTION)(lst, &data, tb);			\
+		break;							\
+	}
+
 	case NCRIO_KEY_INIT:
 		return ncr_key_init(lst);
+	CASE_NO_OUTPUT(NCRIO_KEY_GENERATE, ncr_key_generate, ncr_key_generate);
 		case NCRIO_KEY_DEINIT:
 			return ncr_key_deinit(lst, arg);
-		case NCRIO_KEY_GENERATE:
-			return ncr_key_generate(lst, arg);
 		case NCRIO_KEY_EXPORT:
 			return ncr_key_export(lst, arg);
 		case NCRIO_KEY_IMPORT:
@@ -162,7 +178,10 @@ ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 			return ncr_key_derive(lst, arg);
 		default:
 			return -EINVAL;
+#undef CASE_NO_OUTPUT
 	}
+	kfree(attr_buf);
+	return ret;
 }
 
 #ifdef CONFIG_COMPAT
@@ -174,6 +193,7 @@ ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 
 	switch (cmd) {
 	case NCRIO_KEY_INIT:
+	case NCRIO_KEY_GENERATE:
 		return ncr_ioctl(lst, cmd, arg_);
 	default:
 		return -EINVAL;

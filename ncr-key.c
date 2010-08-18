@@ -28,6 +28,7 @@
 #include <linux/random.h>
 #include <linux/uaccess.h>
 #include <linux/scatterlist.h>
+#include <net/netlink.h>
 #include "ncr.h"
 #include "ncr-int.h"
 
@@ -423,20 +424,16 @@ void ncr_key_clear(struct key_item_st* item)
 
 /* Generate a secret key
  */
-int ncr_key_generate(struct ncr_lists *lst, void __user* arg)
+int ncr_key_generate(struct ncr_lists *lst, const struct ncr_key_generate *gen,
+		     struct nlattr *tb[])
 {
-struct ncr_key_generate_st gen;
+const struct nlattr *nla;
 struct key_item_st* item = NULL;
 const struct algo_properties_st *algo;
 int ret;
 size_t size;
 
-	if (unlikely(copy_from_user(&gen, arg, sizeof(gen)))) {
-		err();
-		return -EFAULT;
-	}
-
-	ret = ncr_key_item_get_write( &item, lst, gen.desc);
+	ret = ncr_key_item_get_write(&item, lst, gen->key);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -445,9 +442,11 @@ size_t size;
 	ncr_key_clear(item);
 
 	/* we generate only secret keys */
-	ncr_key_assign_flags(item, gen.params.keyflags);
+	nla = tb[NCR_ATTR_KEY_FLAGS];
+	if (nla != NULL)
+		ncr_key_assign_flags(item, nla_get_u32(nla));
 
-	algo = _ncr_algo_to_properties(gen.params.algorithm);
+	algo = _ncr_nla_to_properties(tb[NCR_ATTR_ALGORITHM]);
 	if (algo == NULL) {
 		err();
 		ret = -EINVAL;
@@ -455,11 +454,19 @@ size_t size;
 	}
 	item->type = algo->key_type;
 	if (item->type == NCR_KEY_TYPE_SECRET) {
+		u32 key_bits;
+
 		item->algorithm = algo;
 
-		size = gen.params.params.secret.bits/8;
-		if ((gen.params.params.secret.bits % 8 != 0) ||
-				(size > NCR_CIPHER_MAX_KEY_LEN)) {
+		nla = tb[NCR_ATTR_SECRET_KEY_BITS];
+		if (nla == NULL) {
+			err();
+			ret = -EINVAL;
+			goto fail;
+		}
+		key_bits = nla_get_u32(nla);
+		size = key_bits / 8;
+		if (key_bits % 8 != 0 || size > NCR_CIPHER_MAX_KEY_LEN) {
 			err();
 			ret = -EINVAL;
 			goto fail;
