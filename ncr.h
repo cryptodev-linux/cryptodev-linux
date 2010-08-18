@@ -33,7 +33,7 @@ enum {
 	NCR_ATTR_ALGORITHM,	      /* NLA_NUL_STRING */
 	NCR_ATTR_DERIVATION_ALGORITHM, /* NLA_NUL_STRING - NCR_DERIVE_* */
 	NCR_ATTR_SIGNATURE_HASH_ALGORITHM, /* NLA_NUL_STRING */
-	NCR_ATTR_WRAPPING_ALGORITHM,  /* NLA_U32 - ncr_wrap_algorithm_t */
+	NCR_ATTR_WRAPPING_ALGORITHM,  /* NLA_NUL_STRING - NCR_WALG_* */
 	NCR_ATTR_UPDATE_INPUT_DATA,   /* NLA_BINARY - ncr_session_input_data */
 	/* NLA_BINARY - ncr_session_output_buffer */
 	NCR_ATTR_UPDATE_OUTPUT_BUFFER,
@@ -68,10 +68,8 @@ enum {
 #define NCR_CIPHER_MAX_BLOCK_LEN 32
 #define NCR_HASH_MAX_OUTPUT_SIZE  64
 
-typedef enum {
-	NCR_WALG_AES_RFC3394, /* for secret keys only */
-	NCR_WALG_AES_RFC5649, /* can wrap arbitrary key */
-} ncr_wrap_algorithm_t;
+#define NCR_WALG_AES_RFC3394 "walg-aes-rfc3394" /* for secret keys only */
+#define NCR_WALG_AES_RFC5649 "walg-aes-rfc5649" /* can wrap arbitrary key */
 
 typedef enum {
 	NCR_KEY_TYPE_INVALID,

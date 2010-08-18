@@ -590,18 +590,14 @@ int ret;
 		ret = -EINVAL;
 		goto fail;
 	}
-	switch (nla_get_u32(nla)) {
-		case NCR_WALG_AES_RFC3394:
-			ret = wrap_aes(wkey, key, data, &data_size, iv,
+	if (nla_strcmp(nla, NCR_WALG_AES_RFC3394) == 0)
+		ret = wrap_aes(wkey, key, data, &data_size, iv, iv_size);
+	else if (nla_strcmp(nla, NCR_WALG_AES_RFC5649) == 0)
+		ret = wrap_aes_rfc5649(wkey, key, data, &data_size, iv,
 				       iv_size);
-			break;
-		case NCR_WALG_AES_RFC5649:
-			ret = wrap_aes_rfc5649(wkey, key, data, &data_size, iv,
-					       iv_size);
-			break;
-		default:
-			err();
-			ret = -EINVAL;
+	else {
+		err();
+		ret = -EINVAL;
 	}
 	
 	if (ret < 0) {
@@ -678,18 +674,13 @@ int ret;
 		ret = -EINVAL;
 		goto fail;
 	}
-	switch (nla_get_u32(nla)) {
-		case NCR_WALG_AES_RFC3394:
-			ret = unwrap_aes_rfc3394(wkey, key, data, data_size,
-						 tb);
-			break;
-		case NCR_WALG_AES_RFC5649:
-			ret = unwrap_aes_rfc5649(wkey, key, data, data_size,
-						 tb);
-			break;
-		default:
-			err();
-			ret = -EINVAL;
+	if (nla_strcmp(nla, NCR_WALG_AES_RFC3394) == 0)
+		ret = unwrap_aes_rfc3394(wkey, key, data, data_size, tb);
+	else if (nla_strcmp(nla, NCR_WALG_AES_RFC5649) == 0)
+		ret = unwrap_aes_rfc5649(wkey, key, data, data_size, tb);
+	else {
+		err();
+		ret = -EINVAL;
 	}
 	
 fail:

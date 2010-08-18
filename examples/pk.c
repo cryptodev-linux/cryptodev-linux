@@ -618,12 +618,12 @@ test_ncr_wrap_key3(int cfd)
 	struct __attribute__((packed)) {
 		struct ncr_key_wrap f;
 		struct nlattr algo_head ALIGN_NL;
-		uint32_t algo ALIGN_NL;
+		char algo[sizeof(NCR_WALG_AES_RFC5649)] ALIGN_NL;
 	} kwrap;
 	struct __attribute__((packed)) {
 		struct ncr_key_unwrap f;
 		struct nlattr wrap_algo_head ALIGN_NL;
-		uint32_t wrap_algo ALIGN_NL;
+		char wrap_algo[sizeof(NCR_WALG_AES_RFC5649)] ALIGN_NL;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(ALG_RSA)] ALIGN_NL;
 	} kunwrap;
@@ -731,7 +731,7 @@ test_ncr_wrap_key3(int cfd)
 		kwrap.f.buffer_size = sizeof(data);
 		kwrap.algo_head.nla_len = NLA_HDRLEN + sizeof(kwrap.algo);
 		kwrap.algo_head.nla_type = NCR_ATTR_WRAPPING_ALGORITHM;
-		kwrap.algo = NCR_WALG_AES_RFC5649;
+		strcpy(kwrap.algo, NCR_WALG_AES_RFC5649);
 
 		ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
 		if (ret < 0) {
@@ -749,7 +749,7 @@ test_ncr_wrap_key3(int cfd)
 		kwrap.f.buffer_size = sizeof(data);
 		kwrap.algo_head.nla_len = NLA_HDRLEN + sizeof(kwrap.algo);
 		kwrap.algo_head.nla_type = NCR_ATTR_WRAPPING_ALGORITHM;
-		kwrap.algo = NCR_WALG_AES_RFC5649;
+		strcpy(kwrap.algo, NCR_WALG_AES_RFC5649);
 
 		ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
 		if (ret < 0 && i != 2) {
@@ -776,7 +776,7 @@ test_ncr_wrap_key3(int cfd)
 				= NLA_HDRLEN + sizeof(kunwrap.wrap_algo);
 			kunwrap.wrap_algo_head.nla_type
 				= NCR_ATTR_WRAPPING_ALGORITHM;
-			kunwrap.wrap_algo = NCR_WALG_AES_RFC5649;
+			strcpy(kunwrap.wrap_algo, NCR_WALG_AES_RFC5649);
 			kunwrap.algo_head.nla_len
 				= NLA_HDRLEN + sizeof(kunwrap.algo);
 			kunwrap.algo_head.nla_type = NCR_ATTR_ALGORITHM;
