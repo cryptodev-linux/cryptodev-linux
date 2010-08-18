@@ -26,10 +26,13 @@
    space for output attributes is available, and is not updated. */
 
 /* FIXME: better names for algorithm parameters? */
+/* FIXME: Split key generation/derivation attributes to decrease the number
+   of attributes used for the frequent operations? */
 enum {
 	NCR_ATTR_UNSPEC,	      /* 0 is special in lib/nlattr.c. */
 	/* FIXME: Use NLA_STRING for this, later */
 	NCR_ATTR_ALGORITHM,	      /* NLA_U32 - ncr_algorithm_t */
+	NCR_ATTR_DERIVATION_ALGORITHM, /* NLA_U32 - ncr_algorithm_t */
 	NCR_ATTR_KEY_FLAGS,	      /* NLA_U32 - NCR_KEY_FLAG_* */
 	NCR_ATTR_SECRET_KEY_BITS,     /* NLA_U32 */
 	NCR_ATTR_RSA_MODULUS_BITS,    /* NLA_U32 */
@@ -38,6 +41,7 @@ enum {
 	NCR_ATTR_DSA_Q_BITS,	      /* NLA_U32 */
 	NCR_ATTR_DH_PRIME,	      /* NLA_BINARY */
 	NCR_ATTR_DH_BASE,	      /* NLA_BINARY */
+	NCR_ATTR_DH_PUBLIC,	      /* NLA_BINARY */
 
 	/* Add new attributes here */
 
@@ -133,7 +137,7 @@ typedef enum {
 	RSA_PKCS1_PSS, /* for signatures only */
 } ncr_rsa_type_t;
 
-/* used in derivation/encryption
+/* used in encryption
  */
 struct ncr_key_params_st {
 	/* this structure always corresponds to a key. Hence the
@@ -144,10 +148,6 @@ struct ncr_key_params_st {
 			__u8 iv[NCR_CIPHER_MAX_BLOCK_LEN];
 			__kernel_size_t iv_size;
 		} cipher;
-		struct {
-			__u8 __user *pub;
-			__kernel_size_t pub_size;
-		} dh;
 		struct {
 			ncr_rsa_type_t type;
 			ncr_algorithm_t oaep_hash; /* for OAEP */
@@ -164,14 +164,12 @@ typedef enum {
 	NCR_DERIVE_DH=1,
 } ncr_derive_t;
 
-struct ncr_key_derivation_params_st {
-	ncr_derive_t derive; /* the derivation algorithm */
 
-	ncr_key_t newkey;
-	unsigned int keyflags; /* for new key */
-	
-	ncr_key_t key;
-	struct ncr_key_params_st params;
+struct ncr_key_derive {
+	__u32 input_size, output_size;
+	ncr_key_t input_key;
+	ncr_key_t new_key;
+	__NL_ATTRIBUTES;
 };
 
 #define MAX_KEY_ID_SIZE 20
@@ -207,7 +205,7 @@ struct ncr_key_data_st {
 /* generate a public key pair */
 #define NCRIO_KEY_GENERATE_PAIR _IOWR('c', 206, struct ncr_key_generate_pair)
 /* derive a new key from an old one */
-#define NCRIO_KEY_DERIVE        _IOR ('c', 207, struct ncr_key_derivation_params_st)
+#define NCRIO_KEY_DERIVE        _IOWR('c', 207, struct ncr_key_derive)
 /* return information on a key */
 #define NCRIO_KEY_GET_INFO      _IOWR('c', 208, struct ncr_key_info_st)
 

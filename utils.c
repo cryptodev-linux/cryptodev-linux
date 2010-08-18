@@ -30,6 +30,7 @@
 
 static const struct nla_policy ncr_attr_policy[NCR_ATTR_MAX + 1] = {
 	[NCR_ATTR_ALGORITHM] = { NLA_U32, 0 },
+	[NCR_ATTR_DERIVATION_ALGORITHM] = { NLA_U32, 0 },
 	[NCR_ATTR_KEY_FLAGS] = { NLA_U32, 0 },
 	[NCR_ATTR_SECRET_KEY_BITS] = { NLA_U32, 0 },
 	[NCR_ATTR_RSA_MODULUS_BITS] = { NLA_U32, 0 },
@@ -38,6 +39,7 @@ static const struct nla_policy ncr_attr_policy[NCR_ATTR_MAX + 1] = {
 	[NCR_ATTR_DSA_Q_BITS] = { NLA_U32, 0 },
 	[NCR_ATTR_DH_PRIME] = { NLA_BINARY, 0 },
 	[NCR_ATTR_DH_BASE] = { NLA_BINARY, 0 },
+	[NCR_ATTR_DH_PUBLIC] = { NLA_BINARY, 0 },
 };
 
 void *__ncr_get_input_args(void *fixed, struct nlattr *tb[], size_t fixed_size,

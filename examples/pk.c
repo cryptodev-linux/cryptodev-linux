@@ -329,7 +329,15 @@ gnutls_dh_params_t dhp;
 unsigned char y1[1024], y2[1024];
 size_t y1_size, y2_size;
 struct ncr_key_data_st keydata;
-struct ncr_key_derivation_params_st kderive;
+struct __attribute__((packed)) {
+	struct ncr_key_derive f;
+	struct nlattr algo_head ALIGN_NL;
+	uint32_t algo ALIGN_NL;
+	struct nlattr flags_head ALIGN_NL;
+	uint32_t flags ALIGN_NL;
+	struct nlattr public_head ALIGN_NL;
+	unsigned char public[DATA_SIZE] ALIGN_NL;
+} kderive;
 
 	fprintf(stdout, "Tests on DH key exchange:");
 	fflush(stdout);
@@ -478,17 +486,26 @@ struct ncr_key_derivation_params_st kderive;
 		return 1;
 	}
 
-	memset(&kderive, 0, sizeof(kderive));
-	kderive.derive = NCR_DERIVE_DH;
-	kderive.newkey = z1;
-	kderive.keyflags = NCR_KEY_FLAG_EXPORTABLE;
-	kderive.key = private1;
-	kderive.params.params.dh.pub = y2;
-	kderive.params.params.dh.pub_size = y2_size;
+	memset(&kderive.f, 0, sizeof(kderive.f));
+	kderive.f.input_key = private1;
+	kderive.f.new_key = z1;
+	kderive.algo_head.nla_len = NLA_HDRLEN + sizeof(kderive.algo);
+	kderive.algo_head.nla_type = NCR_ATTR_DERIVATION_ALGORITHM;
+	kderive.algo = NCR_DERIVE_DH;
+	kderive.flags_head.nla_len = NLA_HDRLEN + sizeof(kderive.flags);
+	kderive.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
+	kderive.flags = NCR_KEY_FLAG_EXPORTABLE;
+	kderive.public_head.nla_len = NLA_HDRLEN + y2_size;
+	kderive.public_head.nla_type = NCR_ATTR_DH_PUBLIC;
+	memcpy(kderive.public, y2, y2_size);
+	nla = (struct nlattr *)((char *)&kderive.public_head
+				+ NLA_ALIGN(kderive.public_head.nla_len));
+	kderive.f.input_size = (char *)nla - (char *)&kderive;
+	assert(kderive.f.input_size <= sizeof(kderive));
 
 	if (ioctl(cfd, NCRIO_KEY_DERIVE, &kderive)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_INIT)");
+		perror("ioctl(NCRIO_KEY_DERIVE)");
 		return 1;
 	}
 	
@@ -500,17 +517,26 @@ struct ncr_key_derivation_params_st kderive;
 		return 1;
 	}
 
-	memset(&kderive, 0, sizeof(kderive));
-	kderive.derive = NCR_DERIVE_DH;
-	kderive.newkey = z2;
-	kderive.keyflags = NCR_KEY_FLAG_EXPORTABLE;
-	kderive.key = private2;
-	kderive.params.params.dh.pub = y1;
-	kderive.params.params.dh.pub_size = y1_size;
+	memset(&kderive.f, 0, sizeof(kderive.f));
+	kderive.f.input_key = private2;
+	kderive.f.new_key = z2;
+	kderive.algo_head.nla_len = NLA_HDRLEN + sizeof(kderive.algo);
+	kderive.algo_head.nla_type = NCR_ATTR_DERIVATION_ALGORITHM;
+	kderive.algo = NCR_DERIVE_DH;
+	kderive.flags_head.nla_len = NLA_HDRLEN + sizeof(kderive.flags);
+	kderive.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
+	kderive.flags = NCR_KEY_FLAG_EXPORTABLE;
+	kderive.public_head.nla_len = NLA_HDRLEN + y2_size;
+	kderive.public_head.nla_type = NCR_ATTR_DH_PUBLIC;
+	memcpy(kderive.public, y1, y1_size);
+	nla = (struct nlattr *)((char *)&kderive.public_head
+				+ NLA_ALIGN(kderive.public_head.nla_len));
+	kderive.f.input_size = (char *)nla - (char *)&kderive;
+	assert(kderive.f.input_size <= sizeof(kderive));
 
 	if (ioctl(cfd, NCRIO_KEY_DERIVE, &kderive)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_INIT)");
+		perror("ioctl(NCRIO_KEY_DERIVE)");
 		return 1;
 	}
 	

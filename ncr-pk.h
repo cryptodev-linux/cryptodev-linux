@@ -51,7 +51,7 @@ int ncr_pk_cipher_verify(const struct ncr_pk_ctx* ctx,
 int _ncr_tomerr(int err);
 
 int ncr_pk_derive(struct key_item_st* newkey, struct key_item_st* oldkey,
-	struct ncr_key_derivation_params_st * params);
+		  struct nlattr *tb[]);
 
 int ncr_pk_get_rsa_size( rsa_key* key);
 int ncr_pk_get_dsa_size( dsa_key* key);

@@ -681,38 +681,34 @@ fail:
 }
 
 int ncr_pk_derive(struct key_item_st* newkey, struct key_item_st* oldkey,
-	struct ncr_key_derivation_params_st * params)
+		  struct nlattr *tb[])
 {
+const struct nlattr *nla;
 int ret;
-void* tmp = NULL;
-size_t size;
 
-	switch(params->derive) {
+	nla = tb[NCR_ATTR_DERIVATION_ALGORITHM];
+	if (nla == NULL) {
+		err();
+		return -EINVAL;
+	}
+	switch(nla_get_u32(nla)) {
 		case NCR_DERIVE_DH:
 			if (oldkey->type != NCR_KEY_TYPE_PRIVATE &&
 				oldkey->algorithm->algo != NCR_ALG_DH) {
 				err();
 				return -EINVAL;
 			}
-			
-			size = params->params.params.dh.pub_size;
-			tmp = kmalloc(size, GFP_KERNEL);
-			if (tmp == NULL) {
+
+			nla = tb[NCR_ATTR_DH_PUBLIC];
+			if (nla == NULL) {
 				err();
-				return -ENOMEM;
+				return -EINVAL;
 			}
-			
-			if (unlikely(copy_from_user(tmp, params->params.params.dh.pub, 
-				size))) {
-					err();
-					ret = -EFAULT;
-					goto fail;
-			}
-			
-			ret = dh_derive_gxy(newkey, &oldkey->key.pk.dh, tmp, size);
+			ret = dh_derive_gxy(newkey, &oldkey->key.pk.dh,
+					    nla_data(nla), nla_len(nla));
 			if (ret < 0) {
 				err();
-				goto fail;
+				return ret;
 			}
 		
 			break;
@@ -721,10 +717,7 @@ size_t size;
 			return -EINVAL;
 	}
 
-	ret = 0;
-fail:
-	kfree(tmp);
-	return ret;
+	return 0;
 }
 
 int ncr_pk_get_rsa_size( rsa_key* key)

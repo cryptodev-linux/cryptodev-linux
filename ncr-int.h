@@ -111,7 +111,8 @@ long ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd,
 		      unsigned long arg);
 
 /* key derivation */
-int ncr_key_derive(struct ncr_lists *lst, void __user* arg);
+int ncr_key_derive(struct ncr_lists *lst, const struct ncr_key_derive *data,
+		   struct nlattr *tb[]);
 
 void ncr_key_clear(struct key_item_st* item);
 void ncr_key_assign_flags(struct key_item_st* item, unsigned int flags);

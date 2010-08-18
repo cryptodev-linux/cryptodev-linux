@@ -701,22 +701,15 @@ fail:
 	return ret;
 }
 
-/* "exports" a key to a data item. If the key is not exportable
- * to userspace then the data item will also not be.
- */
-int ncr_key_derive(struct ncr_lists *lst, void __user* arg)
+int ncr_key_derive(struct ncr_lists *lst, const struct ncr_key_derive *data,
+		   struct nlattr *tb[])
 {
-struct ncr_key_derivation_params_st data;
+const struct nlattr *nla;
 int ret;
 struct key_item_st* key = NULL;
 struct key_item_st* newkey = NULL;
 
-	if (unlikely(copy_from_user(&data, arg, sizeof(data)))) {
-		err();
-		return -EFAULT;
-	}
-
-	ret = ncr_key_item_get_read( &key, lst, data.key);
+	ret = ncr_key_item_get_read(&key, lst, data->input_key);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -730,7 +723,7 @@ struct key_item_st* newkey = NULL;
 		goto fail;
 	}
 
-	ret = ncr_key_item_get_write( &newkey, lst, data.newkey);
+	ret = ncr_key_item_get_write(&newkey, lst, data->new_key);
 	if (ret < 0) {
 		err();
 		goto fail;
@@ -738,12 +731,14 @@ struct key_item_st* newkey = NULL;
 
 	ncr_key_clear(newkey);
 
-	ncr_key_assign_flags(newkey, data.keyflags);
+	nla = tb[NCR_ATTR_KEY_FLAGS];
+	if (nla != NULL)
+		ncr_key_assign_flags(newkey, nla_get_u32(nla));
 
 	switch (key->type) {
 		case NCR_KEY_TYPE_PUBLIC:
 		case NCR_KEY_TYPE_PRIVATE:
-			ret = ncr_pk_derive(newkey, key, &data);
+			ret = ncr_pk_derive(newkey, key, tb);
 			if (ret < 0) {
 				err();
 				goto fail;
@@ -754,12 +749,6 @@ struct key_item_st* newkey = NULL;
 			ret = -EINVAL;
 			goto fail;
 	}
-
-	if (unlikely(copy_to_user(arg, &data, sizeof(data)))) {
-		err();
-		ret = -EFAULT;
-	} else
-		ret = 0;
 
 fail:
 	if (key)
