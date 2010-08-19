@@ -10,7 +10,7 @@
  */
 #include "tomcrypt.h"
 #include "ncr-int.h"
-#include <linux/slab.h>
+
 
 /**
   @file rsa_verify_hash.c

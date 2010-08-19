@@ -22,7 +22,7 @@
  * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 #include "tomcrypt.h"
-#include <linux/slab.h>
+
 /**
   @file der_encode_sequence_multi.c
   ASN.1 DER, encode a Subject Public Key structure --nmav

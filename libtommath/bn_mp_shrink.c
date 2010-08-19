@@ -1,5 +1,4 @@
 #include <tommath.h>
-#include <linux/slab.h>
 #ifdef BN_MP_SHRINK_C
 /* LibTomMath, multiple-precision integer library -- Tom St Denis
  *

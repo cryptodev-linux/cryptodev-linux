@@ -1,5 +1,4 @@
 #include <tommath.h>
-#include <linux/slab.h>
 #ifdef BN_MP_PRIME_RANDOM_EX_C
 /* LibTomMath, multiple-precision integer library -- Tom St Denis
  *

@@ -9,7 +9,7 @@
  * Tom St Denis, tomstdenis@gmail.com, http://libtom.org
  */
 #include "tomcrypt.h"
-#include <linux/slab.h>
+
 
 /**
   @file der_encode_setof.c

@@ -1,5 +1,4 @@
 #include <tommath.h>
-#include <linux/slab.h>
 #ifdef BN_MP_INIT_SIZE_C
 /* LibTomMath, multiple-precision integer library -- Tom St Denis
  *
