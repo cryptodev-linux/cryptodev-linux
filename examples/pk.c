@@ -524,6 +524,119 @@ struct ncr_key_derivation_params_st kderive;
 	return 0;
 }
 
+/* check whether wrapping of long keys is not allowed with
+ * shorted wrapping keys */
+static int
+test_ncr_wrap_key3(int cfd)
+{
+	int ret, i;
+	ncr_key_t key;
+	struct ncr_key_data_st keydata;
+	struct ncr_key_wrap_st kwrap;
+	struct ncr_key_generate_st kgen;
+	ncr_key_t pubkey, privkey;
+	uint8_t data[DATA_SIZE];
+	/* only the first two should be allowed to be wrapped */
+	const int sizes[] = {1024, 3248, 5200};
+
+	fprintf(stdout, "Tests on key wrapping: ");
+	fflush(stdout);
+
+	/* convert it to key */
+	if (ioctl(cfd, NCRIO_KEY_INIT, &privkey)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+
+	if (ioctl(cfd, NCRIO_KEY_INIT, &pubkey)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+
+	if (geteuid() != 0) {
+		/* cannot test further */
+		fprintf(stdout, "\t(Wrapping test not completed. Run as root)\n");
+		return 0;
+	}
+
+	/* make a wrapping key */
+	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+
+	keydata.key_id[0] = 'a';
+	keydata.key_id[2] = 'b';
+	keydata.key_id_size = 2;
+	keydata.type = NCR_KEY_TYPE_SECRET;
+	keydata.algorithm = NCR_ALG_AES_CBC;
+	keydata.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING;
+	
+	keydata.key = key;
+	keydata.idata = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
+	keydata.idata_size = 16;
+
+	if (ioctl(cfd, NCRIO_KEY_IMPORT, &keydata)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_IMPORT)");
+		return 1;
+	}
+	
+	for (i=0;i<sizeof(sizes)/sizeof(sizes[0]);i++) {
+		memset(&kgen, 0, sizeof(kgen));
+		kgen.desc = privkey;
+		kgen.desc2 = pubkey;
+		kgen.params.algorithm = NCR_ALG_RSA;
+		kgen.params.keyflags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
+		kgen.params.params.rsa.bits = sizes[i];
+
+		if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_GENERATE_PAIR)");
+			return 1;
+		}
+
+		/* now try wrapping key2 using key */
+		memset(&kwrap, 0, sizeof(kwrap));
+		kwrap.algorithm = NCR_WALG_AES_RFC5649;
+		kwrap.keytowrap = pubkey;
+		kwrap.key = key;
+		kwrap.io = data;
+		kwrap.io_size = sizeof(data);
+
+		ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
+		if (ret) {
+			fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i], __func__, __LINE__);
+			/* wrapping of public key should have been allowed! */
+			return 1;
+		}
+
+		/* now try wrapping private using key */
+		memset(&kwrap, 0, sizeof(kwrap));
+		kwrap.algorithm = NCR_WALG_AES_RFC5649;
+		kwrap.keytowrap = privkey;
+		kwrap.key = key;
+		kwrap.io = data;
+		kwrap.io_size = sizeof(data);
+
+		ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
+		if (ret && i != 2) {
+			fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i], __func__, __LINE__);
+			/* wrapping should have been allowed */
+			return 1;
+		} else if (ret == 0 && i == 2) {
+			fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i], __func__, __LINE__);
+			/* wrapping shouldn't have been allowed */
+			return 1;
+		}			
+	}
+	
+	fprintf(stdout, " Success\n");
+	return 0;
+}
+
 #define RSA_ENCRYPT_SIZE 32
 
 static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oaep)
@@ -960,6 +1073,9 @@ main()
 		return 1;
 
 	if (test_ncr_dsa(fd))
+		return 1;
+		
+	if (test_ncr_wrap_key3(fd))
 		return 1;
 
 	/* Close the original descriptor */

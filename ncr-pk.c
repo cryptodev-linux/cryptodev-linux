@@ -714,3 +714,27 @@ fail:
 	kfree(tmp);
 	return ret;
 }
+
+int ncr_pk_get_rsa_size( rsa_key* key)
+{
+int ret;
+	ret = mp_count_bits(&key->N);
+	if (ret <= 0) {
+		err();
+		return -EINVAL;
+	}
+	
+	return ret;
+}
+
+int ncr_pk_get_dsa_size( dsa_key* key)
+{
+int ret;
+	ret = mp_count_bits(&key->p);
+	if (ret <= 0) {
+		err();
+		return -EINVAL;
+	}
+	
+	return ret;
+}

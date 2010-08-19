@@ -169,5 +169,6 @@ int key_to_storage_data( uint8_t** data, size_t * data_size, const struct key_it
 
 const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo);
 const struct algo_properties_st *ncr_key_params_get_sign_hash(const struct algo_properties_st *algo, struct ncr_key_params_st * params);
+int _ncr_key_get_sec_level(struct key_item_st* item);
 
 #endif

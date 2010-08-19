@@ -311,6 +311,15 @@ fail:
 	
 }
 
+unsigned int assign_key_flags(unsigned int flags)
+{
+	if (current_euid()==0) {
+		return flags;
+	} else {
+		return flags & (~(NCR_KEY_FLAG_WRAPPING));
+	}
+}
+
 /* "imports" a key from a data item. If the key is not exportable
  * to userspace then the key item will also not be.
  */
@@ -356,7 +365,7 @@ size_t tmp_size;
 		ret = -EINVAL;
 		goto fail;
 	}
-	item->flags = data.flags;
+	item->flags = assign_key_flags(data.flags);
 
 	if (data.key_id_size > MAX_KEY_ID_SIZE) {
 		err();
@@ -370,7 +379,6 @@ size_t tmp_size;
 
 	switch(item->type) {
 		case NCR_KEY_TYPE_SECRET:
-
 			if (tmp_size > NCR_CIPHER_MAX_KEY_LEN) {
 				err();
 				ret = -EINVAL;
@@ -445,7 +453,8 @@ size_t size;
 	ncr_key_clear(item);
 
 	/* we generate only secret keys */
-	item->flags = gen.params.keyflags;
+	item->flags = assign_key_flags(gen.params.keyflags);
+
 	algo = _ncr_algo_to_properties(gen.params.algorithm);
 	if (algo == NULL) {
 		err();
@@ -484,6 +493,106 @@ fail:
 		_ncr_key_item_put(item);
 	}
 	return ret;
+}
+
+/* Those values are derived from "ECRYPT II Yearly Report on Algorithms and
+ * Keysizes (2009-2010)". It maps the strength of public key algorithms to 
+ * symmetric ones. Should be kept up to date.
+ */
+struct {
+	unsigned int bits; /* sec level */
+	unsigned int rsa_bits;
+	unsigned int dlog_bits;
+} ecrypt_vals[] = {
+	{64, 816, 816},
+	{80, 1248, 1248},
+	{112, 2432, 2432},
+	{128, 3248, 3248},
+	{160, 5312, 5312},
+	{192, 7936, 7936},
+	{256, 15424, 15424},
+	{0,0,0}
+};
+
+unsigned int rsa_to_bits(unsigned int rsa_bits)
+{
+int i = 1;
+
+	if (rsa_bits <= ecrypt_vals[0].rsa_bits)
+		return ecrypt_vals[0].rsa_bits;
+
+	do {
+		if (rsa_bits <= ecrypt_vals[i].rsa_bits && 
+			rsa_bits > ecrypt_vals[i-1].rsa_bits) {
+
+			return ecrypt_vals[i].bits;
+		}
+	} while(ecrypt_vals[++i].bits != 0);
+	
+	/* return the highest found so far */
+	return ecrypt_vals[i-1].bits;
+}
+
+unsigned int dlog_to_bits(unsigned int dlog_bits)
+{
+int i = 1;
+
+	if (dlog_bits <= ecrypt_vals[0].dlog_bits)
+		return ecrypt_vals[0].dlog_bits;
+
+	do {
+		if (dlog_bits <= ecrypt_vals[i].dlog_bits && 
+			dlog_bits > ecrypt_vals[i-1].dlog_bits) {
+
+			return ecrypt_vals[i].bits;
+		}
+	} while(ecrypt_vals[++i].bits != 0);
+	
+	/* return the highest found so far */
+	return ecrypt_vals[i-1].bits;
+}
+
+/* returns the security level of the key in bits. Private/Public keys
+ * are mapped to symmetric key bits using the ECRYPT II 2010 recommendation.
+ */
+int _ncr_key_get_sec_level(struct key_item_st* item)
+{
+int bits;
+
+	if (item->type == NCR_KEY_TYPE_SECRET) {
+		return item->key.secret.size*8;
+	} else if (item->type == NCR_KEY_TYPE_PRIVATE) {
+		switch(item->algorithm->algo) {
+			case NCR_ALG_RSA:
+				bits = ncr_pk_get_rsa_size(&item->key.pk.rsa);
+				if (bits < 0) {
+					err();
+					return bits;
+				}
+				
+				return rsa_to_bits(bits);
+			case NCR_ALG_DSA:
+				bits = ncr_pk_get_dsa_size(&item->key.pk.dsa);
+				if (bits < 0) {
+					err();
+					return bits;
+				}
+				
+				return dlog_to_bits(bits);
+			case NCR_ALG_DH:
+				bits = ncr_pk_get_dh_size(&item->key.pk.dh);
+				if (bits < 0) {
+					err();
+					return bits;
+				}
+				
+				return dlog_to_bits(bits);
+			default:
+				return -EINVAL;
+		}
+	} else {
+		return -EINVAL;
+	}
 }
 
 int ncr_key_info(struct ncr_lists *lst, void __user* arg)
@@ -549,7 +658,8 @@ int ret;
 	ncr_key_clear(private);
 
 	/* we generate only secret keys */
-	private->flags = public->flags = gen.params.keyflags;
+	private->flags = public->flags = assign_key_flags(gen.params.keyflags);
+
 	private->algorithm = public->algorithm = _ncr_algo_to_properties(gen.params.algorithm);
 	if (private->algorithm == NULL) {
 		err();
@@ -614,7 +724,7 @@ struct key_item_st* newkey = NULL;
 
 	ncr_key_clear(newkey);
 
-	newkey->flags = data.keyflags;
+	newkey->flags = assign_key_flags(data.keyflags);
 
 	switch (key->type) {
 		case NCR_KEY_TYPE_PUBLIC:

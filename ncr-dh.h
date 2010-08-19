@@ -22,4 +22,6 @@ int dh_import(const uint8_t *in, size_t inlen, dh_key *key);
 int dh_derive_gxy(struct key_item_st* newkey, dh_key * key,
 	void* pk, size_t pk_size);
 
+int ncr_pk_get_dh_size( dh_key* key);
+
 #endif

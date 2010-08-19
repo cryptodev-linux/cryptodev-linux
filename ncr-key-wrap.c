@@ -430,6 +430,37 @@ cleanup:
 	return ret;
 }
 
+/* will check if the kek is of equal or higher security level than
+ * wkey. To prevent encrypting a 256 bit key with an 128 bit one.
+ */
+int check_key_level(struct key_item_st* kek, struct key_item_st* wkey)
+{
+int kek_level, wkey_level;
+
+	/* allow wrapping of public keys with any key */
+	if (wkey->type == NCR_KEY_TYPE_PUBLIC)
+		return 0;
+
+	kek_level = _ncr_key_get_sec_level(kek);
+	if (kek_level < 0) {
+		err();
+		return kek_level;
+	}
+
+	wkey_level = _ncr_key_get_sec_level(wkey);
+	if (wkey_level < 0) {
+		err();
+		return wkey_level;
+	}
+	
+	if (wkey_level > kek_level) {
+		err();
+		return -EPERM;
+	}
+	
+	return 0;
+}
+
 int ncr_key_wrap(struct ncr_lists *lst, void __user* arg)
 {
 struct ncr_key_wrap_st wrap;
@@ -457,6 +488,18 @@ int ret;
 	}
 
 	ret = ncr_key_item_get_read( &key, lst, wrap.key);
+	if (ret < 0) {
+		err();
+		goto fail;
+	}
+
+	if (!(key->flags & NCR_KEY_FLAG_WRAPPING)) {
+		err();
+		ret = -EPERM;
+		goto fail;
+	}
+	
+	ret = check_key_level(key, wkey);
 	if (ret < 0) {
 		err();
 		goto fail;
@@ -539,6 +582,12 @@ int ret;
 		goto fail;
 	}
 
+	if (!(key->flags & NCR_KEY_FLAG_WRAPPING)) {
+		err();
+		ret = -EPERM;
+		goto fail;
+	}
+
 	data_size = wrap.io_size;
 	data = kmalloc(data_size, GFP_KERNEL);
 	if (data == NULL) {
@@ -599,12 +648,6 @@ int ret;
 	if (ret < 0) {
 		err();
 		return ret;
-	}
-
-	if (!(wkey->flags & NCR_KEY_FLAG_WRAPPABLE)) {
-		err();
-		ret = -EPERM;
-		goto fail;
 	}
 
 	data_size = wrap.io_size;
@@ -697,8 +740,6 @@ int ret;
 		ret = -ENOMEM;
 		goto fail;
 	}
-
-	wkey->flags = NCR_KEY_FLAG_WRAPPABLE;
 
 	ret = _unwrap_aes_rfc5649(sdata, &sdata_size, &master_key, data, data_size, NULL, 0);
 	if (ret < 0) {

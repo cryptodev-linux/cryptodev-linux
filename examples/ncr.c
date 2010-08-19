@@ -208,7 +208,7 @@ test_ncr_key(int cfd)
 static int
 test_ncr_wrap_key(int cfd)
 {
-	int i;
+	int i, ret;
 	ncr_key_t key, key2;
 	struct ncr_key_data_st keydata;
 	struct ncr_key_wrap_st kwrap;
@@ -234,7 +234,7 @@ test_ncr_wrap_key(int cfd)
 	keydata.key_id_size = 2;
 	keydata.type = NCR_KEY_TYPE_SECRET;
 	keydata.algorithm = NCR_ALG_AES_CBC;
-	keydata.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
+	keydata.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING;
 	
 	keydata.key = key;
 	keydata.idata = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
@@ -279,12 +279,20 @@ test_ncr_wrap_key(int cfd)
 	kwrap.io = data;
 	kwrap.io_size = sizeof(data);
 
-	if (ioctl(cfd, NCRIO_KEY_WRAP, &kwrap)) {
+	ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
+	
+	if (geteuid() == 0 && ret) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_WRAP)");
 		return 1;
 	}
 	
+	if (geteuid() != 0) {
+		/* cannot test further */
+		fprintf(stdout, "\t(Wrapping test not completed. Run as root)\n");
+		return 0;
+	}
+
 	data_size = kwrap.io_size;
 
 	if (kwrap.io_size != 24 || memcmp(data,
@@ -297,9 +305,6 @@ test_ncr_wrap_key(int cfd)
 		fprintf(stderr, "\n");
 		return 1;
 	}
-
-
-
 
 	/* test unwrapping */
 	fprintf(stdout, "\tKey Unwrap test...\n");
@@ -360,7 +365,94 @@ test_ncr_wrap_key(int cfd)
 #endif
 
 	return 0;
+}
 
+/* check whether wrapping of long keys is not allowed with
+ * shorted wrapping keys */
+static int
+test_ncr_wrap_key2(int cfd)
+{
+	int ret;
+	ncr_key_t key, key2;
+	struct ncr_key_data_st keydata;
+	struct ncr_key_wrap_st kwrap;
+	uint8_t data[WRAPPED_KEY_DATA_SIZE];
+
+	/* test 1: generate a key in userspace import it
+	 * to kernel via data and export it.
+	 */
+
+	fprintf(stdout, "\tKey Wrap test II...\n");
+
+	if (geteuid() != 0) {
+		/* cannot test further */
+		fprintf(stdout, "\t(Wrapping test not completed. Run as root)\n");
+		return 0;
+	}
+
+	/* convert it to key */
+	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+
+	keydata.key_id[0] = 'a';
+	keydata.key_id[2] = 'b';
+	keydata.key_id_size = 2;
+	keydata.type = NCR_KEY_TYPE_SECRET;
+	keydata.algorithm = NCR_ALG_AES_CBC;
+	keydata.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING;
+	
+	keydata.key = key;
+	keydata.idata = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
+	keydata.idata_size = 16;
+
+	if (ioctl(cfd, NCRIO_KEY_IMPORT, &keydata)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_IMPORT)");
+		return 1;
+	}
+
+
+	/* convert it to key */
+	if (ioctl(cfd, NCRIO_KEY_INIT, &key2)) {
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+
+	keydata.key_id[0] = 'b';
+	keydata.key_id[2] = 'a';
+	keydata.key_id_size = 2;
+	keydata.type = NCR_KEY_TYPE_SECRET;
+	keydata.algorithm = NCR_ALG_AES_CBC;
+	keydata.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
+	
+	keydata.key = key2;
+	keydata.idata = "\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF";
+	keydata.idata_size = 32;
+
+	if (ioctl(cfd, NCRIO_KEY_IMPORT, &keydata)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_IMPORT)");
+		return 1;
+	}
+
+	/* now try wrapping key2 using key */
+	memset(&kwrap, 0, sizeof(kwrap));
+	kwrap.algorithm = NCR_WALG_AES_RFC3394;
+	kwrap.keytowrap = key2;
+	kwrap.key = key;
+	kwrap.io = data;
+	kwrap.io_size = sizeof(data);
+
+	ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
+	if (!ret) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		/* wrapping shouldn't have been allowed */
+		return 1;
+	}
+	
+	return 0;
 }
 
 static int
@@ -937,6 +1029,9 @@ main()
 		return 1;
 
 	if (test_ncr_wrap_key(fd))
+		return 1;
+
+	if (test_ncr_wrap_key2(fd))
 		return 1;
 
 	if (test_ncr_store_wrap_key(fd))

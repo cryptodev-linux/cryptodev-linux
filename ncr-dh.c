@@ -281,3 +281,15 @@ fail:
 	
 	return ret;
 }	
+
+int ncr_pk_get_dh_size( dh_key* key)
+{
+int ret;
+	ret = mp_count_bits(&key->p);
+	if (ret <= 0) {
+		err();
+		return -EINVAL;
+	}
+	
+	return ret;
+}
