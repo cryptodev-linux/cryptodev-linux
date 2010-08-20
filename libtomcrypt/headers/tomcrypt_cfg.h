@@ -42,9 +42,9 @@ LTC_EXPORT int   LTC_CALL XSTRCMP(const char *s1, const char *s2);
 
 #endif
 
-/* type of argument checking, 0=default, 1=fatal and 2=error+continue, 3=nothing */
+/* type of argument checking, 0=default, 1=fatal and 2=error+continue, 3=nothing, 4=return error */
 #ifndef ARGTYPE
-   #define ARGTYPE  0
+   #define ARGTYPE  4
 #endif
 
 /* Controls endianess and size of registers.  Leave uncommented to get platform neutral [slower] code 

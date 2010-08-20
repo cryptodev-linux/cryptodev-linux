@@ -25,8 +25,8 @@ void crypt_argchk(char *v, char *s, int d);
 
 #elif ARGTYPE == 4
 
-#define LTC_ARGCHK(x)   if (!(x)) return CRYPT_INVALID_ARG;
-#define LTC_ARGCHKVD(x) if (!(x)) return;
+#define LTC_ARGCHK(x)   if (!(x)) { printk( "\nwarning: ARGCHK failed at %s:%d\n", __FILE__, __LINE__); return CRYPT_INVALID_ARG; }
+#define LTC_ARGCHKVD(x) if (!(x)) { printk( "\nwarning: ARGCHK failed at %s:%d\n", __FILE__, __LINE__); return; }
 
 #endif
 

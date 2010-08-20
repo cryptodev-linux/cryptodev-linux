@@ -26,7 +26,7 @@ int rand_prime(mp_int *N, long len);
 
 /* Min and Max RSA key sizes (in bits) */
 #define MIN_RSA_SIZE 1024
-#define MAX_RSA_SIZE 4096
+#define MAX_RSA_SIZE 8192
 
 /** RSA LTC_PKCS style key */
 typedef struct Rsa_key {
