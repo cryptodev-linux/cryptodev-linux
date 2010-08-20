@@ -16,7 +16,7 @@
 .\" 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
 .\"
 .\" Author: Miloslav Trmač <mitr@redhat.com>
-.TH CRYPTO 4 2010-08-02 Linux "Linux Programmer's Manual"
+.TH CRYPTO 4 2010-08-20 Linux "Linux Programmer's Manual"
 
 .SH NAME
 /dev/crypto \- kernel cryptographic module interface
@@ -54,18 +54,125 @@ and passes a pointer to the data structure as the third parameter to
 .BR ioctl (2).
 On success, output data is available in the same structure.
 
+.SH OPERATION ATTRIBUTES
+
+In addition to the fixed members of data structures,
+a process can pass additional attributes on input of most operations,
+and receive additional attributes back from the kernel.
+If this is supported by a specific operation,
+the fixed data structure members for this operation include
+.B input_size
+and \fBoutput_size\fR.
+
+The input attributes immediately follow the fixed data structure as a sequence
+of correctly aligned (\fBstruct nlattr\fP, attribute data) pairs,
+using the same data layout and formatting rules as
+.BR netlink (7)
+messages.
+The
+.B input_size
+member must be initialized to the total length of input (including both the
+fixed data structure and the attributes).
+
+There is an (unspecified) upper limit on the total size of all attributes,
+which should be large enough to accommodate any reasonable application.
+If a larger input is provided nevertheless,
+the operation will fail with \fBEOVERFLOW\fP.
+
+Output attributes, if any, are written by the kernel in the same format
+following the fixed data structure (overwriting input attributes, if any).
+The
+.B output_size
+member must be initialized to the total space available for output
+(including the fixed data structure and space for attributes),
+and is updated by the kernel with the total space actually used for attributes.
+
+If the space available for output attributes is too small,
+the operation will fail with \fBERANGE\fP.
+
+As a special case,
+.B input_size
+may be zero to indicate no input attributes are supplied.
+Similarly,
+.B output_size
+may be zero to indicate no space for output attributes is provided;
+in such case
+.B output_size
+is not overwritten by the kernel with the total space actually used
+(which is equal to size of the fixed data structure)
+and remains zero when the operation finishes.
+
+The kernel accepts and silently ignores unknown attributes.
+
+The kernel will not add new output attributes to existing operations
+in future releases
+unless the new output attribute was explicitly requested by the application.
+(Therefore, the application does not have to allocate any extra space for
+output attributes it does not expect.)
+
+The following attributes are used in more than one operation:
+
+.TP
+.B NCR_ATTR_ALGORITHM
+A NUL-terminated string specifying an algorithm
+(to be used in an operation, or as a property of a key),
+using the Linux crypto API algorithm names.
+
+Three additional algorithm names are recognized: \fBrsa\fP, \fBdsa\fP, \fBdh\fP.
+
+.TP
+.B NCR_ATTR_IV
+Unformatted binary data specifying an initialization vector,
+
+.TP
+.B NCR_ATTR_KEY_FLAGS
+An 32-bit unsigned integer in native byte order specifying key flags,
+a combination of
+.B NCR_KEY_FLAG_EXPORTABLE
+(the key material can be exported in plaintext to user space)
+and
+.B NCR_KEY_FLAG_WRAPPABLE
+(the key material can be wrapped and the result made available to user space).
+
+.TP
+.B NCR_ATTR_KEY_ID
+Arbitrary binary data
+which can be used by the application for key identification.
+
+.TP
+.B NCR_ATTR_KEY_TYPE
+An 32-bit unsigned integer in native byte order specifying key type,
+one of \fBNCR_KEY_TYPE_SECRET\fP, \fBNCR_KEY_TYPE_PUBLIC\fP and
+\fBNCR_KEY_TYPE_PRIVATE\fP.
+
+.TP
+.B NCR_ATTR_WRAPPING_ALGORITHM
+A NUL-terminated string specifying a key wrapping algorithm.
+The values
+.B walg-aes-rfc3394
+and
+.B walg-aes-rfc5649
+are currently supported.
+.RE
+
+.SH OPERATIONS
+
 The following operations are defined:
 
 .TP
 .B NCRIO_KEY_INIT
 Allocate a kernel-space key object.
-The parameter is not used on input
+The third
+.BR ioctl (s)
+parameter is ignored
 (key attributes are set later, when the key material is initialized).
-On success, an integer descriptor for the key object
+Returns an
+.B ncr_key_t
+descriptor for the key object
 (valid within the current
 .I /dev/crypto
 namespace)
-is stored in the provided area.
+on success.
 
 There is a per-process and per-user (not per-namespace) limit
 on the number key objects that can be allocated.
@@ -73,7 +180,9 @@ on the number key objects that can be allocated.
 .TP
 .B NCRIO_KEY_DEINIT
 Deallocate a kernel-space key object.
-The parameter specifies the integer descriptor of the key object.
+The parameter points to a
+.B ncr_key_t
+descriptor of the key object.
 After all other operations using this key object (if any) terminate,
 the key material will be cleared and the object will be freed.
 Note that this may happen both before this operation returns,
@@ -84,34 +193,25 @@ and after it returns, depending on other references to this key object.
 Clear existing key material in the specified key object,
 and generate new key material.
 
-The parameter points to \fBstruct ncr_key_generate_st\fP, which specifies:
+The parameter points to \fBstruct ncr_key_generate\fP,
+which specifies the destination key object in its
+.B key
+member.
+
+The following input attributes are recognized:
 
 .RS
-.IP \fBdesc\fP
-The key descriptor
-.IP \fBparams.algorithm\fP
-The crypto algorithm with which the key will be used
-.IP \fBparams.keyflags\fP
-Key flags, a combination of
-.B NCR_KEY_FLAG_EXPORTABLE
-(the key material can be exported in plaintext to user space)
-and
-.B NCR_KEY_FLAG_WRAPPABLE
-(the key material can be wrapped and the result made available to user space).
-.IP \fBparams.params\fP
-Algorithm-specific key parameters:
-For symmetric keys, key length in bits.
-For RSA keys, the public exponent and modulus length in bits.
-For DSA keys,
-.I p
-and
-.I q
-length in bits.
-For DH keys, the prime and group generator.
+.IP \fBNCR_ATTR_ALGORITHM\fP
+Mandatory.
+.IP \fBNCR_ATTR_KEY_FLAGS\fP
+Optional, flags are unchanged if not present.
+.IP \fBNCR_ATTR_SECRET_KEY_BITS\fP
+Mandatory for symmetric keys.
+An 32-bit unsigned integer in native byte order specifying key length in bits.
 .RE
 
 .IP
-Currently only symmetric keys can be generated using this operation.
+Only symmetric keys can be currently generated using this operation.
 
 In addition to generating the key material,
 the "persistent" key ID is reset to a random value.
@@ -121,98 +221,129 @@ the "persistent" key ID is reset to a random value.
 Similar to \fBNCRIO_KEY_GENERATE\fP,
 except that a pair of public/private keys is generated.
 
-The parameter points to \fBstruct ncr_key_generate_st\fP as specified above,
-with the additional member
-.B desc2
-used to specify the key descriptor for the public key.
+The parameter points to \fBstruct ncr_key_generate_pair\fP,
+which specifies the destination key objects in its
+.B private_key
+and
+.B public_key
+members.
 
+The following input attributes are recognized:
+
+.RS
+.IP \fBNCR_ATTR_KEY_FLAGS\fP
+Optional, flags are unchanged if not present.
+.IP \fBNCR_ATTR_RSA_E\fP
+For RSA keys,
+the public exponent as a big-endian multiple-precision integer.
+Optional, defaults to 65537.
+.IP \fBNCR_ATTR_RSA_MODULUS_BITS\fP
+Mandatory for RSA keys.
+An 32-bit unsigned integer in native byte order
+specifying modulus length in bits.
+.IP \fBNCR_ATTR_DSA_P_BITS\fP
+For DSA keys, length of the "p" key parameter in bits
+as an 32-bit unsigned integer in native byte order.
+Optional, defaults to 1024.
+.IP \fBNCR_ATTR_DSA_Q_BITS\fP
+For DSA keys, length of the "q" key parameter in bits
+as an 32-bit unsigned integer in native byte order.
+Optional, defaults to 160.
+.IP \fBNCR_ATTR_DH_BASE\fP
+Mandatory for D-H keys.
+The prime modulus of a D-H group as a big-endian multiple-precision integer.
+.IP \fBNCR_ATTR_DH_PRIME\fP
+Mandatory for D-H keys.
+The generator of a D-H group as a big-endian multiple-precision integer.
+.RE
+
+.IP
 The
 .B NCR_KEY_FLAG_EXPORTABLE
 and
 .B NCR_KEY_FLAG_WRAPPABLE
 flags are automatically set on the public key.
 
+In addition to generating the key material,
+the "persistent" key ID of both keys is set to a same value
+derived from the public key.
+
 .TP
 .B NCRIO_KEY_DERIVE
 Derive a new key using one key and additional data.
 
-The parameter points to \fBstruct ncr_key_derivation_params_st\fP,
-which specifies:
+The parameter points to \fBstruct ncr_key_derive\fP,
+which specifies the source and destination keys in the
+.B input_key
+and
+.B new_key
+members.
+
+The following input attributes are recognized:
 
 .RS
-.IP \fBderive\fP
-The derivation algorithm.
-Currently only
-.B NCR_DERIVE_DH
-is supported.
-.IP \fBnewkey\fP
-The descriptor of the resulting key
-.IP \fBkeyflags\fP
-Flags to use for the resulting key
-.IP \fBkey\fP
-The source key descriptor
-.IP \fBparams\fP
-Key type-specific parameters.
-For \fBNCR_DERIVE_DH\fP,
-.B params.params.dh.pub
-and
-.B params.params.dh.pub_size
-specify the peer's public key.
+.IP \fBNCR_ATTR_KEY_FLAGS\fP
+Optional, flags are unchanged if not present.
+.IP \fBNCR_ATTR_DERIVATION_ALGORITHM\fP
+Mandatory.
+A NUL-terminated string specifying a key derivation algorithm.
+Only
+.B dh
+is currently supported.
+.IP \fBNCR_ATTR_DH_PUBLIC\fP
+Mandatory for D-H derivation.
+The peer's public D-H value as a big-endian multiple-precision integer.
 .RE
 
 .TP
 .B NCRIO_KEY_EXPORT
-
 Export key material in the specified key object to user space.
 Only keys with the
 .B NCR_KEY_FLAG_EXPORTABLE
 flag can be exported using this operation.
 
-The parameter points to \fBstruct ncr_key_data_st\fP, which specifies:
+The parameter points to \fBstruct ncr_key_export\fP,
+which specifies the key to export in the
+.B key
+member,
+and a buffer for the exported data in the
+.B buffer
+and
+.B buffer_size
+members.
 
-.RS
-.IP \fBkey\fP
-The key descriptor
-.IP \fBidata\fP
-Destination buffer
-.IP \fBidata_size\fP
-Buffer size
-.RE
+On success, size of the exported key is returned.
 
-.IP
 Symmetric keys are written directly into the destination buffer.
 Public and private keys are formatted using ASN.1,
 except for DH public keys, which are written a raw binary number.
-
-On success, the
-.B idata_size
-member is set to the size of the exported key.
 
 .TP
 .B NCRIO_KEY_IMPORT
 Clear existing key material in the specified key object,
 and import key material from user space.
 
-The parameter points to \fBstruct ncr_key_data_st\fP, which specifies:
+The parameter points to \fBstruct ncr_key_import\fP,
+which specifies the destination key in the
+.B key
+member,
+and the input data in the
+.B data
+and
+.B data_size
+members.
+
+The following input attributes are recognized:
 
 .RS
-.IP \fBkey\fP
-The key descriptor
-.IP \fBidata\fP
-Source data
-.IP \fBidata_size\fP
-Source data size
-.IP \fBkey_id\fP
-New "persistent" key ID.
-.IP \fBkey_id_size\fP
-Size of data in \fBkey_id\fP.
-.IP \fBtype\fP
-Key type, one of \fBNCR_KEY_TYPE_SECRET\fP, \fBNCR_KEY_TYPE_PUBLIC\fP and
-\fBNCR_KEY_TYPE_PRIVATE\fP.
-.IP \fBalgorithm\fP
-The crypto algorithm with which the key will be used
-.IP \fBflags\fP
-Key flags
+.IP \fBNCR_ATTR_ALGORITHM\fP
+Mandatory.
+.IP \fBNCR_ATTR_KEY_FLAGS\fP
+Optional, flags are unchanged if not present.
+.IP \fBNCR_ATTR_KEY_ID\fP
+Optional, the "persistent" key ID is unchanged if not present.
+.IP \fBNCR_ATTR_KEY_TYPE\fP
+Mandatory.
 .RE
 
 .IP
@@ -224,18 +355,27 @@ operation.
 .B NCRIO_KEY_GET_INFO
 Get metadata of an existing key.
 
-The parameter points to \fBstruct ncr_key_info_st\fP,
+The parameter points to \fBstruct ncr_key_get_info\fP,
 which specifies \fBkey\fP, the key descriptor.
-On success, the following members are set:
+
+The following input attributes are recognized:
 
 .RS
-.IP \fBflags\fP
-Key flags
-.IP \fBtype\fP
-Key type
-.IP \fBalgorithm\fP
-Key algorithm
+.IP \fBNCR_ATTR_WANTED_ATTRS\fP
+An array of unsigned 16-bit integers in native byte order,
+specifying the set of output attributes that should be returned.
+\fBNCR_ATTR_ALGORITHM\fP,
+.B NCR_ATTR_KEY_FLAGS
+and
+.B NCR_ATTR_KEY_TYPE
+are currently supported.
+Unsupported attribute requests are silently ignored
 .RE
+
+.IP
+The output attributes explicitly requested in \fBNCR_ATTR_WANTED_ATTRS\fP,
+and no other output attributes,
+are returned.
 
 .TP
 .B NCRIO_KEY_WRAP
@@ -244,62 +384,61 @@ Only keys with the
 .B NCR_KEY_FLAG_WRAPPABLE
 flag can be wrapped using this operation.
 
-The parameter points to \fBstruct ncr_key_wrap_st\fP, which specifies:
+The parameter points to \fBstruct ncr_key_wrap\fP,
+which specifies the key to wrap in the
+.B source_key
+member,
+the wrapping key in the
+.B wrapping_key
+member,
+and a buffer for the wrapped data in the
+.B buffer
+and
+.B buffer_size
+members.
+
+The following input attributes are recognized:
 
 .RS
-.IP \fBalgorithm\fP
-The wrapping algorithm to use, one of
-.B NCR_WALG_AES_RFC3394
-and \fBNCR_WALG_AES_RFC5649\fP.
-.IP \fBkeytowrap\fP
-The descriptor of the key to wrap
-.IP \fBkey\fP
-The descriptor of the key used for wrapping
-.IP \fBparams\fP
-Key type-specific parameters.
-For the currently supported wrapping algorithms,
-.B params.params.cipher.iv
-and
-.B params.params.cipher.iv_size
-specify the IV.
-.IP \fBio\fP
-Destination buffer
-.IP \fBio_size\fP
-Size of the destination buffer
+.IP \fBNCR_ATTR_IV\fP
+Optional, an empty IV is used if not present.
+.IP \fBNCR_ATTR_WRAPPING_ALGORITHM\fP
+Mandatory.
 .RE
 
 .IP
-Currently only secret keys can be wrapped,
-using one of the above-mentioned AES-based algorithms.
+Only secret keys can be currently wrapped.
 
-On success, the
-.B io_size
-member is set to the size of the wrapped key.
+On success, size of the wrapped key is returned.
 
 .TP
 .B NCRIO_KEY_UNWRAP
 Unwrap user-space data into a kernel-space key using another key.
 
-The parameter points to \fBstruct ncr_key_wrap_st\fP, which specifies:
+The parameter points to \fBstruct ncr_key_unwrap\fP,
+which specifies the destination key in the
+.B dest_key
+member,
+the wrapping key in the
+.B wrapping_key
+member,
+and the wrapped data in the
+.B data
+and
+.B data_size
+members.
+
+The following input attributes are recognized:
 
 .RS
-.IP \fBalgorithm\fP
-The wrapping algorithm to use.
-.IP \fBkeytowrap\fP
-The descriptor of the target key object
-.IP \fBkey\fP
-The descriptor of the key used for wrapping
-.IP \fBparams\fP
-Key type-specific parameters.
-For the currently supported wrapping algorithms,
-.B params.params.cipher.iv
-and
-.B params.params.cipher.iv_size
-specify the IV.
-.IP \fBio\fP
-Pointer to the wrapped key
-.IP \fBio_size\fP
-Size of the wrapped key
+.IP \fBNCR_ATTR_ALGORITHM\fP
+Mandatory.
+.IP \fBNCR_ATTR_IV\fP
+Optional, an empty IV is used if not present.
+.IP \fBNCR_ATTR_KEY_FLAGS\fP
+Optional, flags are unchanged if not present.
+.IP \fBNCR_ATTR_WRAPPING_ALGORITHM\fP
+Mandatory.
 .RE
 
 .IP
@@ -319,54 +458,42 @@ Only keys with the
 .B NCR_KEY_FLAG_WRAPPABLE
 flag can be wrapped using this operation.
 
-The parameter points to \fBstruct ncr_key_storage_wrap_st\fP, which specifies:
+The parameter points to \fBstruct ncr_key_storage_wrap\fP,
+which specifies the key to wrap in the
+.B key
+member,
+and a buffer for the wrapped data in the
+.B buffer
+and
+.B buffer_size
+members.
 
-.RS
-.IP \fBkeytowrap\fP
-The descriptor of the key to wrap
-.IP \fBio\fP
-Destination buffer
-.IP \fBio_size\fP
-Size of the destination buffer
-.RE
-
-.IP
-On success, the
-.B io_size
-member is set to the size of the wrapped key.
+On success, size of the wrapped key is returned.
 
 Both symmetric and asymmetric keys can be wrapped using this operation.
-The wrapped data includes the following information in addition to the raw key
-material:
-
-.RS
-.IP \(bu
-Key type
-.IP \(bu
-Key flags
-.IP \(bu
-Key algorithm
-.IP \(bu
-"Persistent" key ID.
-.RE
+The wrapped data includes data corresponding the
+\fBNCR_ATTR_ALGORITHM\fP, \fBNCR_ATTR_KEY_FLAGS\fP,
+.B NCR_ATTR_KEY_TYPE
+and
+.B NCR_ATTR_KEY_ID
+attributes
+in addition to the raw key material:
 
 .TP
 .B NCRIO_KEY_STORAGE_UNWRAP
 Unwrap key and associated metadata created using \fBNCRIO_KEY_STORAGE_WRAP\fP,
 and restore the information into a specified key object.
 
-The parameter points to \fBstruct ncr_key_storage_wrap_st\fP, which specifies:
+The parameter points to \fBstruct ncr_key_storage_unwrap\fP,
+which specifies the destination key in the
+.B key
+member
+and the wrapped data in the
+.B data
+and
+.B data_size
+members.
 
-.RS
-.IP \fBkeytowrap\fP
-The target key descriptor
-.IP \fBio\fP
-Wrapped data
-.IP \fBio_size\fP
-Size of the wrapped data
-.RE
-
-.IP
 See
 .B NCRIO_KEY_STORAGE_WRAP
 above for the list of attributes that will be restored.
@@ -375,23 +502,49 @@ above for the list of attributes that will be restored.
 .B NCRIO_SESSION_INIT
 Allocate a session for performing crypto operations.
 
-The parameter points to \fBstruct ncr_session_st\fP, which specifies:
-
-.RS
-.IP \fBalgorithm\fP
-The crypto algorithm to use.
-.IP \fBkey\fP
-The key to use for the operation, if required.
-.IP \fBparams\fP
-Parameters for the operation.
-For symmetric ciphers, the IV.
-For RSA operations, the format, used hash algorithms and PSS salt length.
-for DSA, the signature hash algorithm.
-.IP \fBop\fP
-The operation to perform, one of \fBNCR_OP_ENCRYPT\fP, \fBNCR_OP_DECRYPT\fP,
-\fBNCR_OP_SIGN\fP and \fBNCR_OP_VERIFY\FP.  Use
+The parameter points to \fBstruct ncr_session_init\fP,
+which specifies the operation to perform,
+one of \fBNCR_OP_ENCRYPT\fP, \fBNCR_OP_DECRYPT\fP,
+.B NCR_OP_SIGN
+and \fBNCR_OP_VERIFY\fP,
+in the
+.B op
+member.
+Use
 .B NCR_OP_SIGN
 for computing an unkeyed hash as well as keyed hashes and signatures.
+
+The following input attributes are recognized:
+
+.RS
+.IP \fBNCR_ATTR_ALGORITHM\fP
+Mandatory.
+.IP \fBNCR_ATTR_IV\fP
+Mandatory for some operations and algorithms.
+.IP \fBNCR_ATTR_KEY\fP
+Mandatory for some operations and algorithms.
+An 32-bit unsigned integer in native byte order
+specifying the key to use for the operation.
+.IP \fBNCR_ATTR_RSA_ENCODING_METHOD\fP
+Mandatory for RSA.
+An 32-bit unsigned integer in native byte order
+specifying a RSA encoding method,
+one of \fBRSA_PKCS1_V1_5\fP,
+.B RSA_PKCS1_OAEP
+and \fBRSA_PKCS1_PSS\fP.
+.IP \fBNCR_ATTR_RSA_OAEP_HASH_ALGORITHM\fP
+Mandatory for RSA with \fBRSA_PKCS1_OAEP\fP.
+A NUL-terminated string specifying a hash algorithm used in the
+OAEP encoding method.
+.IP \fBNCR_ATTR_RSA_PSS_SALT_LENGTH\fP
+For RSA with \fBRSA_PKCS1_PSS\fP.
+An 32-bit unsigned integer in native byte order
+specifying the PSS salt length.
+Optional, defaults to 0.
+.IP \fBNCR_ATTR_SIGNATURE_HASH_ALGORITHM\fP
+Mandatory for some operations and algorithms.
+A NUL-terminated string specifying a hash algorithm underlying a signature,
+using the same formats as \fBNCR_ATTR_ALGORITHM\fP.
 .RE
 
 .IP
@@ -399,9 +552,7 @@ On success, an integer descriptor for the created session
 (valid within the current
 .I /dev/crypto
 namespace)
-is stored into the
-.B ses
-member.
+is returned.
 
 .TP
 .B NCRIO_SESSION_UPDATE
@@ -410,31 +561,49 @@ Update an existing crypto session with new data
 or perform a single operation using the session context (for operations, such
 as public key encryption, that work on separate units of data).
 
-The parameter points to \fBstruct ncr_session_op_st\fP, which specifies:
+The parameter points to \fBstruct ncr_session_update\fP,
+which specifies the descriptor of the session in the
+.B ses
+member.
+
+The following input attributes are recognized:
 
 .RS
-.IP \fBses\fP
-The integer descriptor of the session.
-.IP \fBtype\fP
-Type of the data references used for this operation, either
-.B NCR_KEY_DATA
-or
-.B NCR_DIRECT_DATA.
-.IP "\fBdata.udata.input\fP, \fBdata.udata.input_size\fP"
-If \fBtype == NCR_DIRECT_DATA\fP, input data for the operation.
-.IP \fBdata.kdata.input\fP
-If \fBtype == NCR_KEY_DATA\fP, integer key descriptor serving as input for
-the operation.
+.IP \fBNCR_ATTR_UPDATE_INPUT_DATA\fP
+A
+.B struct ncr_session_input_data
+specifying input for the operation in its
+.B data
+and
+.B data_size
+members.
+.IP \fBNCR_ATTR_UPDATE_INPUT_KEY_AS_DATA\fP
+An 32-bit unsigned integer in native byte order
+specifying the key descriptor serving as input for the operation.
 This can be currently used only to compute or verify a signature or hash
 of a symmetric key:
 the keying material is directly used as input data for the underlying hash.
-.IP "\fBdata.udata.output\fP, \fBdata,udata.output_size\fP"
-If \fBtype == NCR_DIRECT_DATA\fP, output buffer for the operation.
-.IP "\fBdata.kdata.output\fP, \fBdata,kdata.output_size\fP"
-If \fBtype == NCR_KEY_DATA\fP, output buffer for the operation.
+.IP \fBNCR_ATTR_UPDATE_OUTPUT_BUFFER\fP
+Mandatory for some operations and algorithms.
+A
+.B struct ncr_session_output_buffer
+specifying buffer for operation output in its
+.B buffer
+and
+.B buffer_size
+members.
+On success the size of output is written to the variable pointed to by the
+.B result_size_ptr
+member.
 .RE
 
 .IP
+It is mandatory to include one of the
+.B NCR_ATTR_UPDATE_INPUT_DATA
+and
+.B NCR_ATTR_UPDATE_INPUT_KEY_AS_DATA
+attributes.
+
 For the
 .B NCR_OP_ENCRYPT
 and
@@ -445,10 +614,6 @@ resulting in an output data block of the same size;
 for operations using public-key cryptography,
 a single operation is performed on the input data,
 resulting in output data.
-In both cases,
-the relevant
-.B output_data
-member is set to the size of valid output data on success.
 
 For the
 .B NCR_OP_SIGN
@@ -462,14 +627,36 @@ no output data is produced.
 .B NCRIO_SESSION_FINAL
 Finalize an existing crypto session and deallocate it.
 
-The parameter points to \fBstruct ncr_session_op_st\fP, as described in the
-.B NCRIO_SESSION_UPDATE
-section above.
-If the parameter specifies valid input data,
-it is processed as if using \fBNCRIO_SESSION_UPDATE\fP;
+The parameter points to \fBstruct ncr_session_final\fP, 
+which specifies the descriptor of the session in the
+.B ses
+member.
+
+If one of the
+.B NCR_ATTR_UPDATE_INPUT_DATA
+and
+.B NCR_ATTR_UPDATE_INPUT_KEY_AS_DATA
+attributes is present,
+all attributes are first processed as if using \fBNCRIO_SESSION_UPDATE\fP;
 thus, the last update operation can be performed together with the finalization
 in one step.
 
+The following input attributes are recognized:
+
+.RS
+.IP \fBNCR_ATTR_FINAL_INPUT_DATA\fP
+Mandatory for some operations and algorithms.
+A
+.B struct ncr_session_input_data
+as described above, specifying input for the operation.
+.IP \fBNCR_ATTR_FINAL_OUTPUT_BUFFER\fP
+Mandatory for some operations and algorithms.
+A
+.B struct ncr_session_output_buffer
+as described above, specifying buffer for operation output.
+.RE
+
+.IP
 There is no specific finalization operation performed for
 .B NCR_OP_ENCRYPT
 and \fBNCR_OP_DECRYPT\fP.
@@ -482,23 +669,19 @@ the signature is created and written as output data.
 For the
 .B NCR_OP_VERIFY
 operation,
-a signature specified as input using the
-.I output data
-fields is verified;
-the result of this operation
-(\fBNCR_SUCCESS\fP or \fBNCR_VERIFICATION_FAILED\fP)
-will be stored into the
-.B err
-member.
-(Note that the
+a signature specified as input is verified and
+the result of this operation is returned:
+non-zero for a valid signature, zero for an invalid signature.
+Note that the
 .BR ioctl (2)
-operation will indicate success even if the signature verification fails,
-as long all inputs were specified correctly.)
+operation return value will be non-negative, i.e. "success",
+even if the signature verification fails,
+as long all inputs were specified correctly.
 
 The session will be deallocated even if the
 .B NCRIO_SESSION_FINAL
 operation reports an error,
-as long as valid session descriptor was specified.
+as long as a valid session descriptor was specified.
 
 .TP
 .B NCRIO_SESSION_ONCE
@@ -507,18 +690,19 @@ allocating a temporary session,
 supplying a single instance of data,
 and finalizing the session in one operation.
 
-The parameter points to \fBstruct ncr_session_once_op_st\fP,
-which includes arguments for one
+The parameter points to \fBstruct ncr_session_once\fP,
+which specifies the operation to perform in the
+.B op
+member.
+
+The attributes handled as if by passing to a
 .B NCRIO_SESSION_INIT
-and one
+operation followed by a
 .B NCRIO_SESSION_FINAL
-operation.
-The
-.B ses
-member for the
+operation,
+and the return value of the
 .B NCRIO_SESSION_FINAL
-sub-operation is ignored,
-the sub-operation automatically uses the temporary session.
+is returned on success.
 
 .TP
 .B NCRIO_MASTER_KEY_SET
@@ -530,15 +714,14 @@ Once a master key is set,
 it can be changed only by rebooting the system
 and setting a different key.
 
-The parameter points to \fBstruct ncr_master_key_st\fP, which specifies:
-.RS
-.IP \fBkey\fP
-Pointer to the key material in user space.
-.IP \fBkey_size\fP
-Size of the key material in bytes.
-.RE
+The parameter points to \fBstruct ncr_master_key_set\fP,
+which specifies the key material in user space using the
+.B key
+and
+.B key_size
+members.
 
-Currently only an AES key with size 16, 24, or 32 bytes is acceptable.
+Only an AES key with size 16, 24, or 32 bytes is currently acceptable.
 
 .SH CONFIGURATION
 The
