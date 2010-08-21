@@ -84,7 +84,7 @@ int rsa_import(const unsigned char *in, unsigned long inlen, rsa_key *key)
       }
       /* it's a private key */
       if ((err = der_decode_sequence_multi(in, inlen, 
-                          LTC_ASN1_INTEGER, 1UL, zero, 
+                          LTC_ASN1_INTEGER, 1UL, &zero, 
                           LTC_ASN1_INTEGER, 1UL, &key->N, 
                           LTC_ASN1_INTEGER, 1UL, &key->e,
                           LTC_ASN1_INTEGER, 1UL, &key->d, 
