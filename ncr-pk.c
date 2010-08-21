@@ -167,8 +167,9 @@ int ncr_pk_pack( const struct key_item_st * key, uint8_t * packed, uint32_t * pa
 			}
 			break;
 		case NCR_ALG_DH:
-			ret = dh_export(packed, &max_size, key->key.pk.dsa.type, (void*)&key->key.pk.dsa);
+			ret = dh_export(packed, &max_size, key->key.pk.dh.type, (void*)&key->key.pk.dh);
 			if (ret < 0) {
+				*packed_size = max_size;
 				err();
 				return ret;
 			}
