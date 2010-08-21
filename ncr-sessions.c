@@ -537,6 +537,14 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 					goto fail;
 				}
 
+				/* wrapping keys cannot be used for anything except wrapping.
+				 */
+				if (ns->key->flags & NCR_KEY_FLAG_WRAPPING) {
+					err();
+					ret = -EINVAL;
+					goto fail;
+				}
+
 				if (ns->algorithm->is_hmac && ns->key->type == NCR_KEY_TYPE_SECRET) {
 					if (ns->algorithm->is_pk) {
 						err();
