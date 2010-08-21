@@ -4,3 +4,4 @@
 * Documentation for functions
 * Is a writev() like interface needed?
 * Implement the NIST DSA generation algorithm.
+* Make key generation interruptible.
