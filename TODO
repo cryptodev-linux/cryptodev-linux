@@ -5,3 +5,4 @@
 * Is a writev() like interface needed?
 * Implement the NIST DSA generation algorithm.
 * Make key generation interruptible.
+* Allow assymetric keys to wrap other keys.
