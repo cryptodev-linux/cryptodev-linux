@@ -32,8 +32,6 @@
 #include "ncr.h"
 #include "ncr-int.h"
 
-static void ncr_key_clear(struct key_item_st* item);
-
 static int key_list_deinit_fn(int id, void *item, void *unused)
 {
 	(void)unused;
@@ -413,7 +411,7 @@ fail:
 	return ret;
 }
 
-static void ncr_key_clear(struct key_item_st* item)
+void ncr_key_clear(struct key_item_st* item)
 {
 	/* clears any previously allocated parameters */
 	if (item->type == NCR_KEY_TYPE_PRIVATE ||
@@ -714,6 +712,14 @@ struct key_item_st* newkey = NULL;
 	if (ret < 0) {
 		err();
 		return ret;
+	}
+	
+	/* wrapping keys cannot be used for anything except wrapping.
+	 */
+	if (key->flags & NCR_KEY_FLAG_WRAPPING) {
+		err();
+		ret = -EINVAL;
+		goto fail;
 	}
 
 	ret = ncr_key_item_get_write( &newkey, lst, data.newkey);

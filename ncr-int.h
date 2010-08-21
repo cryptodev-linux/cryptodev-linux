@@ -110,6 +110,8 @@ int ncr_ioctl(struct ncr_lists*, struct file *filp,
 /* key derivation */
 int ncr_key_derive(struct ncr_lists *lst, void __user* arg);
 
+void ncr_key_clear(struct key_item_st* item);
+
 /* key handling */
 int ncr_key_init(struct ncr_lists *lst, void __user* arg);
 int ncr_key_deinit(struct ncr_lists *lst, void __user* arg);
