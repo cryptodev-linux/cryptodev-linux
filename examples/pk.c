@@ -537,7 +537,10 @@ test_ncr_wrap_key3(int cfd)
 	struct ncr_key_generate_st kgen;
 	ncr_key_t pubkey, privkey;
 	uint8_t data[DATA_SIZE];
-	/* only the first two should be allowed to be wrapped */
+	/* only the first two should be allowed to be wrapped.
+	 * the latter shouldn't because it has security level larger
+	 * then 128 bits (the size of the wrapping key).
+	 */
 	const int sizes[] = {1024, 3248, 5200};
 
 	fprintf(stdout, "Tests on key wrapping (might take long): ");
