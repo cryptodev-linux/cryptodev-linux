@@ -309,12 +309,12 @@ fail:
 	
 }
 
-unsigned int assign_key_flags(unsigned int flags)
+void ncr_key_assign_flags(struct key_item_st* item, unsigned int flags)
 {
 	if (current_euid()==0) {
-		return flags;
+		item->flags = flags;
 	} else {
-		return flags & (~(NCR_KEY_FLAG_WRAPPING));
+		item->flags = flags & (~(NCR_KEY_FLAG_WRAPPING));
 	}
 }
 
@@ -363,7 +363,7 @@ size_t tmp_size;
 		ret = -EINVAL;
 		goto fail;
 	}
-	item->flags = assign_key_flags(data.flags);
+	ncr_key_assign_flags(item, data.flags);
 
 	if (data.key_id_size > MAX_KEY_ID_SIZE) {
 		err();
@@ -451,7 +451,7 @@ size_t size;
 	ncr_key_clear(item);
 
 	/* we generate only secret keys */
-	item->flags = assign_key_flags(gen.params.keyflags);
+	ncr_key_assign_flags(item, gen.params.keyflags);
 
 	algo = _ncr_algo_to_properties(gen.params.algorithm);
 	if (algo == NULL) {
@@ -656,8 +656,6 @@ int ret;
 	ncr_key_clear(private);
 
 	/* we generate only secret keys */
-	private->flags = public->flags = assign_key_flags(gen.params.keyflags);
-
 	private->algorithm = public->algorithm = _ncr_algo_to_properties(gen.params.algorithm);
 	if (private->algorithm == NULL) {
 		err();
@@ -666,6 +664,9 @@ int ret;
 	}
 	public->type = public->algorithm->key_type;
 	private->type = NCR_KEY_TYPE_PRIVATE;
+	ncr_key_assign_flags(private, gen.params.keyflags);
+	ncr_key_assign_flags(public, gen.params.keyflags);
+
 	public->flags |= (NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE);
 	
 	if (public->type == NCR_KEY_TYPE_PUBLIC) {
@@ -730,7 +731,7 @@ struct key_item_st* newkey = NULL;
 
 	ncr_key_clear(newkey);
 
-	newkey->flags = assign_key_flags(data.keyflags);
+	ncr_key_assign_flags(newkey, data.keyflags);
 
 	switch (key->type) {
 		case NCR_KEY_TYPE_PUBLIC:

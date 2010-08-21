@@ -199,6 +199,7 @@ struct ncr_key_data_st {
 #define NCRIO_KEY_DERIVE        _IOR ('c', 207, struct ncr_key_derivation_params_st)
 /* return information on a key */
 #define NCRIO_KEY_GET_INFO      _IOWR('c', 208, struct ncr_key_info_st)
+
 /* export a secret key */
 #define NCRIO_KEY_EXPORT       	_IOWR('c', 209, struct ncr_key_data_st)
 /* import a secret key */
@@ -210,6 +211,13 @@ struct ncr_key_data_st {
  */
 struct ncr_key_wrap_st {
 	ncr_wrap_algorithm_t algorithm;
+	
+	/* when unwrapping the algorithm of the wrapped key.
+	 * For symmetric ciphers AES would do.
+	 */
+	ncr_algorithm_t wrapped_key_algorithm;
+	unsigned int wrapped_key_flags; /* flags for the newly unwrapped key */
+
 	ncr_key_t keytowrap;
 
 	ncr_key_t key;
