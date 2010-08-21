@@ -250,6 +250,15 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				err();
 				goto fail;
 			}
+			
+			/* wrapping keys cannot be used for encryption or decryption
+			 */
+			if (ns->key->flags & NCR_KEY_FLAG_WRAPPING) {
+				err();
+				ret = -EINVAL;
+				goto fail;
+			}
+
 			if (ns->key->type == NCR_KEY_TYPE_SECRET) {
 				int keysize = ns->key->key.secret.size;
 				
@@ -317,6 +326,14 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 				ret = ncr_key_item_get_read( &ns->key, lists, session->key);
 				if (ret < 0) {
 					err();
+					goto fail;
+				}
+
+				/* wrapping keys cannot be used for anything except wrapping.
+				 */
+				if (ns->key->flags & NCR_KEY_FLAG_WRAPPING) {
+					err();
+					ret = -EINVAL;
 					goto fail;
 				}
 
