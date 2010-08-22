@@ -557,7 +557,12 @@ int _ncr_key_get_sec_level(struct key_item_st* item)
 {
 int bits;
 
+	/* FIXME: should we move everything here into algorithm properties? 
+	 */
 	if (item->type == NCR_KEY_TYPE_SECRET) {
+		if (item->algorithm->algo == NCR_ALG_3DES_CBC)
+			return 112;
+
 		return item->key.secret.size*8;
 	} else if (item->type == NCR_KEY_TYPE_PRIVATE) {
 		switch(item->algorithm->algo) {
