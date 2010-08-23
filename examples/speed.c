@@ -68,7 +68,7 @@ static void value2human(double bytes, double time, double* data, double* speed,c
 }
 
 
-int encrypt_data(struct session_op *sess, int fdc, int chunksize)
+int encrypt_data(int cipher, int fdc, int chunksize)
 {
 	struct crypt_op cop;
 	char *buffer, iv[32];
@@ -76,7 +76,15 @@ int encrypt_data(struct session_op *sess, int fdc, int chunksize)
 	struct timeval start, end;
 	double total = 0;
 	double secs, ddata, dspeed;
+	struct session_op sess;
 	char metric[16];
+	char keybuf[16];
+	int keylen;
+
+	memset(keybuf, 0x42, 16);
+	if (cipher == CRYPTO_NULL)
+		keylen = 0;
+	else keylen = 16;
 
 	buffer = malloc(chunksize);
 	memset(iv, 0x23, 32);
@@ -91,8 +99,17 @@ int encrypt_data(struct session_op *sess, int fdc, int chunksize)
 
 	gettimeofday(&start, NULL);
 	do {
+		memset(&sess, 0, sizeof(sess));
+		sess.cipher = cipher;
+		sess.keylen = keylen;
+		sess.key = (unsigned char *)keybuf;
+		if (ioctl(fdc, CIOCGSESSION, &sess)) {
+			perror("ioctl(CIOCGSESSION)");
+			return 1;
+		}
+
 		memset(&cop, 0, sizeof(cop));
-		cop.ses = sess->ses;
+		cop.ses = sess.ses;
 		cop.len = chunksize;
 		cop.iv = (unsigned char *)iv;
 		cop.op = COP_ENCRYPT;
@@ -103,6 +120,9 @@ int encrypt_data(struct session_op *sess, int fdc, int chunksize)
 			perror("ioctl(CIOCCRYPT)");
 			return 1;
 		}
+		
+		ioctl(fdc, CIOCFSESSION, &sess.ses);
+
 		total+=chunksize;
 	} while(must_finish==0);
 	gettimeofday(&end, NULL);
@@ -192,8 +212,6 @@ int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 int main(void)
 {
 	int fd, i, fdc = -1;
-	struct session_op sess;
-	char keybuf[32];
 
 	signal(SIGALRM, alarm_handler);
 
@@ -207,17 +225,9 @@ int main(void)
 	}
 
 	fprintf(stderr, "Testing NULL cipher: \n");
-	memset(&sess, 0, sizeof(sess));
-	sess.cipher = CRYPTO_NULL;
-	sess.keylen = 0;
-	sess.key = (unsigned char *)keybuf;
-	if (ioctl(fdc, CIOCGSESSION, &sess)) {
-		perror("ioctl(CIOCGSESSION)");
-		return 1;
-	}
 
 	for (i = 256; i <= (64 * 1024); i *= 2) {
-		if (encrypt_data(&sess, fdc, i))
+		if (encrypt_data(CRYPTO_NULL, fdc, i))
 			break;
 	}
 
@@ -227,20 +237,10 @@ int main(void)
 			break;
 	}
 
-
 	fprintf(stderr, "\nTesting AES-128-CBC cipher: \n");
-	memset(&sess, 0, sizeof(sess));
-	sess.cipher = CRYPTO_AES_CBC;
-	sess.keylen = 16;
-	memset(keybuf, 0x42, 16);
-	sess.key = (unsigned char *)keybuf;
-	if (ioctl(fdc, CIOCGSESSION, &sess)) {
-		perror("ioctl(CIOCGSESSION)");
-		return 1;
-	}
 
 	for (i = 256; i <= (64 * 1024); i *= 2) {
-		if (encrypt_data(&sess, fdc, i))
+		if (encrypt_data(CRYPTO_AES_CBC, fdc, i))
 			break;
 	}
 
