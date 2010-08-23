@@ -152,22 +152,21 @@ struct ncr_key_export {
 	__NL_ATTRIBUTES;
 };
 
-#define NCRIO_KEY_INIT			_IO('c', 204)
+#define NCRIO_KEY_INIT _IO('c', 0xC0)
 /* generate a secret key */
-#define NCRIO_KEY_GENERATE     	_IOWR('c', 205, struct ncr_key_generate)
+#define NCRIO_KEY_GENERATE _IOWR('c', 0xC1, struct ncr_key_generate)
 /* generate a public key pair */
-#define NCRIO_KEY_GENERATE_PAIR _IOWR('c', 206, struct ncr_key_generate_pair)
+#define NCRIO_KEY_GENERATE_PAIR _IOWR('c', 0xC2, struct ncr_key_generate_pair)
 /* derive a new key from an old one */
-#define NCRIO_KEY_DERIVE        _IOWR('c', 207, struct ncr_key_derive)
+#define NCRIO_KEY_DERIVE _IOWR('c', 0xC3, struct ncr_key_derive)
 /* return information on a key */
-#define NCRIO_KEY_GET_INFO      _IOWR('c', 208, struct ncr_key_get_info)
-
+#define NCRIO_KEY_GET_INFO _IOWR('c', 0xC4, struct ncr_key_get_info)
 /* export a secret key */
-#define NCRIO_KEY_EXPORT       	_IOWR('c', 209, struct ncr_key_export)
+#define NCRIO_KEY_EXPORT _IOWR('c', 0xC5, struct ncr_key_export)
 /* import a secret key */
-#define NCRIO_KEY_IMPORT       	_IOWR('c', 210, struct ncr_key_import)
+#define NCRIO_KEY_IMPORT _IOWR('c', 0xC6, struct ncr_key_import)
 
-#define NCRIO_KEY_DEINIT       _IOW('c', 215, ncr_key_t)
+#define NCRIO_KEY_DEINIT _IOW('c', 0xC7, ncr_key_t)
 
 /* Key wrap ioctls
  */
@@ -189,8 +188,8 @@ struct ncr_key_unwrap {
 	__NL_ATTRIBUTES;
 };
 
-#define NCRIO_KEY_WRAP        _IOWR('c', 250, struct ncr_key_wrap)
-#define NCRIO_KEY_UNWRAP        _IOWR('c', 251, struct ncr_key_unwrap)
+#define NCRIO_KEY_WRAP _IOWR('c', 0xC8, struct ncr_key_wrap)
+#define NCRIO_KEY_UNWRAP _IOWR('c', 0xC9, struct ncr_key_unwrap)
 
 /* Internal ops  */
 struct ncr_master_key_set {
@@ -200,7 +199,7 @@ struct ncr_master_key_set {
 	__NL_ATTRIBUTES;
 };
 
-#define NCRIO_MASTER_KEY_SET        _IOWR('c', 260, struct ncr_master_key_set)
+#define NCRIO_MASTER_KEY_SET _IOWR('c', 0xCA, struct ncr_master_key_set)
 
 /* These are similar to key_wrap and unwrap except that will store some extra
  * fields to be able to recover a key */
@@ -220,8 +219,8 @@ struct ncr_key_storage_unwrap {
 	__NL_ATTRIBUTES;
 };
 
-#define NCRIO_KEY_STORAGE_WRAP        _IOWR('c', 261, struct ncr_key_storage_wrap)
-#define NCRIO_KEY_STORAGE_UNWRAP        _IOWR('c', 262, struct ncr_key_storage_wrap)
+#define NCRIO_KEY_STORAGE_WRAP _IOWR('c', 0xCB, struct ncr_key_storage_wrap)
+#define NCRIO_KEY_STORAGE_UNWRAP _IOWR('c', 0xCC, struct ncr_key_storage_wrap)
 
 /* Crypto Operations ioctls
  */
@@ -271,11 +270,11 @@ struct ncr_session_once {
 	__NL_ATTRIBUTES;
 };
 
-#define NCRIO_SESSION_INIT        _IOWR('c', 300, struct ncr_session_init)
-#define NCRIO_SESSION_UPDATE        _IOWR('c', 301, struct ncr_session_update)
-#define NCRIO_SESSION_FINAL        _IOWR('c', 302, struct ncr_session_final)
+#define NCRIO_SESSION_INIT _IOWR('c', 0xD0, struct ncr_session_init)
+#define NCRIO_SESSION_UPDATE _IOWR('c', 0xD1, struct ncr_session_update)
+#define NCRIO_SESSION_FINAL _IOWR('c', 0xD2, struct ncr_session_final)
 
 /* everything in one call */
-#define NCRIO_SESSION_ONCE        _IOWR('c', 303, struct ncr_session_once)
+#define NCRIO_SESSION_ONCE _IOWR('c', 0xD3, struct ncr_session_once)
 
 #endif
