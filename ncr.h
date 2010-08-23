@@ -167,7 +167,7 @@ struct ncr_key_export {
 /* import a secret key */
 #define NCRIO_KEY_IMPORT       	_IOWR('c', 210, struct ncr_key_import)
 
-#define NCRIO_KEY_DEINIT       _IOR ('c', 215, ncr_key_t)
+#define NCRIO_KEY_DEINIT       _IOW('c', 215, ncr_key_t)
 
 /* Key wrap ioctls
  */
