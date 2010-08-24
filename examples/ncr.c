@@ -321,6 +321,10 @@ test_ncr_wrap_key(int cfd)
 	memset(&kwrap, 0, sizeof(kwrap));
 	kwrap.algorithm = NCR_WALG_AES_RFC3394;
 	kwrap.keytowrap = key2;
+	kwrap.wrapped_key_algorithm = NCR_ALG_AES_CBC;
+	kwrap.wrapped_key_type = NCR_KEY_TYPE_SECRET;
+	kwrap.wrapped_key_flags
+		= NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
 	kwrap.key = key;
 	kwrap.io = data;
 	kwrap.io_size = data_size;

@@ -39,8 +39,10 @@ typedef uint8_t val64_t[8];
 static const val64_t initA = "\xA6\xA6\xA6\xA6\xA6\xA6\xA6\xA6";
 
 static int key_to_packed_data( uint8_t** sdata, size_t * sdata_size, const struct key_item_st *key);
-static int key_from_packed_data(ncr_algorithm_t algorithm, unsigned int flags,
-	struct key_item_st* key, const void* data, size_t data_size);
+static int key_from_packed_data(ncr_algorithm_t algorithm,
+				ncr_key_type_t key_type, unsigned int flags,
+				struct key_item_st* key, const void* data,
+				size_t data_size);
 
 
 static void val64_xor( val64_t val, uint32_t x)
@@ -303,8 +305,10 @@ size_t sdata_size = KEY_DATA_MAX_SIZE;
 		goto fail;
 	}
 
-	ret = key_from_packed_data(wrap_st->wrapped_key_algorithm, wrap_st->wrapped_key_flags, 
-		output, sdata, sdata_size);
+	ret = key_from_packed_data(wrap_st->wrapped_key_algorithm,
+				   wrap_st->wrapped_key_type,
+				   wrap_st->wrapped_key_flags, output, sdata,
+				   sdata_size);
 	if (ret < 0) {
 		err();
 		goto fail;
@@ -852,8 +856,10 @@ fail:
 	return ret;
 }
 
-static int key_from_packed_data(ncr_algorithm_t algorithm, unsigned int flags,
-	struct key_item_st* key, const void* data, size_t data_size)
+static int key_from_packed_data(ncr_algorithm_t algorithm,
+				ncr_key_type_t key_type, unsigned int flags,
+				struct key_item_st* key, const void* data,
+				size_t data_size)
 {
 	int ret;
 
@@ -868,7 +874,7 @@ static int key_from_packed_data(ncr_algorithm_t algorithm, unsigned int flags,
 		return -EINVAL;
 	}
 
-	key->type = key->algorithm->key_type;
+	key->type = key_type;
 	ret = ncr_key_assign_flags(key, flags);
 	if (ret != 0) {
 		err();

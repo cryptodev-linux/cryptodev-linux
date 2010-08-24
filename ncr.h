@@ -216,6 +216,7 @@ struct ncr_key_wrap_st {
 	 * For symmetric ciphers AES would do.
 	 */
 	ncr_algorithm_t wrapped_key_algorithm;
+	ncr_key_type_t wrapped_key_type;
 	unsigned int wrapped_key_flags; /* flags for the newly unwrapped key */
 
 	ncr_key_t keytowrap;
