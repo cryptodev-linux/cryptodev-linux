@@ -240,12 +240,18 @@ test_ncr_wrap_key(int cfd)
 	keydata.idata = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
 	keydata.idata_size = 16;
 
-	if (ioctl(cfd, NCRIO_KEY_IMPORT, &keydata)) {
+	ret = ioctl(cfd, NCRIO_KEY_IMPORT, &keydata);
+	if (geteuid() == 0 && ret) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_IMPORT)");
 		return 1;
 	}
 
+	if (geteuid() != 0) {
+		/* cannot test further */
+		fprintf(stdout, "\t(Wrapping test not completed. Run as root)\n");
+		return 0;
+	}
 
 	/* convert it to key */
 	if (ioctl(cfd, NCRIO_KEY_INIT, &key2)) {
@@ -279,18 +285,10 @@ test_ncr_wrap_key(int cfd)
 	kwrap.io = data;
 	kwrap.io_size = sizeof(data);
 
-	ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
-	
-	if (geteuid() == 0 && ret) {
+	if (ioctl(cfd, NCRIO_KEY_WRAP, &kwrap)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_WRAP)");
 		return 1;
-	}
-	
-	if (geteuid() != 0) {
-		/* cannot test further */
-		fprintf(stdout, "\t(Wrapping test not completed. Run as root)\n");
-		return 0;
 	}
 
 	data_size = kwrap.io_size;

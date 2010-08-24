@@ -455,12 +455,17 @@ const uint8_t * iv = wrap_st->params.params.cipher.iv;
 		goto cleanup;
 	}
 
+	ret = ncr_key_assign_flags(output, wrap_st->wrapped_key_flags);
+	if (ret != 0) {
+		err();
+		goto cleanup;
+	}
+
 	memset(&output->key, 0, sizeof(output->key));
 	for (i=0;i<n;i++) {
 		memcpy(&output->key.secret.data[i*8], R[i], sizeof(R[i]));
 	}
 	output->key.secret.size = n*8;
-	ncr_key_assign_flags(output, wrap_st->wrapped_key_flags);
 	output->type = NCR_KEY_TYPE_SECRET;
 
 	ret = 0;
@@ -864,7 +869,11 @@ static int key_from_packed_data(ncr_algorithm_t algorithm, unsigned int flags,
 	}
 
 	key->type = key->algorithm->key_type;
-	ncr_key_assign_flags(key, flags);
+	ret = ncr_key_assign_flags(key, flags);
+	if (ret != 0) {
+		err();
+		return ret;
+	}
 
 	if (key->type == NCR_KEY_TYPE_SECRET) {
 		if (data_size > NCR_CIPHER_MAX_KEY_LEN) {

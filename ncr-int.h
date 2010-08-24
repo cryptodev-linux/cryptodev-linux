@@ -110,7 +110,7 @@ long ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg);
 int ncr_key_derive(struct ncr_lists *lst, void __user* arg);
 
 void ncr_key_clear(struct key_item_st* item);
-void ncr_key_assign_flags(struct key_item_st* item, unsigned int flags);
+int ncr_key_assign_flags(struct key_item_st *item, unsigned int flags);
 
 /* key handling */
 int ncr_key_init(struct ncr_lists *lst, void __user* arg);
