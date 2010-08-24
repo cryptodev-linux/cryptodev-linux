@@ -287,8 +287,13 @@ fail:
 	
 }
 
-int ncr_key_assign_flags(struct key_item_st* item, unsigned int flags)
+int ncr_key_update_flags(struct key_item_st* item, const struct nlattr *nla)
 {
+	uint32_t flags;
+
+	if (nla == NULL)
+		return 0;
+	flags = nla_get_u32(nla);
 	if (!capable(CAP_SYS_ADMIN) && (flags & NCR_KEY_FLAG_WRAPPING) != 0)
 		return -EPERM;
 	item->flags = flags;
@@ -341,13 +346,10 @@ size_t tmp_size;
 		goto fail;
 	}
 
-	nla = tb[NCR_ATTR_KEY_FLAGS];
-	if (nla != NULL) {
-		ret = ncr_key_assign_flags(item, nla_get_u32(nla));
-		if (ret < 0) {
-			err();
-			goto fail;
-		}
+	ret = ncr_key_update_flags(item, tb[NCR_ATTR_KEY_FLAGS]);
+	if (ret < 0) {
+		err();
+		goto fail;
 	}
 
 	nla = tb[NCR_ATTR_KEY_ID];
@@ -434,13 +436,10 @@ size_t size;
 	ncr_key_clear(item);
 
 	/* we generate only secret keys */
-	nla = tb[NCR_ATTR_KEY_FLAGS];
-	if (nla != NULL) {
-		ret = ncr_key_assign_flags(item, nla_get_u32(nla));
-		if (ret < 0) {
-			err();
-			goto fail;
-		}
+	ret = ncr_key_update_flags(item, tb[NCR_ATTR_KEY_FLAGS]);
+	if (ret < 0) {
+		err();
+		goto fail;
 	}
 
 	algo = _ncr_nla_to_properties(tb[NCR_ATTR_ALGORITHM]);
@@ -662,7 +661,6 @@ int ncr_key_generate_pair(struct ncr_lists *lst,
 			  const struct ncr_key_generate_pair *gen,
 			  struct nlattr *tb[])
 {
-const struct nlattr *nla;
 struct key_item_st* private = NULL;
 struct key_item_st* public = NULL;
 int ret;
@@ -692,18 +690,15 @@ int ret;
 	}
 	public->type = public->algorithm->key_type;
 	private->type = NCR_KEY_TYPE_PRIVATE;
-	nla = tb[NCR_ATTR_KEY_FLAGS];
-	if (nla != NULL) {
-		ret = ncr_key_assign_flags(private, nla_get_u32(nla));
-		if (ret < 0) {
-			err();
-			goto fail;
-		}
-		ret = ncr_key_assign_flags(public, nla_get_u32(nla));
-		if (ret < 0) {
-			err();
-			goto fail;
-		}
+	ret = ncr_key_update_flags(private, tb[NCR_ATTR_KEY_FLAGS]);
+	if (ret < 0) {
+		err();
+		goto fail;
+	}
+	ret = ncr_key_update_flags(public, tb[NCR_ATTR_KEY_FLAGS]);
+	if (ret < 0) {
+		err();
+		goto fail;
 	}
 
 	public->flags |= (NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE);
@@ -736,7 +731,6 @@ fail:
 int ncr_key_derive(struct ncr_lists *lst, const struct ncr_key_derive *data,
 		   struct nlattr *tb[])
 {
-const struct nlattr *nla;
 int ret;
 struct key_item_st* key = NULL;
 struct key_item_st* newkey = NULL;
@@ -763,13 +757,10 @@ struct key_item_st* newkey = NULL;
 
 	ncr_key_clear(newkey);
 
-	nla = tb[NCR_ATTR_KEY_FLAGS];
-	if (nla != NULL) {
-		ret = ncr_key_assign_flags(newkey, nla_get_u32(nla));
-		if (ret < 0) {
-			err();
-			goto fail;
-		}
+	ret = ncr_key_update_flags(newkey, tb[NCR_ATTR_KEY_FLAGS]);
+	if (ret < 0) {
+		err();
+		goto fail;
 	}
 
 	switch (key->type) {

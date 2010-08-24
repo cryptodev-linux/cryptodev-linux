@@ -471,13 +471,10 @@ const uint8_t *iv;
 		goto cleanup;
 	}
 
-	nla = tb[NCR_ATTR_KEY_FLAGS];
-	if (nla != NULL) {
-		ret = ncr_key_assign_flags(output, nla_get_u32(nla));
-		if (ret != 0) {
-			err();
-			goto cleanup;
-		}
+	ret = ncr_key_update_flags(output, tb[NCR_ATTR_KEY_FLAGS]);
+	if (ret != 0) {
+		err();
+		goto cleanup;
 	}
 
 	memset(&output->key, 0, sizeof(output->key));
@@ -889,13 +886,10 @@ static int key_from_packed_data(struct nlattr *tb[], struct key_item_st *key,
 	}
 	key->type = nla_get_u32(nla);
 
-	nla = tb[NCR_ATTR_KEY_FLAGS];
-	if (nla != NULL) {
-		ret = ncr_key_assign_flags(key, nla_get_u32(nla));
-		if (ret != 0) {
-			err();
-			return ret;
-		}
+	ret = ncr_key_update_flags(key, tb[NCR_ATTR_KEY_FLAGS]);
+	if (ret != 0) {
+		err();
+		return ret;
 	}
 
 	if (key->type == NCR_KEY_TYPE_SECRET) {

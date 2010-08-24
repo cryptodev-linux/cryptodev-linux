@@ -137,7 +137,7 @@ int ncr_key_derive(struct ncr_lists *lst, const struct ncr_key_derive *data,
 		   struct nlattr *tb[]);
 
 void ncr_key_clear(struct key_item_st* item);
-int ncr_key_assign_flags(struct key_item_st *item, unsigned int flags);
+int ncr_key_update_flags(struct key_item_st *item, const struct nlattr *nla);
 
 /* key handling */
 int ncr_key_init(struct ncr_lists *lst);
