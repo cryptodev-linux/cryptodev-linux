@@ -127,9 +127,8 @@ cryptodev_release(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-static int
-cryptodev_ioctl(struct inode *inode, struct file *filp,
-		unsigned int cmd, unsigned long arg)
+static long
+cryptodev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	void *ncr = filp->private_data;
 
@@ -159,7 +158,7 @@ static const struct file_operations cryptodev_fops = {
 	.owner = THIS_MODULE,
 	.open = cryptodev_open,
 	.release = cryptodev_release,
-	.ioctl = cryptodev_ioctl,
+	.unlocked_ioctl = cryptodev_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = cryptodev_compat_ioctl,
 #endif /* CONFIG_COMPAT */

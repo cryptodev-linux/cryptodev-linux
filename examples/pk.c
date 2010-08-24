@@ -626,6 +626,8 @@ test_ncr_wrap_key3(int cfd)
 		char wrap_algo[sizeof(NCR_WALG_AES_RFC5649)] ALIGN_NL;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(ALG_RSA)] ALIGN_NL;
+		struct nlattr type_head ALIGN_NL;
+		uint32_t type ALIGN_NL;
 	} kunwrap;
 	struct __attribute__((packed)) {
 		struct ncr_key_generate_pair f;
@@ -781,6 +783,10 @@ test_ncr_wrap_key3(int cfd)
 				= NLA_HDRLEN + sizeof(kunwrap.algo);
 			kunwrap.algo_head.nla_type = NCR_ATTR_ALGORITHM;
 			strcpy(kunwrap.algo, ALG_RSA);
+			kunwrap.type_head.nla_len
+				= NLA_HDRLEN + sizeof(kunwrap.type);
+			kunwrap.type_head.nla_type = NCR_ATTR_KEY_TYPE;
+			kunwrap.type = NCR_KEY_TYPE_PRIVATE;
 
 			ret = ioctl(cfd, NCRIO_KEY_UNWRAP, &kunwrap);
 			if (ret) {

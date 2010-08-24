@@ -80,7 +80,7 @@ void ncr_master_key_reset(void)
 static int ncr_master_key_set(const struct ncr_master_key_set *st,
 			      struct nlattr *tb[])
 {
-	if (current_euid() != 0 && !capable(CAP_SYS_ADMIN)) {
+	if (!capable(CAP_SYS_ADMIN)) {
 		err();
 		return -EPERM;
 	}
@@ -113,7 +113,7 @@ static int ncr_master_key_set(const struct ncr_master_key_set *st,
 	return 0;
 }
 
-int
+long
 ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 {
 	void __user *arg = (void __user *)arg_;

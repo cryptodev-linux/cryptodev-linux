@@ -128,7 +128,7 @@ struct ncr_lists {
 void* ncr_init_lists(void);
 void ncr_deinit_lists(struct ncr_lists *lst);
 
-int ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg);
+long ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg);
 long ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd,
 		      unsigned long arg);
 
@@ -137,7 +137,7 @@ int ncr_key_derive(struct ncr_lists *lst, const struct ncr_key_derive *data,
 		   struct nlattr *tb[]);
 
 void ncr_key_clear(struct key_item_st* item);
-void ncr_key_assign_flags(struct key_item_st* item, unsigned int flags);
+int ncr_key_assign_flags(struct key_item_st *item, unsigned int flags);
 
 /* key handling */
 int ncr_key_init(struct ncr_lists *lst);

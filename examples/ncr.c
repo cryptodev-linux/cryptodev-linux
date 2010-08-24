@@ -353,7 +353,7 @@ test_ncr_key(int cfd)
 static int
 test_ncr_wrap_key(int cfd)
 {
-	int i;
+	int i, ret;
 	ncr_key_t key, key2;
 	struct __attribute__((packed)) {
 		struct ncr_key_import f;
@@ -377,6 +377,10 @@ test_ncr_wrap_key(int cfd)
 		char wrap_algo[sizeof(NCR_WALG_AES_RFC3394)] ALIGN_NL;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(ALG_AES_CBC)] ALIGN_NL;
+		struct nlattr type_head ALIGN_NL;
+		uint32_t type ALIGN_NL;
+		struct nlattr flags_head ALIGN_NL;
+		uint32_t flags ALIGN_NL;
 	} kunwrap;
 	uint8_t data[WRAPPED_KEY_DATA_SIZE];
 	int data_size;
@@ -415,12 +419,18 @@ test_ncr_wrap_key(int cfd)
 	kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
 	kimport.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING;
 
-	if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
+	ret = ioctl(cfd, NCRIO_KEY_IMPORT, &kimport);
+	if (geteuid() == 0 && ret) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_IMPORT)");
 		return 1;
 	}
 
+	if (geteuid() != 0) {
+		/* cannot test further */
+		fprintf(stdout, "\t(Wrapping test not completed. Run as root)\n");
+		return 0;
+	}
 
 	/* convert it to key */
 	key2 = ioctl(cfd, NCRIO_KEY_INIT);
@@ -467,16 +477,10 @@ test_ncr_wrap_key(int cfd)
 	strcpy(kwrap.algo, NCR_WALG_AES_RFC3394);
 
 	data_size = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
-	if (geteuid() == 0 && data_size < 0) {
+	if (data_size < 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_WRAP)");
 		return 1;
-	}
-	
-	if (geteuid() != 0) {
-		/* cannot test further */
-		fprintf(stdout, "\t(Wrapping test not completed. Run as root)\n");
-		return 0;
 	}
 
 	if (data_size != 24 || memcmp(data,
@@ -517,6 +521,12 @@ test_ncr_wrap_key(int cfd)
 	kunwrap.algo_head.nla_len = NLA_HDRLEN + sizeof(kunwrap.algo);
 	kunwrap.algo_head.nla_type = NCR_ATTR_ALGORITHM;
 	strcpy(kunwrap.algo, ALG_AES_CBC);
+	kunwrap.type_head.nla_len = NLA_HDRLEN + sizeof(kunwrap.type);
+	kunwrap.type_head.nla_type = NCR_ATTR_KEY_TYPE;
+	kunwrap.type = NCR_KEY_TYPE_SECRET;
+	kunwrap.flags_head.nla_len = NLA_HDRLEN + sizeof(kunwrap.flags);
+	kunwrap.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
+	kunwrap.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
 
 	if (ioctl(cfd, NCRIO_KEY_UNWRAP, &kunwrap)) {
 		perror("ioctl(NCRIO_KEY_UNWRAP)");
