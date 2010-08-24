@@ -606,7 +606,8 @@ test_ncr_wrap_key2(int cfd)
 	}
 
 	/* convert it to key */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
+	key = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key == -1) {
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
@@ -638,7 +639,8 @@ test_ncr_wrap_key2(int cfd)
 
 
 	/* convert it to key */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &key2)) {
+	key2 = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key2 == -1) {
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
@@ -680,7 +682,7 @@ test_ncr_wrap_key2(int cfd)
 	strcpy(kwrap.algo, NCR_WALG_AES_RFC3394);
 
 	ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
-	if (ret < 0) {
+	if (ret >= 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		/* wrapping shouldn't have been allowed */
 		return 1;

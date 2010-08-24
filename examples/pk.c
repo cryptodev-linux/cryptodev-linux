@@ -650,13 +650,15 @@ test_ncr_wrap_key3(int cfd)
 	fflush(stdout);
 
 	/* convert it to key */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &privkey)) {
+	privkey = ioctl(cfd, NCRIO_KEY_INIT);
+	if (privkey == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
 
-	if (ioctl(cfd, NCRIO_KEY_INIT, &pubkey)) {
+	pubkey = ioctl(cfd, NCRIO_KEY_INIT);
+	if (pubkey == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
@@ -669,7 +671,8 @@ test_ncr_wrap_key3(int cfd)
 	}
 
 	/* make a wrapping key */
-	if (ioctl(cfd, NCRIO_KEY_INIT, &key)) {
+	key = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key == -1) {
 		perror("ioctl(NCRIO_KEY_INIT)");
 		return 1;
 	}
