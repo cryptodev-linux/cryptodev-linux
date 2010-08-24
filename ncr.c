@@ -79,7 +79,7 @@ static int ncr_master_key_set(void __user *arg)
 {
 struct ncr_master_key_st st;
 
-	if (current_euid() != 0 && !capable(CAP_SYS_ADMIN)) {
+	if (!capable(CAP_SYS_ADMIN)) {
 		err();
 		return -EPERM;
 	}

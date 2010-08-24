@@ -311,7 +311,7 @@ fail:
 
 int ncr_key_assign_flags(struct key_item_st* item, unsigned int flags)
 {
-	if (current_euid() != 0 && (flags & NCR_KEY_FLAG_WRAPPING) != 0)
+	if (!capable(CAP_SYS_ADMIN) && (flags & NCR_KEY_FLAG_WRAPPING) != 0)
 		return -EPERM;
 	item->flags = flags;
 	return 0;
