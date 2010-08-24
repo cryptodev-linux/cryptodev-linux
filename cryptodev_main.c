@@ -768,9 +768,8 @@ clonefd(struct file *filp)
 	return ret;
 }
 
-static int
-cryptodev_ioctl(struct inode *inode, struct file *filp,
-		unsigned int cmd, unsigned long arg_)
+static long
+cryptodev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg_)
 {
 	void __user *arg = (void __user *)arg_;
 	int __user *p = arg;
@@ -907,7 +906,7 @@ cryptodev_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg_)
 	case CIOCASYMFEAT:
 	case CRIOGET:
 	case CIOCFSESSION:
-		return cryptodev_ioctl(NULL, file, cmd, arg_);
+		return cryptodev_ioctl(file, cmd, arg_);
 
 	case COMPAT_CIOCGSESSION:
 		if (unlikely(copy_from_user(&compat_sop, arg,
@@ -955,7 +954,7 @@ static const struct file_operations cryptodev_fops = {
 	.owner = THIS_MODULE,
 	.open = cryptodev_open,
 	.release = cryptodev_release,
-	.ioctl = cryptodev_ioctl,
+	.unlocked_ioctl = cryptodev_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl = cryptodev_compat_ioctl,
 #endif /* CONFIG_COMPAT */

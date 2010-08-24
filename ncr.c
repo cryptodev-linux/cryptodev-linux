@@ -116,7 +116,7 @@ struct ncr_master_key_st st;
 	return 0;
 }
 
-int
+long
 ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 {
 	void __user *arg = (void __user *)arg_;
