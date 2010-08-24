@@ -186,9 +186,6 @@ int ncr_key_storage_unwrap(struct ncr_lists *lst,
 			   struct nlattr *tb[]);
 
 /* sessions */
-struct session_item_st* ncr_session_new(struct ncr_lists *lst);
-void _ncr_sessions_item_put( struct session_item_st* item);
-struct session_item_st* ncr_sessions_item_get(struct ncr_lists *lst, ncr_session_t desc);
 void ncr_sessions_list_deinit(struct ncr_lists *lst);
 
 int ncr_session_init(struct ncr_lists *lists,

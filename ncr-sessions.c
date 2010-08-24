@@ -31,6 +31,7 @@
 #include <linux/scatterlist.h>
 #include <net/netlink.h>
 
+static void _ncr_sessions_item_put(struct session_item_st *item);
 static int _ncr_session_update_key(struct ncr_lists *lists, ncr_session_t ses,
 				   struct nlattr *tb[]);
 static void _ncr_session_remove(struct ncr_lists *lst, ncr_session_t desc);
@@ -54,7 +55,8 @@ void ncr_sessions_list_deinit(struct ncr_lists *lst)
 }
 
 /* returns the data item corresponding to desc */
-struct session_item_st* ncr_sessions_item_get(struct ncr_lists *lst, ncr_session_t desc)
+static struct session_item_st *ncr_sessions_item_get(struct ncr_lists *lst,
+						     ncr_session_t desc)
 {
 struct session_item_st* item;
 
@@ -71,7 +73,7 @@ struct session_item_st* item;
 	return NULL;
 }
 
-void _ncr_sessions_item_put( struct session_item_st* item)
+static void _ncr_sessions_item_put(struct session_item_st *item)
 {
 	if (atomic_dec_and_test(&item->refcnt)) {
 		cryptodev_cipher_deinit(&item->cipher);
@@ -85,7 +87,7 @@ void _ncr_sessions_item_put( struct session_item_st* item)
 	}
 }
 
-struct session_item_st* ncr_session_new(struct ncr_lists *lst)
+static struct session_item_st *ncr_session_new(struct ncr_lists *lst)
 {
 	struct session_item_st* sess;
 
