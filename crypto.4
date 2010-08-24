@@ -543,6 +543,11 @@ For RSA with \fBRSA_PKCS1_PSS\fP.
 An 32-bit unsigned integer in native byte order
 specifying the PSS salt length.
 Optional, defaults to 0.
+.IP \fBNCR_ATTR_SESSION_CLONE_FROM\fP
+Optional, a 32-bit unsigned integer in native byte order
+specifying session state to clone.
+Only supported for some operations and algorithms;
+specifically intended for cloning hashing sessions.
 .IP \fBNCR_ATTR_SIGNATURE_HASH_ALGORITHM\fP
 Mandatory for some operations and algorithms.
 A NUL-terminated string specifying a hash algorithm underlying a signature,
