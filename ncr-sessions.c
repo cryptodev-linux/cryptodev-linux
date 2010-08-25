@@ -35,7 +35,6 @@ static void _ncr_sessions_item_put(struct session_item_st *item);
 static int _ncr_session_update_key(struct ncr_lists *lists,
 				   struct session_item_st *sess,
 				   struct nlattr *tb[]);
-static void _ncr_session_remove(struct ncr_lists *lst, ncr_session_t desc);
 
 static int session_list_deinit_fn(int id, void *item, void *unused)
 {
@@ -113,6 +112,23 @@ struct session_item_st* item;
 		return item;
 	}
 	mutex_unlock(&lst->session_idr_mutex);
+
+	err();
+	return NULL;
+}
+
+/* Find a session, stealing the reference, but keep the descriptor allocated. */
+static struct session_item_st *session_unpublish_ref(struct ncr_lists *lst,
+						     ncr_session_t desc)
+{
+	struct session_item_st *sess;
+
+	mutex_lock(&lst->session_idr_mutex);
+	/* sess may be NULL for pre-allocated session IDs. */
+	sess = idr_replace(&lst->session_idr, NULL, desc);
+	mutex_unlock(&lst->session_idr_mutex);
+	if (sess != NULL && !IS_ERR(sess))
+		return sess;
 
 	err();
 	return NULL;
@@ -573,21 +589,6 @@ int ret;
 	}
 	
 	return 0;
-}
-
-static void _ncr_session_remove(struct ncr_lists *lst, ncr_session_t desc)
-{
-	struct session_item_st * item;
-
-	mutex_lock(&lst->session_idr_mutex);
-	/* item may be NULL for pre-allocated session IDs. */
-	item = idr_find(&lst->session_idr, desc);
-	if (item != NULL)
-		idr_remove(&lst->session_idr, desc); /* Steal the reference */
-	mutex_unlock(&lst->session_idr_mutex);
-
-	if (item != NULL)
-		_ncr_sessions_item_put(item);
 }
 
 static int _ncr_session_grow_pages(struct session_item_st *ses, int pagecount)
@@ -1069,7 +1070,10 @@ int ncr_session_final(struct ncr_lists *lists,
 	struct session_item_st *sess;
 	int ret;
 
-	sess = session_get_ref(lists, op->ses);
+	/* Make the session inaccessible atomically to avoid concurrent
+	   session_final() callers, but keep the ID allocated to keep audit
+	   information unambiguous. */
+	sess = session_unpublish_ref(lists, op->ses);
 	if (sess == NULL) {
 		err();
 		return -EINVAL;
@@ -1077,15 +1081,18 @@ int ncr_session_final(struct ncr_lists *lists,
 
 	if (mutex_lock_interruptible(&sess->mem_mutex)) {
 		err();
-		_ncr_sessions_item_put(sess);
+		/* Other threads may observe the session descriptor
+		   disappearing and reappearing - but then they should not be
+		   accessing it anyway if it is being freed.
+		   session_unpublish_ref keeps the ID allocated for us. */
+		session_publish_ref(lists, sess);
 		return -ERESTARTSYS;
 	}
-
 	ret = _ncr_session_final(lists, sess, tb, compat);
-
 	mutex_unlock(&sess->mem_mutex);
+
 	_ncr_sessions_item_put(sess);
-	_ncr_session_remove(lists, op->ses);
+	session_drop_desc(lists, op->ses);
 
 	return ret;
 }
