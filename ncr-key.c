@@ -494,7 +494,7 @@ fail:
  * Keysizes (2009-2010)". It maps the strength of public key algorithms to 
  * symmetric ones. Should be kept up to date.
  */
-struct {
+static const struct {
 	unsigned int bits; /* sec level */
 	unsigned int rsa_bits;
 	unsigned int dlog_bits;
@@ -509,7 +509,7 @@ struct {
 	{0,0,0}
 };
 
-unsigned int rsa_to_bits(unsigned int rsa_bits)
+static unsigned int rsa_to_bits(unsigned int rsa_bits)
 {
 int i = 1;
 
@@ -528,7 +528,7 @@ int i = 1;
 	return ecrypt_vals[i-1].bits;
 }
 
-unsigned int dlog_to_bits(unsigned int dlog_bits)
+static unsigned int dlog_to_bits(unsigned int dlog_bits)
 {
 int i = 1;
 

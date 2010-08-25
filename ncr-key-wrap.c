@@ -496,7 +496,7 @@ cleanup:
 /* will check if the kek is of equal or higher security level than
  * wkey. To prevent encrypting a 256 bit key with an 128 bit one.
  */
-int check_key_level(struct key_item_st* kek, struct key_item_st* wkey)
+static int check_key_level(struct key_item_st* kek, struct key_item_st* wkey)
 {
 int kek_level, wkey_level;
 
