@@ -32,7 +32,8 @@
 #include <net/netlink.h>
 
 static void _ncr_sessions_item_put(struct session_item_st *item);
-static int _ncr_session_update_key(struct ncr_lists *lists, ncr_session_t ses,
+static int _ncr_session_update_key(struct ncr_lists *lists,
+				   struct session_item_st *sess,
 				   struct nlattr *tb[]);
 static void _ncr_session_remove(struct ncr_lists *lst, ncr_session_t desc);
 
@@ -702,34 +703,21 @@ static int get_userbuf2(struct session_item_st *ses, struct nlattr *tb[],
 }
 
 /* Called when userspace buffers are used */
-static int _ncr_session_update(struct ncr_lists *lists, ncr_session_t ses,
+static int _ncr_session_update(struct session_item_st *sess,
 			       struct nlattr *tb[], int compat)
 {
 	int ret;
-	struct session_item_st* sess;
 	struct scatterlist *isg = NULL;
 	struct scatterlist *osg = NULL;
 	unsigned osg_cnt=0, isg_cnt=0;
 	size_t isg_size = 0, osg_size;
 	struct ncr_session_output_buffer out;
 
-	sess = ncr_sessions_item_get(lists, ses);
-	if (sess == NULL) {
-		err();
-		return -EINVAL;
-	}
-
-	if (mutex_lock_interruptible(&sess->mem_mutex)) {
-		err();
-		_ncr_sessions_item_put(sess);
-		return -ERESTARTSYS;
-	}
-
 	ret = get_userbuf2(sess, tb, &isg, &isg_cnt, &isg_size, &out, &osg,
 			   &osg_cnt, compat);
 	if (ret < 0) {
 		err();
-		goto fail;
+		return ret;
 	}
 
 	switch(sess->op) {
@@ -811,8 +799,6 @@ fail:
 		release_user_pages(sess->pages, sess->available_pages);
 		sess->available_pages = 0;
 	}
-	mutex_unlock(&sess->mem_mutex);
-	_ncr_sessions_item_put(sess);
 
 	return ret;
 }
@@ -820,12 +806,32 @@ fail:
 static int try_session_update(struct ncr_lists *lists, ncr_session_t ses,
 			      struct nlattr *tb[], int compat)
 {
-	if (tb[NCR_ATTR_UPDATE_INPUT_KEY_AS_DATA] != NULL)
-		return _ncr_session_update_key(lists, ses, tb);
-	else if (tb[NCR_ATTR_UPDATE_INPUT_DATA] != NULL)
-		return _ncr_session_update(lists, ses, tb, compat);
+	struct session_item_st *sess;
+	int ret;
 
-	return 0;
+	sess = ncr_sessions_item_get(lists, ses);
+	if (sess == NULL) {
+		err();
+		return -EINVAL;
+	}
+
+	if (mutex_lock_interruptible(&sess->mem_mutex)) {
+		err();
+		ret = -ERESTARTSYS;
+		goto end;
+	}
+	if (tb[NCR_ATTR_UPDATE_INPUT_KEY_AS_DATA] != NULL)
+		ret = _ncr_session_update_key(lists, sess, tb);
+	else if (tb[NCR_ATTR_UPDATE_INPUT_DATA] != NULL)
+		ret = _ncr_session_update(sess, tb, compat);
+	else
+		ret = 0;
+	mutex_unlock(&sess->mem_mutex);
+
+end:
+	_ncr_sessions_item_put(sess);
+
+	return ret;
 }
 
 static int _ncr_session_final(struct ncr_lists *lists, ncr_session_t ses,
@@ -1003,25 +1009,19 @@ fail:
 }
 
 /* Direct with key: Allows to hash a key */
-static int _ncr_session_update_key(struct ncr_lists *lists, ncr_session_t ses,
+static int _ncr_session_update_key(struct ncr_lists *lists,
+				   struct session_item_st* sess,
 				   struct nlattr *tb[])
 {
 	int ret;
-	struct session_item_st* sess;
 	struct key_item_st* key = NULL;
-
-	sess = ncr_sessions_item_get(lists, ses);
-	if (sess == NULL) {
-		err();
-		return -EINVAL;
-	}
 
 	/* read key */
 	ret = key_item_get_nla_read(&key, lists,
 				    tb[NCR_ATTR_UPDATE_INPUT_KEY_AS_DATA]);
 	if (ret < 0) {
 		err();
-		goto fail;
+		return ret;
 	}
 	
 	if (key->type != NCR_KEY_TYPE_SECRET) {
@@ -1054,8 +1054,7 @@ static int _ncr_session_update_key(struct ncr_lists *lists, ncr_session_t ses,
 	ret = 0;
 
 fail:
-	if (key) _ncr_key_item_put(key);
-	_ncr_sessions_item_put(sess);
+	_ncr_key_item_put(key);
 
 	return ret;
 }
@@ -1064,14 +1063,30 @@ int ncr_session_update(struct ncr_lists *lists,
 		       const struct ncr_session_update *op, struct nlattr *tb[],
 		       int compat)
 {
+	struct session_item_st *sess;
 	int ret;
 
+	sess = ncr_sessions_item_get(lists, op->ses);
+	if (sess == NULL) {
+		err();
+		return -EINVAL;
+	}
+
+	if (mutex_lock_interruptible(&sess->mem_mutex)) {
+		err();
+		ret = -ERESTARTSYS;
+		goto end;
+	}
 	if (tb[NCR_ATTR_UPDATE_INPUT_DATA] != NULL)
-		ret = _ncr_session_update(lists, op->ses, tb, compat);
+		ret = _ncr_session_update(sess, tb, compat);
 	else if (tb[NCR_ATTR_UPDATE_INPUT_KEY_AS_DATA] != NULL)
-		ret = _ncr_session_update_key(lists, op->ses, tb);
+		ret = _ncr_session_update_key(lists, sess, tb);
 	else
 		ret = -EINVAL;
+	mutex_unlock(&sess->mem_mutex);
+
+end:
+	_ncr_sessions_item_put(sess);
 
 	if (unlikely(ret)) {
 		err();
