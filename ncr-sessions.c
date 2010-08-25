@@ -312,7 +312,6 @@ static int _ncr_session_init(struct ncr_lists *lists, ncr_crypto_op_t op,
 		session_drop_desc(lists, desc);
 		return -ENOMEM;
 	}
-	session_publish(lists, ns);
 
 	ns->op = op;
 	ns->algorithm = _ncr_nla_to_properties(tb[NCR_ATTR_ALGORITHM]);
@@ -490,11 +489,12 @@ static int _ncr_session_init(struct ncr_lists *lists, ncr_crypto_op_t op,
 			goto fail;
 	}
 	
+	session_publish(lists, ns);
 	ret = ns->desc;
 
 fail:
 	if (ret < 0) {
-		_ncr_session_remove(lists, ns->desc);
+		session_drop_desc(lists, desc);
 	}
 	_ncr_sessions_item_put(ns);
 
