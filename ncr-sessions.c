@@ -54,6 +54,49 @@ void ncr_sessions_list_deinit(struct ncr_lists *lst)
 	mutex_unlock(&lst->session_idr_mutex);
 }
 
+/* Allocate a descriptor without making a sesssion available to userspace. */
+static ncr_session_t session_alloc_desc(struct ncr_lists *lst)
+{
+	int ret, desc;
+
+	mutex_lock(&lst->session_idr_mutex);
+	if (idr_pre_get(&lst->session_idr, GFP_KERNEL) == 0) {
+		ret = -ENOMEM;
+		goto end;
+	}
+	/* idr_pre_get() should preallocate enough, and, due to
+	   session_idr_mutex, nobody else can use the preallocated data.
+	   Therefore the loop recommended in idr_get_new() documentation is not
+	   necessary. */
+	ret = idr_get_new(&lst->session_idr, NULL, &desc);
+	if (ret != 0)
+		goto end;
+	ret = desc;
+end:
+	mutex_unlock(&lst->session_idr_mutex);
+	return ret;
+}
+
+/* Drop a pre-allocated, unpublished session descriptor */
+static void session_drop_desc(struct ncr_lists *lst, ncr_session_t desc)
+{
+	mutex_lock(&lst->session_idr_mutex);
+	idr_remove(&lst->session_idr, desc);
+	mutex_unlock(&lst->session_idr_mutex);
+}
+
+/* Make a session descriptor visible in user-space */
+static void session_publish(struct ncr_lists *lst, struct session_item_st *sess)
+{
+	void *old;
+
+	atomic_inc(&sess->refcnt);
+	mutex_lock(&lst->session_idr_mutex);
+	old = idr_replace(&lst->session_idr, sess, sess->desc);
+	mutex_unlock(&lst->session_idr_mutex);
+	BUG_ON(old != NULL);
+}
+
 /* returns the data item corresponding to desc */
 static struct session_item_st *ncr_sessions_item_get(struct ncr_lists *lst,
 						     ncr_session_t desc)
@@ -61,6 +104,7 @@ static struct session_item_st *ncr_sessions_item_get(struct ncr_lists *lst,
 struct session_item_st* item;
 
 	mutex_lock(&lst->session_idr_mutex);
+	/* item may be NULL for pre-allocated session IDs. */
 	item = idr_find(&lst->session_idr, desc);
 	if (item != NULL) {
 		atomic_inc(&item->refcnt);
@@ -87,7 +131,7 @@ static void _ncr_sessions_item_put(struct session_item_st *item)
 	}
 }
 
-static struct session_item_st *ncr_session_new(struct ncr_lists *lst)
+static struct session_item_st *ncr_session_new(ncr_session_t desc)
 {
 	struct session_item_st* sess;
 
@@ -108,19 +152,8 @@ static struct session_item_st *ncr_session_new(struct ncr_lists *lst)
 	}
 	mutex_init(&sess->mem_mutex);
 
-	atomic_set(&sess->refcnt, 2); /* One for lst->list, one for "sess" */
-
-	mutex_lock(&lst->session_idr_mutex);
-	/* idr_pre_get() should preallocate enough, and, due to
-	   session_idr_mutex, nobody else can use the preallocated data.
-	   Therefore the loop recommended in idr_get_new() documentation is not
-	   necessary. */
-	if (idr_pre_get(&lst->session_idr, GFP_KERNEL) == 0 ||
-	    idr_get_new(&lst->session_idr, sess, &sess->desc) != 0) {
-		mutex_unlock(&lst->session_idr_mutex);
-		goto err_sess;
-	}
-	mutex_unlock(&lst->session_idr_mutex);
+	atomic_set(&sess->refcnt, 1);
+	sess->desc = desc;
 
 	return sess;
 
@@ -263,15 +296,23 @@ static int _ncr_session_init(struct ncr_lists *lists, ncr_crypto_op_t op,
 			     struct nlattr *tb[])
 {
 	const struct nlattr *nla;
+	ncr_session_t desc;
 	struct session_item_st* ns = NULL;
 	int ret;
 	const struct algo_properties_st *sign_hash;
 
-	ns = ncr_session_new(lists);
+	desc = session_alloc_desc(lists);
+	if (desc < 0) {
+		err();
+		return desc;
+	}
+	ns = ncr_session_new(desc);
 	if (ns == NULL) {
 		err();
+		session_drop_desc(lists, desc);
 		return -ENOMEM;
 	}
+	session_publish(lists, ns);
 
 	ns->op = op;
 	ns->algorithm = _ncr_nla_to_properties(tb[NCR_ATTR_ALGORITHM]);
@@ -529,6 +570,7 @@ static void _ncr_session_remove(struct ncr_lists *lst, ncr_session_t desc)
 	struct session_item_st * item;
 
 	mutex_lock(&lst->session_idr_mutex);
+	/* item may be NULL for pre-allocated session IDs. */
 	item = idr_find(&lst->session_idr, desc);
 	if (item != NULL)
 		idr_remove(&lst->session_idr, desc); /* Steal the reference */
