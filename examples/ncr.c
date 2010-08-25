@@ -1237,6 +1237,221 @@ test_ncr_hash(int cfd)
 }
 
 static int
+test_ncr_hash_clone(int cfd)
+{
+	ncr_key_t key;
+	struct __attribute__((packed)) {
+		struct ncr_key_import f;
+		struct nlattr id_head ALIGN_NL;
+		uint8_t id[2] ALIGN_NL;
+		struct nlattr type_head ALIGN_NL;
+		uint32_t type ALIGN_NL;
+		struct nlattr flags_head ALIGN_NL;
+		uint32_t flags ALIGN_NL;
+		struct nlattr algo_head ALIGN_NL;
+		char algo[128] ALIGN_NL;
+	} kimport;
+	uint8_t data[HASH_DATA_SIZE];
+	const struct hash_vectors_st *hv;
+	int j;
+	size_t data_size;
+	struct __attribute__((packed)) {
+		struct ncr_session_init f;
+		struct nlattr key_head ALIGN_NL;
+		uint32_t key ALIGN_NL;
+		struct nlattr algo_head ALIGN_NL;
+		char algo[128] ALIGN_NL;
+	} kinit;
+	struct __attribute__((packed)) {
+		struct ncr_session_update f;
+		struct nlattr input_head ALIGN_NL;
+		struct ncr_session_input_data input ALIGN_NL;
+	} kupdate;
+	struct __attribute__((packed)) {
+		struct ncr_session_final f;
+		struct nlattr input_head ALIGN_NL;
+		struct ncr_session_input_data input ALIGN_NL;
+		struct nlattr output_head ALIGN_NL;
+		struct ncr_session_output_buffer output ALIGN_NL;
+	} kfinal;
+	struct __attribute__((packed)) {
+		struct ncr_session_once f;
+		struct nlattr clone_head ALIGN_NL;
+		uint32_t clone ALIGN_NL;
+		struct nlattr input_head ALIGN_NL;
+		struct ncr_session_input_data input ALIGN_NL;
+		struct nlattr output_head ALIGN_NL;
+		struct ncr_session_output_buffer output ALIGN_NL;
+	} kclone;
+	ncr_session_t ses;
+
+	/* convert it to key */
+	key = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key == -1) {
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+
+	fprintf(stdout, "Tests of hash cloning\n");
+	for (hv = hash_vectors;
+	     hv < hash_vectors + sizeof(hash_vectors) / sizeof(hash_vectors[0]);
+	     hv++) {
+		size_t algo_size;
+
+		algo_size = strlen(hv->algorithm) + 1;
+		fprintf(stdout, "\t%s:\n", hv->algorithm);
+		/* import key */
+		if (hv->key != NULL) {
+
+			memset(&kimport.f, 0, sizeof(kimport.f));
+			kimport.f.key = key;
+			kimport.f.data = hv->key;
+			kimport.f.data_size = hv->key_size;
+			kimport.id_head.nla_len
+				= NLA_HDRLEN + sizeof(kimport.id);
+			kimport.id_head.nla_type = NCR_ATTR_KEY_ID;
+			kimport.id[0] = 'a';
+			kimport.id[1] = 'b';
+			kimport.type_head.nla_len
+				= NLA_HDRLEN + sizeof(kimport.type);
+			kimport.type_head.nla_type = NCR_ATTR_KEY_TYPE;
+			kimport.type = NCR_KEY_TYPE_SECRET;
+			kimport.flags_head.nla_len
+				= NLA_HDRLEN + sizeof(kimport.flags);
+			kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
+			kimport.flags = NCR_KEY_FLAG_EXPORTABLE;
+			kimport.algo_head.nla_len = NLA_HDRLEN + algo_size;
+			kimport.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+			memcpy(kimport.algo, hv->algorithm, algo_size);
+			kimport.f.input_size
+				= kimport.algo + algo_size - (char *)&kimport;
+			if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
+				fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+				perror("ioctl(NCRIO_KEY_IMPORT)");
+				return 1;
+			}
+		}
+
+		/* Initialize a session */
+		memset(&kinit.f, 0, sizeof(kinit.f));
+		kinit.f.op = hv->op;
+		kinit.key_head.nla_len = NLA_HDRLEN + sizeof(kinit.key);
+		kinit.key_head.nla_type = NCR_ATTR_KEY;
+		kinit.key = hv->key != NULL ? key : NCR_KEY_INVALID;
+		kinit.algo_head.nla_len = NLA_HDRLEN + algo_size;
+		kinit.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+		memcpy(kinit.algo, hv->algorithm, algo_size);
+		kinit.f.input_size = kinit.algo + algo_size - (char *)&kinit;
+
+		ses = ioctl(cfd, NCRIO_SESSION_INIT, &kinit);
+		if (ses < 0) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_SESSION_INIT)");
+			return 1;
+		}
+
+		/* Submit half of the data */
+		memset(&kupdate.f, 0, sizeof(kupdate.f));
+		kupdate.f.input_size = sizeof(kupdate);
+		kupdate.f.ses = ses;
+		kupdate.input_head.nla_len = NLA_HDRLEN + sizeof(kupdate.input);
+		kupdate.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
+		kupdate.input.data = hv->plaintext;
+		kupdate.input.data_size = hv->plaintext_size / 2;
+
+		if (ioctl(cfd, NCRIO_SESSION_UPDATE, &kupdate)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_SESSION_UPDATE)");
+			return 1;
+		}
+
+		/* Clone a session, submit the other half, verify. */
+		memset(&kclone.f, 0, sizeof(kclone.f));
+		kclone.f.input_size = sizeof(kclone);
+		kclone.f.op = hv->op;
+		kclone.clone_head.nla_len = NLA_HDRLEN + sizeof(kclone.clone);
+		kclone.clone_head.nla_type = NCR_ATTR_SESSION_CLONE_FROM;
+		kclone.clone = ses;
+		kclone.input_head.nla_len = NLA_HDRLEN + sizeof(kclone.input);
+		kclone.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
+		kclone.input.data = hv->plaintext + hv->plaintext_size / 2;
+		kclone.input.data_size
+			= hv->plaintext_size - hv->plaintext_size / 2;
+		kclone.output_head.nla_len = NLA_HDRLEN + sizeof(kclone.output);
+		kclone.output_head.nla_type = NCR_ATTR_FINAL_OUTPUT_BUFFER;
+		kclone.output.buffer = data;
+		kclone.output.buffer_size = sizeof(data);
+		kclone.output.result_size_ptr = &data_size;
+
+		if (ioctl(cfd, NCRIO_SESSION_ONCE, &kclone)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_SESSION_ONCE)");
+			return 1;
+		}
+
+		if (data_size != hv->output_size
+		    || memcmp(data, hv->output, hv->output_size) != 0) {
+			fprintf(stderr, "HASH test vector %td failed!\n",
+				hv - hash_vectors);
+
+			fprintf(stderr, "Output[%zu]: ", data_size);
+			for(j = 0; j < data_size; j++)
+				fprintf(stderr, "%.2x:", (int)data[j]);
+			fprintf(stderr, "\n");
+
+			fprintf(stderr, "Expected[%d]: ", hv->output_size);
+			for (j = 0; j < hv->output_size; j++)
+				fprintf(stderr, "%.2x:", (int)hv->output[j]);
+			fprintf(stderr, "\n");
+			return 1;
+		}
+
+		/* Submit the other half to the original session, verify. */
+		memset(&kfinal.f, 0, sizeof(kfinal.f));
+		kfinal.f.input_size = sizeof(kfinal);
+		kfinal.f.ses = ses;
+		kfinal.input_head.nla_len = NLA_HDRLEN + sizeof(kfinal.input);
+		kfinal.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
+		kfinal.input.data = hv->plaintext + hv->plaintext_size / 2;
+		kfinal.input.data_size
+			= hv->plaintext_size - hv->plaintext_size / 2;
+		kfinal.output_head.nla_len = NLA_HDRLEN + sizeof(kfinal.output);
+		kfinal.output_head.nla_type = NCR_ATTR_FINAL_OUTPUT_BUFFER;
+		kfinal.output.buffer = data;
+		kfinal.output.buffer_size = sizeof(data);
+		kfinal.output.result_size_ptr = &data_size;
+
+		if (ioctl(cfd, NCRIO_SESSION_FINAL, &kfinal)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_SESSION_FINAL)");
+			return 1;
+		}
+
+		if (data_size != hv->output_size
+		    || memcmp(data, hv->output, hv->output_size) != 0) {
+			fprintf(stderr, "HASH test vector %td failed!\n",
+				hv - hash_vectors);
+
+			fprintf(stderr, "Output[%zu]: ", data_size);
+			for(j = 0; j < data_size; j++)
+				fprintf(stderr, "%.2x:", (int)data[j]);
+			fprintf(stderr, "\n");
+
+			fprintf(stderr, "Expected[%d]: ", hv->output_size);
+			for (j = 0; j < hv->output_size; j++)
+				fprintf(stderr, "%.2x:", (int)hv->output[j]);
+			fprintf(stderr, "\n");
+			return 1;
+		}
+	}
+
+	fprintf(stdout, "\n");
+
+	return 0;
+
+}
+
+static int
 test_ncr_hash_key(int cfd)
 {
 	ncr_key_t key;
@@ -1413,6 +1628,9 @@ main()
 		return 1;
 
 	if (test_ncr_hash(fd))
+		return 1;
+
+	if (test_ncr_hash_clone(fd))
 		return 1;
 
 	if (test_ncr_hash_key(fd))
