@@ -321,7 +321,7 @@ fail:
 
 /* Wraps using the RFC3394 way.
  */
-static int wrap_aes(struct key_item_st* tobewrapped, struct key_item_st *kek,
+static int wrap_aes_rfc3394(struct key_item_st* tobewrapped, struct key_item_st *kek,
 	void* output, size_t *output_size, const void* iv, size_t iv_size)
 {
 size_t key_size, n;
@@ -557,7 +557,7 @@ int ret;
 	
 	switch(wrap.algorithm) {
 		case NCR_WALG_AES_RFC3394:
-			ret = wrap_aes(wkey, key, data, &data_size, 
+			ret = wrap_aes_rfc3394(wkey, key, data, &data_size, 
 				wrap.params.params.cipher.iv, wrap.params.params.cipher.iv_size);
 			break;
 		case NCR_WALG_AES_RFC5649:
