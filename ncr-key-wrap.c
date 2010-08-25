@@ -34,6 +34,8 @@
 #include "ncr-int.h"
 #include "cryptodev_int.h"
 
+#define KEY_WRAP_VERSION 0
+
 typedef uint8_t val64_t[8];
 
 static const val64_t initA = "\xA6\xA6\xA6\xA6\xA6\xA6\xA6\xA6";
@@ -826,7 +828,7 @@ static int key_to_packed_data( uint8_t** sdata, size_t * sdata_size, const struc
 	uint8_t * derkey = NULL;
 	uint32_t pkey_size;
 	int ret, err;
-	unsigned long zero = 0;
+	unsigned long version = KEY_WRAP_VERSION;
 	unsigned long type;
 	unsigned long derlen;
 	
@@ -887,7 +889,7 @@ static int key_to_packed_data( uint8_t** sdata, size_t * sdata_size, const struc
 	}
 
 	err = der_encode_sequence_multi(derkey, &derlen,
-				LTC_ASN1_SHORT_INTEGER, 1UL, &zero, 
+				LTC_ASN1_SHORT_INTEGER, 1UL, &version, 
 				LTC_ASN1_SHORT_INTEGER, 1UL, &type, 
 				LTC_ASN1_OCTET_STRING, (unsigned long)pkey_size, pkey, 
 				LTC_ASN1_EOL, 0UL, NULL);
@@ -995,6 +997,12 @@ static int key_from_packed_data(unsigned int flags,
 	if (err != CRYPT_OK) {
 		err();
 		ret = _ncr_tomerr(err);
+		goto fail;
+	}
+	
+	if (version != KEY_WRAP_VERSION) {
+		err();
+		ret = -EINVAL;
 		goto fail;
 	}
 	
