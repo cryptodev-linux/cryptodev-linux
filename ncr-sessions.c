@@ -99,8 +99,8 @@ static void session_publish_ref(struct ncr_lists *lst,
 }
 
 /* returns the data item corresponding to desc */
-static struct session_item_st *ncr_sessions_item_get(struct ncr_lists *lst,
-						     ncr_session_t desc)
+static struct session_item_st *session_get_ref(struct ncr_lists *lst,
+					       ncr_session_t desc)
 {
 struct session_item_st* item;
 
@@ -1032,7 +1032,7 @@ int ncr_session_update(struct ncr_lists *lists,
 	struct session_item_st *sess;
 	int ret;
 
-	sess = ncr_sessions_item_get(lists, op->ses);
+	sess = session_get_ref(lists, op->ses);
 	if (sess == NULL) {
 		err();
 		return -EINVAL;
@@ -1069,7 +1069,7 @@ int ncr_session_final(struct ncr_lists *lists,
 	struct session_item_st *sess;
 	int ret;
 
-	sess = ncr_sessions_item_get(lists, op->ses);
+	sess = session_get_ref(lists, op->ses);
 	if (sess == NULL) {
 		err();
 		return -EINVAL;
