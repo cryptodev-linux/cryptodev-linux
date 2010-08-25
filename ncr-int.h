@@ -56,32 +56,6 @@ struct algo_properties_st {
 	ncr_key_type_t key_type;
 };
 
-struct session_item_st {
-	const struct algo_properties_st *algorithm;
-	ncr_crypto_op_t op;
-
-	/* contexts for various options.
-	 * simpler to have them like that than
-	 * in a union.
-	 */
-	struct cipher_data cipher;
-	struct ncr_pk_ctx pk;
-	struct hash_data hash;
-
-	struct scatterlist *sg;
-	struct page **pages;
-	unsigned array_size;
-	unsigned available_pages;
-	struct mutex mem_mutex; /* down when the
-		* values above are changed.
-		*/
-
-	struct key_item_st* key;
-
-	atomic_t refcnt;
-	ncr_session_t desc;
-};
-
 struct key_item_st {
 	/* This object is also not protected from concurrent access.
 	 */

@@ -31,6 +31,32 @@
 #include <linux/scatterlist.h>
 #include <net/netlink.h>
 
+struct session_item_st {
+	const struct algo_properties_st *algorithm;
+	ncr_crypto_op_t op;
+
+	/* contexts for various options.
+	 * simpler to have them like that than
+	 * in a union.
+	 */
+	struct cipher_data cipher;
+	struct ncr_pk_ctx pk;
+	struct hash_data hash;
+
+	struct scatterlist *sg;
+	struct page **pages;
+	unsigned array_size;
+	unsigned available_pages;
+	struct mutex mem_mutex; /* down when the
+		* values above are changed.
+		*/
+
+	struct key_item_st* key;
+
+	atomic_t refcnt;
+	ncr_session_t desc;
+};
+
 static void _ncr_sessions_item_put(struct session_item_st *item);
 static int _ncr_session_update_key(struct ncr_lists *lists, ncr_session_t ses,
 				   struct nlattr *tb[]);
