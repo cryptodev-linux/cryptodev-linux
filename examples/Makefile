@@ -20,4 +20,4 @@ check: $(progs)
 	./speed
 
 clean:
-	rm -f *.o *~ ncr pk speed
+	rm -f *.o *~ $(progs)
