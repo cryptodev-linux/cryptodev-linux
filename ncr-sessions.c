@@ -1096,34 +1096,17 @@ int ncr_session_once(struct ncr_lists *lists,
 		     int compat)
 {
 	struct session_item_st *sess;
-	int ret, desc;
+	int ret;
 
-	desc = session_alloc_desc(lists);
-	if (desc < 0) {
-		err();
-		return desc;
-	}
-
-	sess = _ncr_session_init(lists, desc, once->op, tb);
+	sess = _ncr_session_init(lists, -1, once->op, tb);
 	if (IS_ERR(sess)) {
 		err();
-		session_drop_desc(lists, desc);
 		return PTR_ERR(sess);
-	}
-
-	session_publish(lists, sess);
-
-	if (mutex_lock_interruptible(&sess->mem_mutex)) {
-		err();
-		_ncr_sessions_item_put(sess);
-		return -ERESTARTSYS;
 	}
 
 	ret = _ncr_session_final(lists, sess, tb, compat);
 
-	mutex_unlock(&sess->mem_mutex);
 	_ncr_sessions_item_put(sess);
-	_ncr_session_remove(lists, desc);
 
 	return ret;
 }
