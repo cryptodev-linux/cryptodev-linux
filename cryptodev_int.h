@@ -78,5 +78,7 @@ ssize_t _cryptodev_hash_update( struct hash_data* hdata, const void* data, size_
 int cryptodev_hash_reset( struct hash_data* hdata);
 void cryptodev_hash_deinit(struct hash_data* hdata);
 int cryptodev_hash_init(struct hash_data *hdata, const char *alg_name, const void *mackey, size_t mackeylen);
+int cryptodev_hash_clone(struct hash_data *hdata, struct hash_data *old_data,
+			 const void *mackey, size_t mackeylen);
 
 #endif /* CRYPTODEV_INT_H */

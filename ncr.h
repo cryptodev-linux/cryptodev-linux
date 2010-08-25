@@ -58,6 +58,7 @@ enum {
 	NCR_ATTR_DH_BASE,	      /* NLA_BINARY */
 	NCR_ATTR_DH_PUBLIC,	      /* NLA_BINARY */
 	NCR_ATTR_WANTED_ATTRS,	      /* NLA_BINARY - array of u16 IDs */
+	NCR_ATTR_SESSION_CLONE_FROM,  /* NLA_U32 - ncr_session_t */
 
 	/* Add new attributes here */
 

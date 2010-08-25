@@ -82,6 +82,7 @@ static const struct nla_policy ncr_attr_policy[NCR_ATTR_MAX + 1] = {
 	[NCR_ATTR_DH_BASE] = { NLA_BINARY, 0 },
 	[NCR_ATTR_DH_PUBLIC] = { NLA_BINARY, 0 },
 	[NCR_ATTR_WANTED_ATTRS] = { NLA_BINARY, 0 },
+	[NCR_ATTR_SESSION_CLONE_FROM] = { NLA_U32, 0 },
 };
 
 void *__ncr_get_input_args(void *fixed, struct nlattr *tb[], size_t fixed_size,

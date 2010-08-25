@@ -278,6 +278,48 @@ error:
 	return ret;
 }
 
+int cryptodev_hash_clone(struct hash_data *hdata, struct hash_data *old_data,
+			 const void *mackey, size_t mackeylen)
+{
+	const char *algo;
+	void *state;
+	int ret;
+
+	/* We want exactly the same driver. */
+	algo = crypto_tfm_alg_driver_name(crypto_ahash_tfm(old_data->async.s));
+	ret = cryptodev_hash_init(hdata, algo, mackey, mackeylen);
+	if (unlikely(ret != 0))
+		return ret;
+
+	state = kmalloc(crypto_ahash_statesize(hdata->async.s), GFP_KERNEL);
+	if (unlikely(state == NULL)) {
+		ret = -ENOMEM;
+		goto err;
+	}
+
+	ret = crypto_ahash_export(old_data->async.request, state);
+	if (unlikely(ret != 0)) {
+		dprintk(0, KERN_ERR, "error exporting hash state\n");
+		goto err;
+	}
+	ret = crypto_ahash_import(hdata->async.request, state);
+	if (unlikely(ret != 0)) {
+		dprintk(0,KERN_ERR,
+			"error in crypto_hash_init()\n");
+		goto err;
+	}
+
+	kfree(state);
+
+	hdata->init = 1;
+	return 0;
+
+err:
+	kfree(state);
+	cryptodev_hash_deinit(hdata);
+	return ret;
+}
+
 void cryptodev_hash_deinit(struct hash_data* hdata)
 {
 	if (hdata->init) {
