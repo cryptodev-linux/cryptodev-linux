@@ -293,25 +293,20 @@ static int key_item_get_nla_read(struct key_item_st **st,
 	return ret;
 }
 
-static int _ncr_session_init(struct ncr_lists *lists, ncr_crypto_op_t op,
-			     struct nlattr *tb[])
+static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
+						 ncr_session_t desc,
+						 ncr_crypto_op_t op,
+						 struct nlattr *tb[])
 {
 	const struct nlattr *nla;
-	ncr_session_t desc;
-	struct session_item_st* ns = NULL;
+	struct session_item_st *ns;
 	int ret;
 	const struct algo_properties_st *sign_hash;
 
-	desc = session_alloc_desc(lists);
-	if (desc < 0) {
-		err();
-		return desc;
-	}
 	ns = ncr_session_new(desc);
 	if (ns == NULL) {
 		err();
-		session_drop_desc(lists, desc);
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 	}
 
 	ns->op = op;
@@ -490,23 +485,38 @@ static int _ncr_session_init(struct ncr_lists *lists, ncr_crypto_op_t op,
 			goto fail;
 	}
 	
-	session_publish(lists, ns);
-	ret = ns->desc;
+	return ns;
 
 fail:
-	if (ret < 0) {
-		session_drop_desc(lists, desc);
-	}
 	_ncr_sessions_item_put(ns);
 
-	return ret;
+	return ERR_PTR(ret);
 }
 
 int ncr_session_init(struct ncr_lists *lists,
 		     const struct ncr_session_init *session,
 		     struct nlattr *tb[])
 {
-	return _ncr_session_init(lists, session->op, tb);
+	ncr_session_t desc;
+	struct session_item_st *sess;
+
+	desc = session_alloc_desc(lists);
+	if (desc < 0) {
+		err();
+		return desc;
+	}
+
+	sess = _ncr_session_init(lists, desc, session->op, tb);
+	if (IS_ERR(sess)) {
+		err();
+		session_drop_desc(lists, desc);
+		return PTR_ERR(sess);
+	}
+
+	session_publish(lists, sess);
+	_ncr_sessions_item_put(sess);
+
+	return desc;
 }
 
 static int _ncr_session_encrypt(struct session_item_st* sess, const struct scatterlist* input, unsigned input_cnt,
@@ -1088,17 +1098,20 @@ int ncr_session_once(struct ncr_lists *lists,
 	struct session_item_st *sess;
 	int ret, desc;
 
-	desc = _ncr_session_init(lists, once->op, tb);
+	desc = session_alloc_desc(lists);
 	if (desc < 0) {
 		err();
 		return desc;
 	}
 
-	sess = ncr_sessions_item_get(lists, desc);
-	if (sess == NULL) {
+	sess = _ncr_session_init(lists, desc, once->op, tb);
+	if (IS_ERR(sess)) {
 		err();
-		return -EINVAL;
+		session_drop_desc(lists, desc);
+		return PTR_ERR(sess);
 	}
+
+	session_publish(lists, sess);
 
 	if (mutex_lock_interruptible(&sess->mem_mutex)) {
 		err();
