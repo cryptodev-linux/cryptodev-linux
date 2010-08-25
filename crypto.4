@@ -520,13 +520,18 @@ The following input attributes are recognized:
 
 .RS
 .IP \fBNCR_ATTR_ALGORITHM\fP
-Mandatory.
+Mandatory unless
+.B NCR_ATTR_SESSION_CLONE_FROM
+is provided.
 .IP \fBNCR_ATTR_IV\fP
 Mandatory for some operations and algorithms.
 .IP \fBNCR_ATTR_KEY\fP
 Mandatory for some operations and algorithms.
 An 32-bit unsigned integer in native byte order
 specifying the key to use for the operation.
+If
+.B NCR_ATTR_SESSION_CLONE_FROM
+is provided, the key from the original session is used.
 .IP \fBNCR_ATTR_RSA_ENCODING_METHOD\fP
 Mandatory for RSA.
 An 32-bit unsigned integer in native byte order
@@ -546,8 +551,7 @@ Optional, defaults to 0.
 .IP \fBNCR_ATTR_SESSION_CLONE_FROM\fP
 Optional, a 32-bit unsigned integer in native byte order
 specifying session state to clone.
-Only supported for some operations and algorithms;
-specifically intended for cloning hashing sessions.
+Only supported for some operations and algorithms.
 .IP \fBNCR_ATTR_SIGNATURE_HASH_ALGORITHM\fP
 Mandatory for some operations and algorithms.
 A NUL-terminated string specifying a hash algorithm underlying a signature,

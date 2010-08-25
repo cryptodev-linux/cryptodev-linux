@@ -334,13 +334,38 @@ static int key_item_get_nla_read(struct key_item_st **st,
 	return ret;
 }
 
+/* The caller is responsible for locking of "session".  old_session must not be
+   locked on entry. */
+static int
+init_or_clone_hash(struct session_item_st *session,
+		   struct session_item_st *old_session,
+		   const struct algo_properties_st *algo,
+		   const void *mac_key, size_t mac_key_size)
+{
+	int ret;
+
+	if (old_session == NULL)
+		return cryptodev_hash_init(&session->hash, algo->kstr,
+					   mac_key, mac_key_size);
+
+	if (mutex_lock_interruptible(&old_session->mutex)) {
+		err();
+		return -ERESTARTSYS;
+	}
+	ret = cryptodev_hash_clone(&session->hash, &old_session->hash, mac_key,
+				   mac_key_size);
+	mutex_unlock(&old_session->mutex);
+
+	return ret;
+}
+
 static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 						 ncr_session_t desc,
 						 ncr_crypto_op_t op,
 						 struct nlattr *tb[])
 {
 	const struct nlattr *nla;
-	struct session_item_st *ns;
+	struct session_item_st *ns, *old_session = NULL;
 	int ret;
 	const struct algo_properties_st *sign_hash;
 
@@ -353,12 +378,31 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 	   is necessary. */
 
 	ns->op = op;
-	ns->algorithm = _ncr_nla_to_properties(tb[NCR_ATTR_ALGORITHM]);
-	if (ns->algorithm == NULL) {
-		err();
-		ret = -EINVAL;
-		goto fail;
+	nla = tb[NCR_ATTR_SESSION_CLONE_FROM];
+	if (nla != NULL) {
+		/* "ns" is not visible to userspace, so this is safe. */
+		old_session = session_get_ref(lists, nla_get_u32(nla));
+		if (old_session == NULL) {
+			err();
+			ret = -EINVAL;
+			goto fail;
+		}
+		if (ns->op != old_session->op) {
+			err();
+			ret = -EINVAL;
+			goto fail;
+		}
 	}
+
+	if (old_session == NULL) {
+		ns->algorithm = _ncr_nla_to_properties(tb[NCR_ATTR_ALGORITHM]);
+		if (ns->algorithm == NULL) {
+			err();
+			ret = -EINVAL;
+			goto fail;
+		}
+	} else
+		ns->algorithm = old_session->algorithm;
 	
 	switch(op) {
 		case NCR_OP_ENCRYPT:
@@ -366,6 +410,12 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 			if (!ns->algorithm->can_encrypt) {
 				err();
 				ret = -EINVAL;
+				goto fail;
+			}
+
+			if (old_session != NULL) {
+				err();
+				ret = -EOPNOTSUPP;
 				goto fail;
 			}
 
@@ -444,19 +494,27 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 					goto fail;
 				}
 
-				ret = cryptodev_hash_init(&ns->hash, ns->algorithm->kstr, NULL, 0);
+				ret = init_or_clone_hash(ns, old_session,
+							 ns->algorithm, NULL,
+							 0);
 				if (ret < 0) {
 					err();
 					goto fail;
 				}
 			
 			} else {
-				/* read key */
-				ret = key_item_get_nla_read(&ns->key, lists,
-							    tb[NCR_ATTR_KEY]);
-				if (ret < 0) {
-					err();
-					goto fail;
+				/* Get key */
+				if (old_session == NULL) {
+					ret = key_item_get_nla_read(&ns->key,
+								    lists,
+								    tb[NCR_ATTR_KEY]);
+					if (ret < 0) {
+						err();
+						goto fail;
+					}
+				} else {
+					atomic_inc(&old_session->key->refcnt);
+					ns->key = old_session->key;
 				}
 
 				/* wrapping keys cannot be used for anything except wrapping.
@@ -474,7 +532,7 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 						goto fail;
 					}
 
-					ret = cryptodev_hash_init(&ns->hash, ns->algorithm->kstr,
+					ret = init_or_clone_hash(ns, old_session, ns->algorithm,
 						ns->key->key.secret.data, ns->key->key.secret.size);
 					if (ret < 0) {
 						err();
@@ -482,6 +540,12 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 					}
 
 				} else if (ns->algorithm->is_pk && (ns->key->type == NCR_KEY_TYPE_PRIVATE || ns->key->type == NCR_KEY_TYPE_PUBLIC)) {
+					if (old_session != NULL) {
+						err();
+						ret = -EOPNOTSUPP;
+						goto fail;
+					}
+
 					nla = tb[NCR_ATTR_SIGNATURE_HASH_ALGORITHM];
 					sign_hash = _ncr_nla_to_properties(nla);
 					if (sign_hash == NULL) {
@@ -527,10 +591,15 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 			ret = -EINVAL;
 			goto fail;
 	}
+
+	if (old_session != NULL)
+		_ncr_sessions_item_put(old_session);
 	
 	return ns;
 
 fail:
+	if (old_session != NULL)
+		_ncr_sessions_item_put(old_session);
 	_ncr_sessions_item_put(ns);
 
 	return ERR_PTR(ret);
