@@ -803,35 +803,16 @@ fail:
 	return ret;
 }
 
-static int try_session_update(struct ncr_lists *lists, ncr_session_t ses,
-			      struct nlattr *tb[], int compat)
+static int try_session_update(struct ncr_lists *lists,
+			      struct session_item_st *sess, struct nlattr *tb[],
+			      int compat)
 {
-	struct session_item_st *sess;
-	int ret;
-
-	sess = ncr_sessions_item_get(lists, ses);
-	if (sess == NULL) {
-		err();
-		return -EINVAL;
-	}
-
-	if (mutex_lock_interruptible(&sess->mem_mutex)) {
-		err();
-		ret = -ERESTARTSYS;
-		goto end;
-	}
 	if (tb[NCR_ATTR_UPDATE_INPUT_KEY_AS_DATA] != NULL)
-		ret = _ncr_session_update_key(lists, sess, tb);
+		return _ncr_session_update_key(lists, sess, tb);
 	else if (tb[NCR_ATTR_UPDATE_INPUT_DATA] != NULL)
-		ret = _ncr_session_update(sess, tb, compat);
+		return _ncr_session_update(sess, tb, compat);
 	else
-		ret = 0;
-	mutex_unlock(&sess->mem_mutex);
-
-end:
-	_ncr_sessions_item_put(sess);
-
-	return ret;
+		return 0;
 }
 
 static int _ncr_session_final(struct ncr_lists *lists, ncr_session_t ses,
@@ -850,17 +831,16 @@ static int _ncr_session_final(struct ncr_lists *lists, ncr_session_t ses,
 		return -EINVAL;
 	}
 
-	ret = try_session_update(lists, ses, tb, compat);
-	if (ret < 0) {
-		err();
-		_ncr_sessions_item_put(sess);
-		return ret;
-	}
-
 	if (mutex_lock_interruptible(&sess->mem_mutex)) {
 		err();
 		_ncr_sessions_item_put(sess);
 		return -ERESTARTSYS;
+	}
+
+	ret = try_session_update(lists, sess, tb, compat);
+	if (ret < 0) {
+		err();
+		goto fail;
 	}
 
 	switch(sess->op) {
