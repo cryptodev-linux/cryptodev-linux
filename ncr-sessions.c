@@ -32,8 +32,15 @@
 #include <net/netlink.h>
 
 struct session_item_st {
+	atomic_t refcnt;
+	/* Constant values throughout the life of this object follow. */
+	ncr_session_t desc;
 	const struct algo_properties_st *algorithm;
 	ncr_crypto_op_t op;
+	struct key_item_st *key;
+
+	/* Variable values, protected usually by mutex, follow. */
+	struct mutex mutex;
 
 	/* contexts for various options.
 	 * simpler to have them like that than
@@ -47,20 +54,12 @@ struct session_item_st {
 	struct page **pages;
 	unsigned array_size;
 	unsigned available_pages;
-	struct mutex mem_mutex; /* down when the
-		* values above are changed.
-		*/
-
-	struct key_item_st* key;
-
-	atomic_t refcnt;
-	ncr_session_t desc;
 };
 
 static void _ncr_sessions_item_put(struct session_item_st *item);
-static int _ncr_session_update_key(struct ncr_lists *lists, ncr_session_t ses,
+static int _ncr_session_update_key(struct ncr_lists *lists,
+				   struct session_item_st *sess,
 				   struct nlattr *tb[]);
-static void _ncr_session_remove(struct ncr_lists *lst, ncr_session_t desc);
 
 static int session_list_deinit_fn(int id, void *item, void *unused)
 {
@@ -80,13 +79,57 @@ void ncr_sessions_list_deinit(struct ncr_lists *lst)
 	mutex_unlock(&lst->session_idr_mutex);
 }
 
+/* Allocate a descriptor without making a sesssion available to userspace. */
+static ncr_session_t session_alloc_desc(struct ncr_lists *lst)
+{
+	int ret, desc;
+
+	mutex_lock(&lst->session_idr_mutex);
+	if (idr_pre_get(&lst->session_idr, GFP_KERNEL) == 0) {
+		ret = -ENOMEM;
+		goto end;
+	}
+	/* idr_pre_get() should preallocate enough, and, due to
+	   session_idr_mutex, nobody else can use the preallocated data.
+	   Therefore the loop recommended in idr_get_new() documentation is not
+	   necessary. */
+	ret = idr_get_new(&lst->session_idr, NULL, &desc);
+	if (ret != 0)
+		goto end;
+	ret = desc;
+end:
+	mutex_unlock(&lst->session_idr_mutex);
+	return ret;
+}
+
+/* Drop a pre-allocated, unpublished session descriptor */
+static void session_drop_desc(struct ncr_lists *lst, ncr_session_t desc)
+{
+	mutex_lock(&lst->session_idr_mutex);
+	idr_remove(&lst->session_idr, desc);
+	mutex_unlock(&lst->session_idr_mutex);
+}
+
+/* Make a session descriptor visible in user-space, stealing the reference */
+static void session_publish_ref(struct ncr_lists *lst,
+				struct session_item_st *sess)
+{
+	void *old;
+
+	mutex_lock(&lst->session_idr_mutex);
+	old = idr_replace(&lst->session_idr, sess, sess->desc);
+	mutex_unlock(&lst->session_idr_mutex);
+	BUG_ON(old != NULL);
+}
+
 /* returns the data item corresponding to desc */
-static struct session_item_st *ncr_sessions_item_get(struct ncr_lists *lst,
-						     ncr_session_t desc)
+static struct session_item_st *session_get_ref(struct ncr_lists *lst,
+					       ncr_session_t desc)
 {
 struct session_item_st* item;
 
 	mutex_lock(&lst->session_idr_mutex);
+	/* item may be NULL for pre-allocated session IDs. */
 	item = idr_find(&lst->session_idr, desc);
 	if (item != NULL) {
 		atomic_inc(&item->refcnt);
@@ -94,6 +137,23 @@ struct session_item_st* item;
 		return item;
 	}
 	mutex_unlock(&lst->session_idr_mutex);
+
+	err();
+	return NULL;
+}
+
+/* Find a session, stealing the reference, but keep the descriptor allocated. */
+static struct session_item_st *session_unpublish_ref(struct ncr_lists *lst,
+						     ncr_session_t desc)
+{
+	struct session_item_st *sess;
+
+	mutex_lock(&lst->session_idr_mutex);
+	/* sess may be NULL for pre-allocated session IDs. */
+	sess = idr_replace(&lst->session_idr, NULL, desc);
+	mutex_unlock(&lst->session_idr_mutex);
+	if (sess != NULL && !IS_ERR(sess))
+		return sess;
 
 	err();
 	return NULL;
@@ -113,7 +173,7 @@ static void _ncr_sessions_item_put(struct session_item_st *item)
 	}
 }
 
-static struct session_item_st *ncr_session_new(struct ncr_lists *lst)
+static struct session_item_st *ncr_session_new(ncr_session_t desc)
 {
 	struct session_item_st* sess;
 
@@ -132,21 +192,10 @@ static struct session_item_st *ncr_session_new(struct ncr_lists *lst)
 		err();
 		goto err_sess;
 	}
-	mutex_init(&sess->mem_mutex);
+	mutex_init(&sess->mutex);
 
-	atomic_set(&sess->refcnt, 2); /* One for lst->list, one for "sess" */
-
-	mutex_lock(&lst->session_idr_mutex);
-	/* idr_pre_get() should preallocate enough, and, due to
-	   session_idr_mutex, nobody else can use the preallocated data.
-	   Therefore the loop recommended in idr_get_new() documentation is not
-	   necessary. */
-	if (idr_pre_get(&lst->session_idr, GFP_KERNEL) == 0 ||
-	    idr_get_new(&lst->session_idr, sess, &sess->desc) != 0) {
-		mutex_unlock(&lst->session_idr_mutex);
-		goto err_sess;
-	}
-	mutex_unlock(&lst->session_idr_mutex);
+	atomic_set(&sess->refcnt, 1);
+	sess->desc = desc;
 
 	return sess;
 
@@ -285,19 +334,23 @@ static int key_item_get_nla_read(struct key_item_st **st,
 	return ret;
 }
 
-static int _ncr_session_init(struct ncr_lists *lists, ncr_crypto_op_t op,
-			     struct nlattr *tb[])
+static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
+						 ncr_session_t desc,
+						 ncr_crypto_op_t op,
+						 struct nlattr *tb[])
 {
 	const struct nlattr *nla;
-	struct session_item_st* ns = NULL;
+	struct session_item_st *ns;
 	int ret;
 	const struct algo_properties_st *sign_hash;
 
-	ns = ncr_session_new(lists);
+	ns = ncr_session_new(desc);
 	if (ns == NULL) {
 		err();
-		return -ENOMEM;
+		return ERR_PTR(-ENOMEM);
 	}
+	/* ns is the only reference throughout this function, so no locking
+	   is necessary. */
 
 	ns->op = op;
 	ns->algorithm = _ncr_nla_to_properties(tb[NCR_ATTR_ALGORITHM]);
@@ -475,24 +528,40 @@ static int _ncr_session_init(struct ncr_lists *lists, ncr_crypto_op_t op,
 			goto fail;
 	}
 	
-	ret = ns->desc;
+	return ns;
 
 fail:
-	if (ret < 0) {
-		_ncr_session_remove(lists, ns->desc);
-	}
 	_ncr_sessions_item_put(ns);
 
-	return ret;
+	return ERR_PTR(ret);
 }
 
 int ncr_session_init(struct ncr_lists *lists,
 		     const struct ncr_session_init *session,
 		     struct nlattr *tb[])
 {
-	return _ncr_session_init(lists, session->op, tb);
+	ncr_session_t desc;
+	struct session_item_st *sess;
+
+	desc = session_alloc_desc(lists);
+	if (desc < 0) {
+		err();
+		return desc;
+	}
+
+	sess = _ncr_session_init(lists, desc, session->op, tb);
+	if (IS_ERR(sess)) {
+		err();
+		session_drop_desc(lists, desc);
+		return PTR_ERR(sess);
+	}
+
+	session_publish_ref(lists, sess);
+
+	return desc;
 }
 
+/* The caller is responsible for locking of the session. */
 static int _ncr_session_encrypt(struct session_item_st* sess, const struct scatterlist* input, unsigned input_cnt,
 	size_t input_size, void *output, unsigned output_cnt, size_t *output_size)
 {
@@ -521,6 +590,7 @@ int ret;
 	return 0;
 }
 
+/* The caller is responsible for locking of the session. */
 static int _ncr_session_decrypt(struct session_item_st* sess, const struct scatterlist* input, 
 	unsigned input_cnt, size_t input_size,
 	struct scatterlist *output, unsigned output_cnt, size_t *output_size)
@@ -550,20 +620,7 @@ int ret;
 	return 0;
 }
 
-static void _ncr_session_remove(struct ncr_lists *lst, ncr_session_t desc)
-{
-	struct session_item_st * item;
-
-	mutex_lock(&lst->session_idr_mutex);
-	item = idr_find(&lst->session_idr, desc);
-	if (item != NULL)
-		idr_remove(&lst->session_idr, desc); /* Steal the reference */
-	mutex_unlock(&lst->session_idr_mutex);
-
-	if (item != NULL)
-		_ncr_sessions_item_put(item);
-}
-
+/* The caller is responsible for locking of the session. */
 static int _ncr_session_grow_pages(struct session_item_st *ses, int pagecount)
 {
 	struct scatterlist *sg;
@@ -595,7 +652,8 @@ static int _ncr_session_grow_pages(struct session_item_st *ses, int pagecount)
 }
 
 /* Make NCR_ATTR_UPDATE_INPUT_DATA and NCR_ATTR_UPDATE_OUTPUT_BUFFER available
-   in scatterlists */
+   in scatterlists.
+   The caller is responsible for locking of the session. */
 static int get_userbuf2(struct session_item_st *ses, struct nlattr *tb[],
 			struct scatterlist **src_sg, unsigned *src_cnt,
 			size_t *src_size, struct ncr_session_output_buffer *dst,
@@ -685,35 +743,23 @@ static int get_userbuf2(struct session_item_st *ses, struct nlattr *tb[],
 	return 0;
 }
 
-/* Called when userspace buffers are used */
-static int _ncr_session_update(struct ncr_lists *lists, ncr_session_t ses,
+/* Called when userspace buffers are used.
+   The caller is responsible for locking of the session. */
+static int _ncr_session_update(struct session_item_st *sess,
 			       struct nlattr *tb[], int compat)
 {
 	int ret;
-	struct session_item_st* sess;
 	struct scatterlist *isg = NULL;
 	struct scatterlist *osg = NULL;
 	unsigned osg_cnt=0, isg_cnt=0;
 	size_t isg_size = 0, osg_size;
 	struct ncr_session_output_buffer out;
 
-	sess = ncr_sessions_item_get(lists, ses);
-	if (sess == NULL) {
-		err();
-		return -EINVAL;
-	}
-
-	if (mutex_lock_interruptible(&sess->mem_mutex)) {
-		err();
-		_ncr_sessions_item_put(sess);
-		return -ERESTARTSYS;
-	}
-
 	ret = get_userbuf2(sess, tb, &isg, &isg_cnt, &isg_size, &out, &osg,
 			   &osg_cnt, compat);
 	if (ret < 0) {
 		err();
-		goto fail;
+		return ret;
 	}
 
 	switch(sess->op) {
@@ -795,50 +841,40 @@ fail:
 		release_user_pages(sess->pages, sess->available_pages);
 		sess->available_pages = 0;
 	}
-	mutex_unlock(&sess->mem_mutex);
-	_ncr_sessions_item_put(sess);
 
 	return ret;
 }
 
-static int try_session_update(struct ncr_lists *lists, ncr_session_t ses,
-			      struct nlattr *tb[], int compat)
+/* The caller is responsible for locking of the session. */
+static int try_session_update(struct ncr_lists *lists,
+			      struct session_item_st *sess, struct nlattr *tb[],
+			      int compat)
 {
 	if (tb[NCR_ATTR_UPDATE_INPUT_KEY_AS_DATA] != NULL)
-		return _ncr_session_update_key(lists, ses, tb);
+		return _ncr_session_update_key(lists, sess, tb);
 	else if (tb[NCR_ATTR_UPDATE_INPUT_DATA] != NULL)
-		return _ncr_session_update(lists, ses, tb, compat);
-
-	return 0;
+		return _ncr_session_update(sess, tb, compat);
+	else
+		return 0;
 }
 
-static int _ncr_session_final(struct ncr_lists *lists, ncr_session_t ses,
-			      struct nlattr *tb[], int compat)
+/* The caller is responsible for locking of the session.
+   Note that one or more _ncr_session_update()s may still be blocked on
+   sess->mutex and will execute after this function! */
+static int _ncr_session_final(struct ncr_lists *lists,
+			      struct session_item_st *sess, struct nlattr *tb[],
+			      int compat)
 {
 	const struct nlattr *nla;
 	int ret;
-	struct session_item_st* sess;
 	int digest_size;
 	uint8_t digest[NCR_HASH_MAX_OUTPUT_SIZE];
 	void *buffer = NULL;
 
-	sess = ncr_sessions_item_get(lists, ses);
-	if (sess == NULL) {
-		err();
-		return -EINVAL;
-	}
-
-	ret = try_session_update(lists, ses, tb, compat);
+	ret = try_session_update(lists, sess, tb, compat);
 	if (ret < 0) {
 		err();
-		_ncr_sessions_item_put(sess);
 		return ret;
-	}
-
-	if (mutex_lock_interruptible(&sess->mem_mutex)) {
-		err();
-		_ncr_sessions_item_put(sess);
-		return -ERESTARTSYS;
 	}
 
 	switch(sess->op) {
@@ -970,35 +1006,26 @@ static int _ncr_session_final(struct ncr_lists *lists, ncr_session_t ses,
 	}
 
 fail:
-	mutex_unlock(&sess->mem_mutex);
 	kfree(buffer);
-
-	_ncr_sessions_item_put(sess);
-	_ncr_session_remove(lists, ses);
 
 	return ret;
 }
 
-/* Direct with key: Allows to hash a key */
-static int _ncr_session_update_key(struct ncr_lists *lists, ncr_session_t ses,
+/* Direct with key: Allows to hash a key.
+   The caller is responsible for locking of the session. */
+static int _ncr_session_update_key(struct ncr_lists *lists,
+				   struct session_item_st* sess,
 				   struct nlattr *tb[])
 {
 	int ret;
-	struct session_item_st* sess;
 	struct key_item_st* key = NULL;
-
-	sess = ncr_sessions_item_get(lists, ses);
-	if (sess == NULL) {
-		err();
-		return -EINVAL;
-	}
 
 	/* read key */
 	ret = key_item_get_nla_read(&key, lists,
 				    tb[NCR_ATTR_UPDATE_INPUT_KEY_AS_DATA]);
 	if (ret < 0) {
 		err();
-		goto fail;
+		return ret;
 	}
 	
 	if (key->type != NCR_KEY_TYPE_SECRET) {
@@ -1031,8 +1058,7 @@ static int _ncr_session_update_key(struct ncr_lists *lists, ncr_session_t ses,
 	ret = 0;
 
 fail:
-	if (key) _ncr_key_item_put(key);
-	_ncr_sessions_item_put(sess);
+	_ncr_key_item_put(key);
 
 	return ret;
 }
@@ -1041,14 +1067,33 @@ int ncr_session_update(struct ncr_lists *lists,
 		       const struct ncr_session_update *op, struct nlattr *tb[],
 		       int compat)
 {
+	struct session_item_st *sess;
 	int ret;
 
+	sess = session_get_ref(lists, op->ses);
+	if (sess == NULL) {
+		err();
+		return -EINVAL;
+	}
+
+	/* Note that op->ses may be reallocated from now on, making the audit
+	   information confusing. */
+
+	if (mutex_lock_interruptible(&sess->mutex)) {
+		err();
+		ret = -ERESTARTSYS;
+		goto end;
+	}
 	if (tb[NCR_ATTR_UPDATE_INPUT_DATA] != NULL)
-		ret = _ncr_session_update(lists, op->ses, tb, compat);
+		ret = _ncr_session_update(sess, tb, compat);
 	else if (tb[NCR_ATTR_UPDATE_INPUT_KEY_AS_DATA] != NULL)
-		ret = _ncr_session_update_key(lists, op->ses, tb);
+		ret = _ncr_session_update_key(lists, sess, tb);
 	else
 		ret = -EINVAL;
+	mutex_unlock(&sess->mutex);
+
+end:
+	_ncr_sessions_item_put(sess);
 
 	if (unlikely(ret)) {
 		err();
@@ -1062,26 +1107,53 @@ int ncr_session_final(struct ncr_lists *lists,
 		      const struct ncr_session_final *op, struct nlattr *tb[],
 		      int compat)
 {
-	return _ncr_session_final(lists, op->ses, tb, compat);
+	struct session_item_st *sess;
+	int ret;
+
+	/* Make the session inaccessible atomically to avoid concurrent
+	   session_final() callers, but keep the ID allocated to keep audit
+	   information unambiguous. */
+	sess = session_unpublish_ref(lists, op->ses);
+	if (sess == NULL) {
+		err();
+		return -EINVAL;
+	}
+
+	if (mutex_lock_interruptible(&sess->mutex)) {
+		err();
+		/* Other threads may observe the session descriptor
+		   disappearing and reappearing - but then they should not be
+		   accessing it anyway if it is being freed.
+		   session_unpublish_ref keeps the ID allocated for us. */
+		session_publish_ref(lists, sess);
+		return -ERESTARTSYS;
+	}
+	ret = _ncr_session_final(lists, sess, tb, compat);
+	mutex_unlock(&sess->mutex);
+
+	_ncr_sessions_item_put(sess);
+	session_drop_desc(lists, op->ses);
+
+	return ret;
 }
 
 int ncr_session_once(struct ncr_lists *lists,
 		     const struct ncr_session_once *once, struct nlattr *tb[],
 		     int compat)
 {
+	struct session_item_st *sess;
 	int ret;
 
-	ret = _ncr_session_init(lists, once->op, tb);
-	if (ret < 0) {
+	sess = _ncr_session_init(lists, -1, once->op, tb);
+	if (IS_ERR(sess)) {
 		err();
-		return ret;
+		return PTR_ERR(sess);
 	}
 
-	ret = _ncr_session_final(lists, ret, tb, compat);
-	if (ret < 0) {
-		err();
-		return ret;
-	}
+	/* No locking of sess necessary, "sess" is the only reference. */
+	ret = _ncr_session_final(lists, sess, tb, compat);
+
+	_ncr_sessions_item_put(sess);
 
 	return ret;
 }
