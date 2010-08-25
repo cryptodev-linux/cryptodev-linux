@@ -32,8 +32,15 @@
 #include <net/netlink.h>
 
 struct session_item_st {
+	atomic_t refcnt;
+	/* Constant values throughout the life of this object follow. */
+	ncr_session_t desc;
 	const struct algo_properties_st *algorithm;
 	ncr_crypto_op_t op;
+	struct key_item_st *key;
+
+	/* Variable values, protected usually by mutex, follow. */
+	struct mutex mutex;
 
 	/* contexts for various options.
 	 * simpler to have them like that than
@@ -47,14 +54,6 @@ struct session_item_st {
 	struct page **pages;
 	unsigned array_size;
 	unsigned available_pages;
-	struct mutex mem_mutex; /* down when the
-		* values above are changed.
-		*/
-
-	struct key_item_st* key;
-
-	atomic_t refcnt;
-	ncr_session_t desc;
 };
 
 static void _ncr_sessions_item_put(struct session_item_st *item);
@@ -193,7 +192,7 @@ static struct session_item_st *ncr_session_new(ncr_session_t desc)
 		err();
 		goto err_sess;
 	}
-	mutex_init(&sess->mem_mutex);
+	mutex_init(&sess->mutex);
 
 	atomic_set(&sess->refcnt, 1);
 	sess->desc = desc;
@@ -350,6 +349,8 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 		err();
 		return ERR_PTR(-ENOMEM);
 	}
+	/* ns is the only reference throughout this function, so no locking
+	   is necessary. */
 
 	ns->op = op;
 	ns->algorithm = _ncr_nla_to_properties(tb[NCR_ATTR_ALGORITHM]);
@@ -560,6 +561,7 @@ int ncr_session_init(struct ncr_lists *lists,
 	return desc;
 }
 
+/* The caller is responsible for locking of the session. */
 static int _ncr_session_encrypt(struct session_item_st* sess, const struct scatterlist* input, unsigned input_cnt,
 	size_t input_size, void *output, unsigned output_cnt, size_t *output_size)
 {
@@ -588,6 +590,7 @@ int ret;
 	return 0;
 }
 
+/* The caller is responsible for locking of the session. */
 static int _ncr_session_decrypt(struct session_item_st* sess, const struct scatterlist* input, 
 	unsigned input_cnt, size_t input_size,
 	struct scatterlist *output, unsigned output_cnt, size_t *output_size)
@@ -617,6 +620,7 @@ int ret;
 	return 0;
 }
 
+/* The caller is responsible for locking of the session. */
 static int _ncr_session_grow_pages(struct session_item_st *ses, int pagecount)
 {
 	struct scatterlist *sg;
@@ -648,7 +652,8 @@ static int _ncr_session_grow_pages(struct session_item_st *ses, int pagecount)
 }
 
 /* Make NCR_ATTR_UPDATE_INPUT_DATA and NCR_ATTR_UPDATE_OUTPUT_BUFFER available
-   in scatterlists */
+   in scatterlists.
+   The caller is responsible for locking of the session. */
 static int get_userbuf2(struct session_item_st *ses, struct nlattr *tb[],
 			struct scatterlist **src_sg, unsigned *src_cnt,
 			size_t *src_size, struct ncr_session_output_buffer *dst,
@@ -738,7 +743,8 @@ static int get_userbuf2(struct session_item_st *ses, struct nlattr *tb[],
 	return 0;
 }
 
-/* Called when userspace buffers are used */
+/* Called when userspace buffers are used.
+   The caller is responsible for locking of the session. */
 static int _ncr_session_update(struct session_item_st *sess,
 			       struct nlattr *tb[], int compat)
 {
@@ -839,6 +845,7 @@ fail:
 	return ret;
 }
 
+/* The caller is responsible for locking of the session. */
 static int try_session_update(struct ncr_lists *lists,
 			      struct session_item_st *sess, struct nlattr *tb[],
 			      int compat)
@@ -851,6 +858,9 @@ static int try_session_update(struct ncr_lists *lists,
 		return 0;
 }
 
+/* The caller is responsible for locking of the session.
+   Note that one or more _ncr_session_update()s may still be blocked on
+   sess->mutex and will execute after this function! */
 static int _ncr_session_final(struct ncr_lists *lists,
 			      struct session_item_st *sess, struct nlattr *tb[],
 			      int compat)
@@ -1001,7 +1011,8 @@ fail:
 	return ret;
 }
 
-/* Direct with key: Allows to hash a key */
+/* Direct with key: Allows to hash a key.
+   The caller is responsible for locking of the session. */
 static int _ncr_session_update_key(struct ncr_lists *lists,
 				   struct session_item_st* sess,
 				   struct nlattr *tb[])
@@ -1065,7 +1076,10 @@ int ncr_session_update(struct ncr_lists *lists,
 		return -EINVAL;
 	}
 
-	if (mutex_lock_interruptible(&sess->mem_mutex)) {
+	/* Note that op->ses may be reallocated from now on, making the audit
+	   information confusing. */
+
+	if (mutex_lock_interruptible(&sess->mutex)) {
 		err();
 		ret = -ERESTARTSYS;
 		goto end;
@@ -1076,7 +1090,7 @@ int ncr_session_update(struct ncr_lists *lists,
 		ret = _ncr_session_update_key(lists, sess, tb);
 	else
 		ret = -EINVAL;
-	mutex_unlock(&sess->mem_mutex);
+	mutex_unlock(&sess->mutex);
 
 end:
 	_ncr_sessions_item_put(sess);
@@ -1105,7 +1119,7 @@ int ncr_session_final(struct ncr_lists *lists,
 		return -EINVAL;
 	}
 
-	if (mutex_lock_interruptible(&sess->mem_mutex)) {
+	if (mutex_lock_interruptible(&sess->mutex)) {
 		err();
 		/* Other threads may observe the session descriptor
 		   disappearing and reappearing - but then they should not be
@@ -1115,7 +1129,7 @@ int ncr_session_final(struct ncr_lists *lists,
 		return -ERESTARTSYS;
 	}
 	ret = _ncr_session_final(lists, sess, tb, compat);
-	mutex_unlock(&sess->mem_mutex);
+	mutex_unlock(&sess->mutex);
 
 	_ncr_sessions_item_put(sess);
 	session_drop_desc(lists, op->ses);
@@ -1136,6 +1150,7 @@ int ncr_session_once(struct ncr_lists *lists,
 		return PTR_ERR(sess);
 	}
 
+	/* No locking of sess necessary, "sess" is the only reference. */
 	ret = _ncr_session_final(lists, sess, tb, compat);
 
 	_ncr_sessions_item_put(sess);
