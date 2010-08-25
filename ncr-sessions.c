@@ -86,12 +86,12 @@ static void session_drop_desc(struct ncr_lists *lst, ncr_session_t desc)
 	mutex_unlock(&lst->session_idr_mutex);
 }
 
-/* Make a session descriptor visible in user-space */
-static void session_publish(struct ncr_lists *lst, struct session_item_st *sess)
+/* Make a session descriptor visible in user-space, stealing the reference */
+static void session_publish_ref(struct ncr_lists *lst,
+				struct session_item_st *sess)
 {
 	void *old;
 
-	atomic_inc(&sess->refcnt);
 	mutex_lock(&lst->session_idr_mutex);
 	old = idr_replace(&lst->session_idr, sess, sess->desc);
 	mutex_unlock(&lst->session_idr_mutex);
@@ -513,8 +513,7 @@ int ncr_session_init(struct ncr_lists *lists,
 		return PTR_ERR(sess);
 	}
 
-	session_publish(lists, sess);
-	_ncr_sessions_item_put(sess);
+	session_publish_ref(lists, sess);
 
 	return desc;
 }
