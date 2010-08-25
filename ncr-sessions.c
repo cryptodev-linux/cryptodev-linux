@@ -947,13 +947,6 @@ fail:
 	mutex_unlock(&sess->mem_mutex);
 	kfree(buffer);
 
-	cryptodev_hash_deinit(&sess->hash);
-	if (sess->algorithm->is_symmetric) {
-		cryptodev_cipher_deinit(&sess->cipher);
-	} else {
-		ncr_pk_cipher_deinit(&sess->pk);
-	}
-
 	_ncr_sessions_item_put(sess);
 	_ncr_session_remove(lists, ses);
 
