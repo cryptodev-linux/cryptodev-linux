@@ -77,6 +77,6 @@ ssize_t cryptodev_hash_update( struct hash_data* hdata, struct scatterlist *sg, 
 ssize_t _cryptodev_hash_update( struct hash_data* hdata, const void* data, size_t len);
 int cryptodev_hash_reset( struct hash_data* hdata);
 void cryptodev_hash_deinit(struct hash_data* hdata);
-int cryptodev_hash_init( struct hash_data* hdata, const char* alg_name, int hmac_mode, void* mackey, size_t mackeylen);
+int cryptodev_hash_init(struct hash_data *hdata, const char *alg_name, const void *mackey, size_t mackeylen);
 
 #endif /* CRYPTODEV_INT_H */

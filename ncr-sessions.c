@@ -444,7 +444,7 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 					goto fail;
 				}
 
-				ret = cryptodev_hash_init(&ns->hash, ns->algorithm->kstr, 0, NULL, 0);
+				ret = cryptodev_hash_init(&ns->hash, ns->algorithm->kstr, NULL, 0);
 				if (ret < 0) {
 					err();
 					goto fail;
@@ -474,7 +474,7 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 						goto fail;
 					}
 
-					ret = cryptodev_hash_init(&ns->hash, ns->algorithm->kstr, 1,
+					ret = cryptodev_hash_init(&ns->hash, ns->algorithm->kstr,
 						ns->key->key.secret.data, ns->key->key.secret.size);
 					if (ret < 0) {
 						err();
@@ -509,7 +509,7 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 						goto fail;
 					}
 
-					ret = cryptodev_hash_init(&ns->hash, sign_hash->kstr, 0, NULL, 0);
+					ret = cryptodev_hash_init(&ns->hash, sign_hash->kstr, NULL, 0);
 					if (ret < 0) {
 						err();
 						goto fail;
