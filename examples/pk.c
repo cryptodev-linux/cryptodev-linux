@@ -646,7 +646,7 @@ test_ncr_wrap_key3(int cfd)
 			/* try unwrapping */
 			memset(&kwrap, 0, sizeof(kwrap));
 			kwrap.algorithm = NCR_WALG_AES_RFC5649;
-			kwrap.wrapped_key_algorithm = NCR_ALG_RSA;
+			kwrap.wrapped_key_flags = 0;
 			kwrap.keytowrap = privkey;
 			kwrap.key = key;
 			kwrap.io = data;

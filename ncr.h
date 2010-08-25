@@ -212,10 +212,6 @@ struct ncr_key_data_st {
 struct ncr_key_wrap_st {
 	ncr_wrap_algorithm_t algorithm;
 	
-	/* when unwrapping the algorithm of the wrapped key.
-	 * For symmetric ciphers AES would do.
-	 */
-	ncr_algorithm_t wrapped_key_algorithm;
 	unsigned int wrapped_key_flags; /* flags for the newly unwrapped key */
 
 	ncr_key_t keytowrap;

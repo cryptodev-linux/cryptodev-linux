@@ -39,7 +39,7 @@ typedef uint8_t val64_t[8];
 static const val64_t initA = "\xA6\xA6\xA6\xA6\xA6\xA6\xA6\xA6";
 
 static int key_to_packed_data( uint8_t** sdata, size_t * sdata_size, const struct key_item_st *key);
-static int key_from_packed_data(ncr_algorithm_t algorithm, unsigned int flags,
+static int key_from_packed_data(unsigned int flags,
 	struct key_item_st* key, const void* data, size_t data_size);
 
 
@@ -264,7 +264,7 @@ static int wrap_aes_rfc5649(struct key_item_st* tobewrapped, struct key_item_st 
 	void* output, size_t* output_size, const void* iv, size_t iv_size)
 {
 int ret;
-uint8_t* sdata;
+uint8_t* sdata = NULL;
 size_t sdata_size = 0;
 
 	ret = key_to_packed_data(&sdata, &sdata_size, tobewrapped);
@@ -303,7 +303,7 @@ size_t sdata_size = KEY_DATA_MAX_SIZE;
 		goto fail;
 	}
 
-	ret = key_from_packed_data(wrap_st->wrapped_key_algorithm, wrap_st->wrapped_key_flags, 
+	ret = key_from_packed_data(wrap_st->wrapped_key_flags, 
 		output, sdata, sdata_size);
 	if (ret < 0) {
 		err();
@@ -808,11 +808,27 @@ fail:
 	return ret;
 }
 
+#define DER_KEY_MAX_SIZE (KEY_DATA_MAX_SIZE+16)
+
+/* Packed data are DER encoded:
+ * PackedData ::= SEQUENCE {
+ *      version INTEGER { v1(0) }
+ * 	type   INTEGER { secret_key(0), rsa_privkey(1), rsa_pubkey(2), dsa_privkey(3), dsa_pubkey(4),
+ * 		dh_privkey(5), dh_pubkey(6) },
+ *      data   OCTET STRING
+ * }
+ * 
+ * This allows distinguishing types of wrapped keys.
+ */
 static int key_to_packed_data( uint8_t** sdata, size_t * sdata_size, const struct key_item_st *key)
 {
-	uint8_t * pkey;
-	uint32_t usize;
-	int ret;
+	uint8_t * pkey = NULL;
+	uint8_t * derkey = NULL;
+	uint32_t pkey_size;
+	int ret, err;
+	unsigned long zero = 0;
+	unsigned long type;
+	unsigned long derlen;
 	
 	*sdata_size = KEY_DATA_MAX_SIZE;
 	pkey = kmalloc(*sdata_size, GFP_KERNEL);
@@ -821,49 +837,175 @@ static int key_to_packed_data( uint8_t** sdata, size_t * sdata_size, const struc
 		return -ENOMEM;
 	}
 
+	derlen = DER_KEY_MAX_SIZE;
+	derkey = kmalloc(derlen, GFP_KERNEL);
+	if (derkey == NULL) {
+		err();
+		goto fail;
+	}
+
 	if (key->type == NCR_KEY_TYPE_SECRET) {
 		memcpy(pkey, key->key.secret.data, key->key.secret.size);
-		*sdata_size = key->key.secret.size;
+		pkey_size = key->key.secret.size;
+		
+		type = 0;
 	} else if (key->type == NCR_KEY_TYPE_PRIVATE || key->type == NCR_KEY_TYPE_PUBLIC) {
-		usize = *sdata_size;
-		ret = ncr_pk_pack( key, pkey, &usize);
+		pkey_size = *sdata_size;
+		ret = ncr_pk_pack( key, pkey, &pkey_size);
 		if (ret < 0) {
 			err();
 			goto fail;
 		}
-		*sdata_size = usize;
+		
+		switch (key->algorithm->algo) {
+			case NCR_ALG_RSA:
+				if (key->type == NCR_KEY_TYPE_PUBLIC)
+					type = 2;
+				else type = 1;
+				break;
+			case NCR_ALG_DSA:
+				if (key->type == NCR_KEY_TYPE_PUBLIC)
+					type = 4;
+				else type = 3;
+				break;
+			case NCR_ALG_DH:
+				if (key->type == NCR_KEY_TYPE_PUBLIC)
+					type = 6;
+				else type = 5;
+				break;
+			default:
+				/* unsupported yet */
+				ret = -EINVAL;
+				err();
+				goto fail;
+		}
+
 	} else {
 		err();
 		ret = -EINVAL;
 		goto fail;
 	}
 
-	*sdata = (void*)pkey;
+	err = der_encode_sequence_multi(derkey, &derlen,
+				LTC_ASN1_SHORT_INTEGER, 1UL, &zero, 
+				LTC_ASN1_SHORT_INTEGER, 1UL, &type, 
+				LTC_ASN1_OCTET_STRING, (unsigned long)pkey_size, pkey, 
+				LTC_ASN1_EOL, 0UL, NULL);
+				
+	kfree(pkey);
+	
+	if (err != CRYPT_OK) {
+		err();
+		ret = _ncr_tomerr(err);
+		goto fail;
+	}
+	
+	*sdata = (void*)derkey;
+	*sdata_size = derlen;
 
 	return 0;
 fail:
 	kfree(pkey);
+	kfree(derkey);
 
 	return ret;
 }
 
-static int key_from_packed_data(ncr_algorithm_t algorithm, unsigned int flags,
-	struct key_item_st* key, const void* data, size_t data_size)
+inline static int packed_type_to_key_type(unsigned long type, struct key_item_st* key)
 {
-	int ret;
-
-	if (data_size > KEY_DATA_MAX_SIZE) {
-		err();
-		return -EINVAL;
+	switch(type) {
+		case 0:
+			key->type = NCR_KEY_TYPE_SECRET;
+			key->algorithm = _ncr_algo_to_properties(NCR_ALG_AES_CBC);
+			break;
+		case 1:
+			key->type = NCR_KEY_TYPE_PRIVATE;
+			key->algorithm = _ncr_algo_to_properties(NCR_ALG_RSA);
+			break;
+		case 2:
+			key->type = NCR_KEY_TYPE_PUBLIC;
+			key->algorithm = _ncr_algo_to_properties(NCR_ALG_RSA);
+			break;
+		case 3:
+			key->type = NCR_KEY_TYPE_PRIVATE;
+			key->algorithm = _ncr_algo_to_properties(NCR_ALG_DSA);
+			break;
+		case 4:
+			key->type = NCR_KEY_TYPE_PUBLIC;
+			key->algorithm = _ncr_algo_to_properties(NCR_ALG_DSA);
+			break;
+		case 5:
+			key->type = NCR_KEY_TYPE_PRIVATE;
+			key->algorithm = _ncr_algo_to_properties(NCR_ALG_DH);
+			break;
+		case 6:
+			key->type = NCR_KEY_TYPE_PUBLIC;
+			key->algorithm = _ncr_algo_to_properties(NCR_ALG_DH);
+			break;
+		default:
+			err();
+			return -EINVAL;
 	}
-
-	key->algorithm = _ncr_algo_to_properties(algorithm);
+	
 	if (key->algorithm == NULL) {
 		err();
 		return -EINVAL;
 	}
 
-	key->type = key->algorithm->key_type;
+	return 0;
+}
+
+
+
+/* Unpack, or better decode the DER data
+ */
+static int key_from_packed_data(unsigned int flags,
+	struct key_item_st* key, const void* data, size_t data_size)
+{
+	ltc_asn1_list list[6];
+	int ret, i = 0, pkey_size, err;
+	unsigned long version, type;
+	uint8_t * pkey = NULL;
+
+	if (data_size > DER_KEY_MAX_SIZE) {
+		err();
+		return -EINVAL;
+	}
+
+	pkey_size = KEY_DATA_MAX_SIZE;
+	pkey = kmalloc(pkey_size, GFP_KERNEL);
+	if (pkey == NULL) {
+		err();
+		return -ENOMEM;
+	}
+
+	list[i].type   = LTC_ASN1_SHORT_INTEGER;
+	list[i].size   = 1;
+	list[i++].data = &version;
+
+	list[i].type   = LTC_ASN1_SHORT_INTEGER;
+	list[i].size   = 1;
+	list[i++].data = &type;
+
+	list[i].type   = LTC_ASN1_OCTET_STRING;
+	list[i].size   = pkey_size;
+	list[i++].data = pkey;
+
+	err = der_decode_sequence(data, data_size, list, i);
+	if (err != CRYPT_OK) {
+		err();
+		ret = _ncr_tomerr(err);
+		goto fail;
+	}
+	
+	pkey_size = list[2].size;
+
+	ret = packed_type_to_key_type(type, key);
+	if (ret < 0) {
+		err();
+		goto fail;
+	}
+
 	ncr_key_assign_flags(key, flags);
 
 	if (key->type == NCR_KEY_TYPE_SECRET) {
@@ -871,12 +1013,12 @@ static int key_from_packed_data(ncr_algorithm_t algorithm, unsigned int flags,
 			err();
 			return -EINVAL;
 		}
-		key->key.secret.size = data_size;
-		memcpy(key->key.secret.data, data, data_size);
+		key->key.secret.size = pkey_size;
+		memcpy(key->key.secret.data, pkey, pkey_size);
 	} else if (key->type == NCR_KEY_TYPE_PUBLIC 
 		|| key->type == NCR_KEY_TYPE_PRIVATE) {
 
-		ret = ncr_pk_unpack( key, data, data_size);
+		ret = ncr_pk_unpack( key, pkey, pkey_size);
 		if (ret < 0) {
 			err();
 			return ret;
@@ -886,5 +1028,10 @@ static int key_from_packed_data(ncr_algorithm_t algorithm, unsigned int flags,
 		return -EINVAL;
 	}
 
-	return 0;
+	ret = 0;
+
+fail:
+	kfree(pkey);
+	
+	return ret;
 }
