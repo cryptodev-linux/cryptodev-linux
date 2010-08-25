@@ -234,7 +234,7 @@ test_ncr_wrap_key(int cfd)
 	keydata.key_id_size = 2;
 	keydata.type = NCR_KEY_TYPE_SECRET;
 	keydata.algorithm = NCR_ALG_AES_CBC;
-	keydata.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING;
+	keydata.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING|NCR_KEY_FLAG_UNWRAPPING;
 	
 	keydata.key = key;
 	keydata.idata = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
@@ -401,7 +401,7 @@ test_ncr_wrap_key2(int cfd)
 	keydata.key_id_size = 2;
 	keydata.type = NCR_KEY_TYPE_SECRET;
 	keydata.algorithm = NCR_ALG_AES_CBC;
-	keydata.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING;
+	keydata.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING|NCR_KEY_FLAG_UNWRAPPING;
 	
 	keydata.key = key;
 	keydata.idata = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";

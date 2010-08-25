@@ -70,10 +70,13 @@ typedef int ncr_key_t;
  */
 #define NCR_KEY_FLAG_DECRYPT (1<<2)
 #define NCR_KEY_FLAG_SIGN (1<<3)
-/* This flag can only be set by administrator, to prevent
+#define NCR_KEY_FLAG_ENCRYPT (1<<4)
+#define NCR_KEY_FLAG_VERIFY (1<<5)
+/* These flags can only be set by administrator, to prevent
  * adversaries exporting wrappable keys with random ones.
  */
-#define NCR_KEY_FLAG_WRAPPING (1<<4)
+#define NCR_KEY_FLAG_WRAPPING (1<<6)
+#define NCR_KEY_FLAG_UNWRAPPING (1<<7)
 
 struct ncr_key_generate_params_st {
 	ncr_algorithm_t algorithm; /* just a cipher algorithm when

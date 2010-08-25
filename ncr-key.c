@@ -315,6 +315,7 @@ void ncr_key_assign_flags(struct key_item_st* item, unsigned int flags)
 		item->flags = flags;
 	} else {
 		item->flags = flags & (~(NCR_KEY_FLAG_WRAPPING));
+		item->flags = flags & (~(NCR_KEY_FLAG_UNWRAPPING));
 	}
 }
 

@@ -624,7 +624,7 @@ int ret;
 		goto fail;
 	}
 
-	if (!(key->flags & NCR_KEY_FLAG_WRAPPING)) {
+	if (!(key->flags & NCR_KEY_FLAG_UNWRAPPING)) {
 		err();
 		ret = -EPERM;
 		goto fail;
