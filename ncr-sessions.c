@@ -815,32 +815,20 @@ static int try_session_update(struct ncr_lists *lists,
 		return 0;
 }
 
-static int _ncr_session_final(struct ncr_lists *lists, ncr_session_t ses,
-			      struct nlattr *tb[], int compat)
+static int _ncr_session_final(struct ncr_lists *lists,
+			      struct session_item_st *sess, struct nlattr *tb[],
+			      int compat)
 {
 	const struct nlattr *nla;
 	int ret;
-	struct session_item_st* sess;
 	int digest_size;
 	uint8_t digest[NCR_HASH_MAX_OUTPUT_SIZE];
 	void *buffer = NULL;
 
-	sess = ncr_sessions_item_get(lists, ses);
-	if (sess == NULL) {
-		err();
-		return -EINVAL;
-	}
-
-	if (mutex_lock_interruptible(&sess->mem_mutex)) {
-		err();
-		_ncr_sessions_item_put(sess);
-		return -ERESTARTSYS;
-	}
-
 	ret = try_session_update(lists, sess, tb, compat);
 	if (ret < 0) {
 		err();
-		goto fail;
+		return ret;
 	}
 
 	switch(sess->op) {
@@ -972,11 +960,7 @@ static int _ncr_session_final(struct ncr_lists *lists, ncr_session_t ses,
 	}
 
 fail:
-	mutex_unlock(&sess->mem_mutex);
 	kfree(buffer);
-
-	_ncr_sessions_item_put(sess);
-	_ncr_session_remove(lists, ses);
 
 	return ret;
 }
@@ -1073,26 +1057,60 @@ int ncr_session_final(struct ncr_lists *lists,
 		      const struct ncr_session_final *op, struct nlattr *tb[],
 		      int compat)
 {
-	return _ncr_session_final(lists, op->ses, tb, compat);
+	struct session_item_st *sess;
+	int ret;
+
+	sess = ncr_sessions_item_get(lists, op->ses);
+	if (sess == NULL) {
+		err();
+		return -EINVAL;
+	}
+
+	if (mutex_lock_interruptible(&sess->mem_mutex)) {
+		err();
+		_ncr_sessions_item_put(sess);
+		return -ERESTARTSYS;
+	}
+
+	ret = _ncr_session_final(lists, sess, tb, compat);
+
+	mutex_unlock(&sess->mem_mutex);
+	_ncr_sessions_item_put(sess);
+	_ncr_session_remove(lists, op->ses);
+
+	return ret;
 }
 
 int ncr_session_once(struct ncr_lists *lists,
 		     const struct ncr_session_once *once, struct nlattr *tb[],
 		     int compat)
 {
-	int ret;
+	struct session_item_st *sess;
+	int ret, desc;
 
-	ret = _ncr_session_init(lists, once->op, tb);
-	if (ret < 0) {
+	desc = _ncr_session_init(lists, once->op, tb);
+	if (desc < 0) {
 		err();
-		return ret;
+		return desc;
 	}
 
-	ret = _ncr_session_final(lists, ret, tb, compat);
-	if (ret < 0) {
+	sess = ncr_sessions_item_get(lists, desc);
+	if (sess == NULL) {
 		err();
-		return ret;
+		return -EINVAL;
 	}
+
+	if (mutex_lock_interruptible(&sess->mem_mutex)) {
+		err();
+		_ncr_sessions_item_put(sess);
+		return -ERESTARTSYS;
+	}
+
+	ret = _ncr_session_final(lists, sess, tb, compat);
+
+	mutex_unlock(&sess->mem_mutex);
+	_ncr_sessions_item_put(sess);
+	_ncr_session_remove(lists, desc);
 
 	return ret;
 }
