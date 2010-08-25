@@ -216,7 +216,7 @@ ssize_t cryptodev_cipher_decrypt( struct cipher_data* cdata, const struct scatte
 
 /* Hash functions */
 
-int cryptodev_hash_init( struct hash_data* hdata, const char* alg_name, int hmac_mode, void * mackey, size_t mackeylen)
+int cryptodev_hash_init(struct hash_data *hdata, const char *alg_name, const void *mackey, size_t mackeylen)
 {
 int ret;
 
@@ -228,7 +228,7 @@ int ret;
 	}
 
 	/* Copy the key from user and set to TFM. */
-	if (hmac_mode != 0) {
+	if (mackey != NULL) {
 
 		ret = crypto_ahash_setkey(hdata->async.s, mackey, mackeylen);
 		if (unlikely(ret)) {
