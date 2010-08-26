@@ -253,7 +253,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 			
 			/* wrapping keys cannot be used for encryption or decryption
 			 */
-			if (ns->key->flags & NCR_KEY_FLAG_WRAPPING) {
+			if (ns->key->flags & NCR_KEY_FLAG_WRAPPING || ns->key->flags & NCR_KEY_FLAG_UNWRAPPING) {
 				err();
 				ret = -EINVAL;
 				goto fail;
@@ -331,7 +331,7 @@ static int _ncr_session_init(struct ncr_lists* lists, struct ncr_session_st* ses
 
 				/* wrapping keys cannot be used for anything except wrapping.
 				 */
-				if (ns->key->flags & NCR_KEY_FLAG_WRAPPING) {
+				if (ns->key->flags & NCR_KEY_FLAG_WRAPPING || ns->key->flags & NCR_KEY_FLAG_UNWRAPPING) {
 					err();
 					ret = -EINVAL;
 					goto fail;

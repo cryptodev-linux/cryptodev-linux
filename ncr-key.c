@@ -723,7 +723,7 @@ struct key_item_st* newkey = NULL;
 	
 	/* wrapping keys cannot be used for anything except wrapping.
 	 */
-	if (key->flags & NCR_KEY_FLAG_WRAPPING) {
+	if (key->flags & NCR_KEY_FLAG_WRAPPING || key->flags & NCR_KEY_FLAG_UNWRAPPING) {
 		err();
 		ret = -EINVAL;
 		goto fail;
