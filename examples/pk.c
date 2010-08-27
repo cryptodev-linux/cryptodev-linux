@@ -29,6 +29,7 @@
 #define ALIGN_NL __attribute__((aligned(NLA_ALIGNTO)))
 
 #define SIGNATURE_HASH "sha1"
+#define SIGNATURE_HASH_SIZE 20
 
 #define ALG_AES_CBC "cbc(aes)"
 #define ALG_DH "dh"
@@ -1041,6 +1042,126 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 
 }
 
+static int rsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
+					   ncr_key_t pubkey, int pss)
+{
+	struct __attribute__((packed)) {
+		struct ncr_session_once f;
+		struct nlattr algo_head ALIGN_NL;
+		char algo[sizeof(NCR_ALG_RSA_TRANSPARENT_HASH)] ALIGN_NL;
+		struct nlattr key_head ALIGN_NL;
+		uint32_t key ALIGN_NL;
+		struct nlattr rsa_head ALIGN_NL;
+		uint32_t rsa ALIGN_NL;
+		struct nlattr sign_hash_head ALIGN_NL;
+		char sign_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
+		struct nlattr input_head ALIGN_NL;
+		struct ncr_session_input_data input ALIGN_NL;
+		struct nlattr signature_head ALIGN_NL;
+		struct ncr_session_output_buffer signature ALIGN_NL;
+	} ksign;
+	struct __attribute__((packed)) {
+		struct ncr_session_once f;
+		struct nlattr algo_head ALIGN_NL;
+		char algo[sizeof(NCR_ALG_RSA_TRANSPARENT_HASH)] ALIGN_NL;
+		struct nlattr key_head ALIGN_NL;
+		uint32_t key ALIGN_NL;
+		struct nlattr rsa_head ALIGN_NL;
+		uint32_t rsa ALIGN_NL;
+		struct nlattr sign_hash_head ALIGN_NL;
+		char sign_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
+		struct nlattr input_head ALIGN_NL;
+		struct ncr_session_input_data input ALIGN_NL;
+		struct nlattr signature_head ALIGN_NL;
+		struct ncr_session_input_data signature ALIGN_NL;
+	} kverify;
+	uint8_t data[SIGNATURE_HASH_SIZE];
+	uint8_t sig[DATA_SIZE];
+	size_t sig_size;
+	int ret;
+
+	fprintf(stdout, "Tests on transparent RSA (%s) key signature:",
+		(pss != 0) ? "PSS" : "PKCS V1.5");
+	fflush(stdout);
+
+	memset(data, 0x3, sizeof(data));
+
+	/* sign data */
+	memset(&ksign.f, 0, sizeof(ksign.f));
+	ksign.f.input_size = sizeof(ksign);
+	ksign.f.op = NCR_OP_SIGN;
+	ksign.algo_head.nla_len = NLA_HDRLEN + sizeof(ksign.algo);
+	ksign.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+	strcpy(ksign.algo, NCR_ALG_RSA_TRANSPARENT_HASH);
+	ksign.key_head.nla_len = NLA_HDRLEN + sizeof(ksign.key);
+	ksign.key_head.nla_type = NCR_ATTR_KEY;
+	ksign.key = privkey;
+	ksign.rsa_head.nla_len = NLA_HDRLEN + sizeof(ksign.rsa);
+	ksign.rsa_head.nla_type = NCR_ATTR_RSA_ENCODING_METHOD;
+	ksign.rsa = (pss != 0) ? RSA_PKCS1_PSS : RSA_PKCS1_V1_5;
+	ksign.sign_hash_head.nla_len = NLA_HDRLEN + sizeof(ksign.sign_hash);
+	ksign.sign_hash_head.nla_type = NCR_ATTR_SIGNATURE_HASH_ALGORITHM;
+	strcpy(ksign.sign_hash, SIGNATURE_HASH);
+	ksign.input_head.nla_len = NLA_HDRLEN + sizeof(ksign.input);
+	ksign.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
+	ksign.input.data = data;
+	ksign.input.data_size = SIGNATURE_HASH_SIZE;
+	ksign.signature_head.nla_len = NLA_HDRLEN + sizeof(ksign.signature);
+	ksign.signature_head.nla_type = NCR_ATTR_FINAL_OUTPUT_BUFFER;
+	ksign.signature.buffer = sig;
+	ksign.signature.buffer_size = sizeof(sig);
+	ksign.signature.result_size_ptr = &sig_size;
+
+	if (ioctl(cfd, NCRIO_SESSION_ONCE, &ksign)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_SESSION_ONCE)");
+		return 1;
+	}
+
+	/* verify signature */
+	memset(data, 0x3, sizeof(data));
+
+	memset(&kverify.f, 0, sizeof(kverify.f));
+	kverify.f.input_size = sizeof(kverify);
+	kverify.f.op = NCR_OP_VERIFY;
+	kverify.algo_head.nla_len = NLA_HDRLEN + sizeof(kverify.algo);
+	kverify.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+	strcpy(kverify.algo, NCR_ALG_RSA_TRANSPARENT_HASH);
+	kverify.key_head.nla_len = NLA_HDRLEN + sizeof(kverify.key);
+	kverify.key_head.nla_type = NCR_ATTR_KEY;
+	kverify.key = pubkey;
+	kverify.rsa_head.nla_len = NLA_HDRLEN + sizeof(kverify.rsa);
+	kverify.rsa_head.nla_type = NCR_ATTR_RSA_ENCODING_METHOD;
+	kverify.rsa = (pss != 0) ? RSA_PKCS1_PSS : RSA_PKCS1_V1_5;
+	kverify.sign_hash_head.nla_len = NLA_HDRLEN + sizeof(kverify.sign_hash);
+	kverify.sign_hash_head.nla_type = NCR_ATTR_SIGNATURE_HASH_ALGORITHM;
+	strcpy(kverify.sign_hash, SIGNATURE_HASH);
+	kverify.input_head.nla_len = NLA_HDRLEN + sizeof(kverify.input);
+	kverify.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
+	kverify.input.data = data;
+	kverify.input.data_size = SIGNATURE_HASH_SIZE;
+	kverify.signature_head.nla_len = NLA_HDRLEN + sizeof(kverify.signature);
+	kverify.signature_head.nla_type = NCR_ATTR_FINAL_INPUT_DATA;
+	kverify.signature.data = sig;
+	kverify.signature.data_size = sig_size;
+
+	ret = ioctl(cfd, NCRIO_SESSION_ONCE, &kverify);
+	if (ret < 0) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_SESSION_ONCE)");
+		return 1;
+	}
+
+	if (ret)
+		fprintf(stdout, " Success\n");
+	else {
+		fprintf(stdout, " Verification Failed!\n");
+		return 1;
+	}
+
+	return 0;
+}
+
 static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 {
 	struct __attribute__((packed)) {
@@ -1148,6 +1269,112 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 
 }
 
+static int dsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
+					   ncr_key_t pubkey)
+{
+	struct __attribute__((packed)) {
+		struct ncr_session_once f;
+		struct nlattr algo_head ALIGN_NL;
+		char algo[sizeof(NCR_ALG_DSA_TRANSPARENT_HASH)] ALIGN_NL;
+		struct nlattr key_head ALIGN_NL;
+		uint32_t key ALIGN_NL;
+		struct nlattr sign_hash_head ALIGN_NL;
+		char sign_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
+		struct nlattr input_head ALIGN_NL;
+		struct ncr_session_input_data input ALIGN_NL;
+		struct nlattr signature_head ALIGN_NL;
+		struct ncr_session_output_buffer signature ALIGN_NL;
+	} ksign;
+	struct __attribute__((packed)) {
+		struct ncr_session_once f;
+		struct nlattr algo_head ALIGN_NL;
+		char algo[sizeof(NCR_ALG_DSA_TRANSPARENT_HASH)] ALIGN_NL;
+		struct nlattr key_head ALIGN_NL;
+		uint32_t key ALIGN_NL;
+		struct nlattr sign_hash_head ALIGN_NL;
+		char sign_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
+		struct nlattr input_head ALIGN_NL;
+		struct ncr_session_input_data input ALIGN_NL;
+		struct nlattr signature_head ALIGN_NL;
+		struct ncr_session_input_data signature ALIGN_NL;
+	} kverify;
+	uint8_t data[SIGNATURE_HASH_SIZE];
+	uint8_t sig[DATA_SIZE];
+	size_t sig_size;
+	int ret;
+
+	fprintf(stdout, "Tests on transparent DSA key signature:");
+	fflush(stdout);
+
+	memset(data, 0x3, sizeof(data));
+
+	/* sign data */
+	memset(&ksign.f, 0, sizeof(ksign.f));
+	ksign.f.input_size = sizeof(ksign);
+	ksign.f.op = NCR_OP_SIGN;
+	ksign.algo_head.nla_len = NLA_HDRLEN + sizeof(ksign.algo);
+	ksign.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+	strcpy(ksign.algo, NCR_ALG_DSA_TRANSPARENT_HASH);
+	ksign.key_head.nla_len = NLA_HDRLEN + sizeof(ksign.key);
+	ksign.key_head.nla_type = NCR_ATTR_KEY;
+	ksign.key = privkey;
+	ksign.sign_hash_head.nla_len = NLA_HDRLEN + sizeof(ksign.sign_hash);
+	ksign.sign_hash_head.nla_type = NCR_ATTR_SIGNATURE_HASH_ALGORITHM;
+	strcpy(ksign.sign_hash, SIGNATURE_HASH);
+	ksign.input_head.nla_len = NLA_HDRLEN + sizeof(ksign.input);
+	ksign.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
+	ksign.input.data = data;
+	ksign.input.data_size = SIGNATURE_HASH_SIZE;
+	ksign.signature_head.nla_len = NLA_HDRLEN + sizeof(ksign.signature);
+	ksign.signature_head.nla_type = NCR_ATTR_FINAL_OUTPUT_BUFFER;
+	ksign.signature.buffer = sig;
+	ksign.signature.buffer_size = sizeof(sig);
+	ksign.signature.result_size_ptr = &sig_size;
+
+	if (ioctl(cfd, NCRIO_SESSION_ONCE, &ksign)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_SESSION_ONCE)");
+		return 1;
+	}
+
+	/* verify signature */
+	memset(&kverify.f, 0, sizeof(kverify.f));
+	kverify.f.input_size = sizeof(kverify);
+	kverify.f.op = NCR_OP_VERIFY;
+	kverify.algo_head.nla_len = NLA_HDRLEN + sizeof(kverify.algo);
+	kverify.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+	strcpy(kverify.algo, NCR_ALG_DSA_TRANSPARENT_HASH);
+	kverify.key_head.nla_len = NLA_HDRLEN + sizeof(kverify.key);
+	kverify.key_head.nla_type = NCR_ATTR_KEY;
+	kverify.key = pubkey;
+	kverify.sign_hash_head.nla_len = NLA_HDRLEN + sizeof(kverify.sign_hash);
+	kverify.sign_hash_head.nla_type = NCR_ATTR_SIGNATURE_HASH_ALGORITHM;
+	strcpy(kverify.sign_hash, SIGNATURE_HASH);
+	kverify.input_head.nla_len = NLA_HDRLEN + sizeof(kverify.input);
+	kverify.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
+	kverify.input.data = data;
+	kverify.input.data_size = SIGNATURE_HASH_SIZE;
+	kverify.signature_head.nla_len = NLA_HDRLEN + sizeof(kverify.signature);
+	kverify.signature_head.nla_type = NCR_ATTR_FINAL_INPUT_DATA;
+	kverify.signature.data = sig;
+	kverify.signature.data_size = sizeof(sig);
+
+	ret = ioctl(cfd, NCRIO_SESSION_ONCE, &kverify);
+	if (ret < 0) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_SESSION_ONCE)");
+		return 1;
+	}
+
+	if (ret)
+		fprintf(stdout, " Success\n");
+	else {
+		fprintf(stdout, " Verification Failed!\n");
+		return 1;
+	}
+
+	return 0;
+}
 
 static int test_ncr_rsa(int cfd)
 {
@@ -1254,6 +1481,18 @@ static int test_ncr_rsa(int cfd)
 	}
 
 	ret = rsa_key_sign_verify(cfd, privkey, pubkey, 0);
+	if (ret != 0) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		return 1;
+	}
+
+	ret = rsa_key_sign_verify_transparent(cfd, privkey, pubkey, 1);
+	if (ret != 0) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		return 1;
+	}
+
+	ret = rsa_key_sign_verify_transparent(cfd, privkey, pubkey, 0);
 	if (ret != 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		return 1;
@@ -1378,6 +1617,12 @@ static int test_ncr_dsa(int cfd)
 	fprintf(stdout, " Success\n");
 
 	ret = dsa_key_sign_verify(cfd, privkey, pubkey);
+	if (ret != 0) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		return 1;
+	}
+
+	ret = dsa_key_sign_verify_transparent(cfd, privkey, pubkey);
 	if (ret != 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		return 1;
