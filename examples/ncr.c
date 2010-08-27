@@ -375,10 +375,6 @@ test_ncr_wrap_key(int cfd)
 		struct ncr_key_unwrap f;
 		struct nlattr wrap_algo_head ALIGN_NL;
 		char wrap_algo[sizeof(NCR_WALG_AES_RFC3394)] ALIGN_NL;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(ALG_AES_CBC)] ALIGN_NL;
-		struct nlattr type_head ALIGN_NL;
-		uint32_t type ALIGN_NL;
 		struct nlattr flags_head ALIGN_NL;
 		uint32_t flags ALIGN_NL;
 	} kunwrap;
@@ -417,7 +413,7 @@ test_ncr_wrap_key(int cfd)
 	strcpy(kimport.algo, ALG_AES_CBC);
 	kimport.flags_head.nla_len = NLA_HDRLEN + sizeof(kimport.flags);
 	kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kimport.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING;
+	kimport.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING|NCR_KEY_FLAG_UNWRAPPING;
 
 	ret = ioctl(cfd, NCRIO_KEY_IMPORT, &kimport);
 	if (geteuid() == 0 && ret) {
@@ -518,12 +514,6 @@ test_ncr_wrap_key(int cfd)
 	kunwrap.wrap_algo_head.nla_len = NLA_HDRLEN + sizeof(kunwrap.wrap_algo);
 	kunwrap.wrap_algo_head.nla_type = NCR_ATTR_WRAPPING_ALGORITHM;
 	strcpy(kunwrap.wrap_algo, NCR_WALG_AES_RFC3394);
-	kunwrap.algo_head.nla_len = NLA_HDRLEN + sizeof(kunwrap.algo);
-	kunwrap.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(kunwrap.algo, ALG_AES_CBC);
-	kunwrap.type_head.nla_len = NLA_HDRLEN + sizeof(kunwrap.type);
-	kunwrap.type_head.nla_type = NCR_ATTR_KEY_TYPE;
-	kunwrap.type = NCR_KEY_TYPE_SECRET;
 	kunwrap.flags_head.nla_len = NLA_HDRLEN + sizeof(kunwrap.flags);
 	kunwrap.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
 	kunwrap.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
@@ -629,7 +619,7 @@ test_ncr_wrap_key2(int cfd)
 	strcpy(kimport.algo, ALG_AES_CBC);
 	kimport.flags_head.nla_len = NLA_HDRLEN + sizeof(kimport.flags);
 	kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kimport.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING;
+	kimport.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING|NCR_KEY_FLAG_UNWRAPPING;
 
 	if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);

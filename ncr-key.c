@@ -294,7 +294,8 @@ int ncr_key_update_flags(struct key_item_st* item, const struct nlattr *nla)
 	if (nla == NULL)
 		return 0;
 	flags = nla_get_u32(nla);
-	if (!capable(CAP_SYS_ADMIN) && (flags & NCR_KEY_FLAG_WRAPPING) != 0)
+	if (!capable(CAP_SYS_ADMIN)
+	    && (flags & (NCR_KEY_FLAG_WRAPPING | NCR_KEY_FLAG_UNWRAPPING)) != 0)
 		return -EPERM;
 	item->flags = flags;
 	return 0;
@@ -743,7 +744,7 @@ struct key_item_st* newkey = NULL;
 	
 	/* wrapping keys cannot be used for anything except wrapping.
 	 */
-	if (key->flags & NCR_KEY_FLAG_WRAPPING) {
+	if (key->flags & NCR_KEY_FLAG_WRAPPING || key->flags & NCR_KEY_FLAG_UNWRAPPING) {
 		err();
 		ret = -EINVAL;
 		goto fail;
