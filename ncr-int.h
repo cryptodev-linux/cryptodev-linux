@@ -18,7 +18,8 @@
 struct nlattr;
 struct ncr_out;
 
-// Not all known algorithms - only for quick internal identification
+// Not all known algorithms - only for quick internal identification.  Note
+// that more than one struct algo_properties_st may share the same enum value!
 enum ncr_algorithm {
 	NCR_ALG_NONE__,
 	NCR_ALG_NULL,
@@ -49,6 +50,7 @@ struct algo_properties_st {
 	unsigned can_kx:1; /* key exchange */
 	unsigned is_symmetric:1;
 	unsigned is_pk:1;
+	unsigned has_transparent_hash:1;
 	int digest_size;
 	/* NCR_KEY_TYPE_SECRET if for a secret key algorithm or MAC,
 	 * NCR_KEY_TYPE_PUBLIC for a public key algorithm.
@@ -67,6 +69,11 @@ struct session_item_st {
 	struct cipher_data cipher;
 	struct ncr_pk_ctx pk;
 	struct hash_data hash;
+	/* This is a hack, ideally we'd have a hash algorithm that simply
+	   outputs its input as a digest.  We'd still need to distinguish
+	   between the hash to identify in the signature and the hash to
+	   actually use, though. */
+	void *transparent_hash;
 
 	struct scatterlist *sg;
 	struct page **pages;
