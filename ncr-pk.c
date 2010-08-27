@@ -358,7 +358,9 @@ int ncr_pk_cipher_init(const struct algo_properties_st *algo,
 
 	memset(ctx, 0, sizeof(*ctx));
 	
-	if (key->algorithm != algo) {
+	/* Allow using the same key for transparent and non-transparent
+	   hashing. */
+	if (key->algorithm->algo != algo->algo) {
 		err();
 		return -EINVAL;
 	}

@@ -49,6 +49,11 @@ struct session_item_st {
 	struct cipher_data cipher;
 	struct ncr_pk_ctx pk;
 	struct hash_data hash;
+	/* This is a hack, ideally we'd have a hash algorithm that simply
+	   outputs its input as a digest.  We'd still need to distinguish
+	   between the hash to identify in the signature and the hash to
+	   actually use, though. */
+	void *transparent_hash;
 
 	struct scatterlist *sg;
 	struct page **pages;
@@ -165,6 +170,7 @@ static void _ncr_sessions_item_put(struct session_item_st *item)
 		cryptodev_cipher_deinit(&item->cipher);
 		ncr_pk_cipher_deinit(&item->pk);
 		cryptodev_hash_deinit(&item->hash);
+		kfree(item->transparent_hash);
 		if (item->key)
 			_ncr_key_item_put(item->key);
 		kfree(item->sg);
@@ -272,8 +278,14 @@ static const struct algo_properties_st algo_properties[] = {
 	   (yet). */
 	{ .algo = NCR_ALG_RSA, KSTR("rsa"), .is_pk = 1,
 		.can_encrypt=1, .can_sign=1, .key_type = NCR_KEY_TYPE_PUBLIC },
+	{ .algo = NCR_ALG_RSA, KSTR(NCR_ALG_RSA_TRANSPARENT_HASH), .is_pk = 1,
+	  .can_encrypt=1, .can_sign=1, .has_transparent_hash = 1,
+	  .key_type = NCR_KEY_TYPE_PUBLIC },
 	{ .algo = NCR_ALG_DSA, KSTR("dsa"), .is_pk = 1,
 		.can_sign=1, .key_type = NCR_KEY_TYPE_PUBLIC },
+	{ .algo = NCR_ALG_DSA, KSTR(NCR_ALG_DSA_TRANSPARENT_HASH), .is_pk = 1,
+	  .can_sign=1, .has_transparent_hash = 1,
+	  .key_type = NCR_KEY_TYPE_PUBLIC },
 	{ .algo = NCR_ALG_DH, KSTR("dh"), .is_pk = 1,
 		.can_kx=1, .key_type = NCR_KEY_TYPE_PUBLIC },
 #undef KSTR
@@ -577,6 +589,15 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 					if (ret < 0) {
 						err();
 						goto fail;
+					}
+
+					if (ns->algorithm->has_transparent_hash) {
+						ns->transparent_hash = kzalloc(ns->hash.digestsize, GFP_KERNEL);
+						if (ns->transparent_hash == NULL) {
+							err();
+							ret = -ENOMEM;
+							goto fail;
+						}
 					}
 				} else {
 					err();
@@ -910,10 +931,27 @@ static int _ncr_session_update(struct session_item_st *sess,
 
 		case NCR_OP_SIGN:
 		case NCR_OP_VERIFY:
-			ret = cryptodev_hash_update(&sess->hash, isg, isg_size);
-			if (ret < 0) {
-				err();
-				goto fail;
+			if (sess->algorithm->has_transparent_hash) {
+				if (isg_size != sess->hash.digestsize) {
+					err();
+					ret = -EINVAL;
+					goto fail;
+				}
+				ret = sg_copy_to_buffer(isg, isg_cnt,
+							sess->transparent_hash,
+							isg_size);
+				if (ret != isg_size) {
+					err();
+					ret = -EINVAL;
+					goto fail;
+				}
+			} else {
+				ret = cryptodev_hash_update(&sess->hash, isg,
+							    isg_size);
+				if (ret < 0) {
+					err();
+					goto fail;
+				}
 			}
 			break;
 		default:
@@ -997,10 +1035,14 @@ static int _ncr_session_final(struct ncr_lists *lists,
 			ret = -EINVAL;
 			goto fail;
 		}
-		ret = cryptodev_hash_final(&sess->hash, digest);
-		if (ret < 0) {
-			err();
-			goto fail;
+		if (sess->algorithm->has_transparent_hash)
+			memcpy(digest, sess->transparent_hash, digest_size);
+		else {
+			ret = cryptodev_hash_final(&sess->hash, digest);
+			if (ret < 0) {
+				err();
+				goto fail;
+			}
 		}
 
 		if (!sess->algorithm->is_pk)
@@ -1036,10 +1078,14 @@ static int _ncr_session_final(struct ncr_lists *lists,
 			goto fail;
 		}
 
-		ret = cryptodev_hash_final(&sess->hash, digest);
-		if (ret < 0) {
-			err();
-			goto fail;
+		if (sess->algorithm->has_transparent_hash)
+			memcpy(digest, sess->transparent_hash, digest_size);
+		else {
+			ret = cryptodev_hash_final(&sess->hash, digest);
+			if (ret < 0) {
+				err();
+				goto fail;
+			}
 		}
 
 		cryptodev_hash_deinit(&sess->hash);
@@ -1130,6 +1176,11 @@ static int _ncr_session_update_key(struct ncr_lists *lists,
 			goto fail;
 		case NCR_OP_SIGN:
 		case NCR_OP_VERIFY:
+			if (sess->algorithm->has_transparent_hash) {
+				err();
+				ret = -EINVAL;
+				goto fail;
+			}
 			ret = _cryptodev_hash_update(&sess->hash, 
 				key->key.secret.data, key->key.secret.size);
 			if (ret < 0) {

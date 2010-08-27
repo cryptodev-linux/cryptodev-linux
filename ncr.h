@@ -69,6 +69,10 @@ enum {
 #define NCR_CIPHER_MAX_BLOCK_LEN 32
 #define NCR_HASH_MAX_OUTPUT_SIZE  64
 
+/* Better names wanted */
+#define NCR_ALG_DSA_TRANSPARENT_HASH "__dsa_transparent_hash"
+#define NCR_ALG_RSA_TRANSPARENT_HASH "__rsa_transparent_hash"
+
 #define NCR_WALG_AES_RFC3394 "walg-aes-rfc3394" /* for secret keys only */
 #define NCR_WALG_AES_RFC5649 "walg-aes-rfc5649" /* can wrap arbitrary key */
 
