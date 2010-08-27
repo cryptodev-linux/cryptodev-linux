@@ -661,6 +661,7 @@ static int get_userbuf2(struct session_item_st *ses, struct nlattr *tb[],
 static int _ncr_session_update(struct ncr_lists *lists, ncr_session_t ses,
 			       struct nlattr *tb[], int compat)
 {
+	const struct nlattr *nla;
 	int ret;
 	struct session_item_st* sess;
 	struct scatterlist *isg = NULL;
@@ -703,6 +704,15 @@ static int _ncr_session_update(struct ncr_lists *lists, ncr_session_t ses,
 				goto fail;
 			}
 
+			if (sess->algorithm->is_symmetric
+			    && sess->algorithm->needs_iv) {
+				nla = tb[NCR_ATTR_IV];
+				if (nla != NULL)
+					cryptodev_cipher_set_iv(&sess->cipher,
+								nla_data(nla),
+								nla_len(nla));
+			}
+
 			ret = _ncr_session_encrypt(sess, isg, isg_cnt, isg_size, 
 				osg, osg_cnt, &osg_size);
 			if (ret < 0) {
@@ -729,6 +739,15 @@ static int _ncr_session_update(struct ncr_lists *lists, ncr_session_t ses,
 				err();
 				ret = -EINVAL;
 				goto fail;
+			}
+
+			if (sess->algorithm->is_symmetric
+			    && sess->algorithm->needs_iv) {
+				nla = tb[NCR_ATTR_IV];
+				if (nla != NULL)
+					cryptodev_cipher_set_iv(&sess->cipher,
+								nla_data(nla),
+								nla_len(nla));
 			}
 
 			ret = _ncr_session_decrypt(sess, isg, isg_cnt, isg_size, 
