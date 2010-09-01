@@ -14,6 +14,9 @@ ncr: ncr.c
 pk: pk.c
 	$(CC) $(CFLAGS) $< -o $@ -L/usr/local/lib -lgnutls
 
+uspeed: shm/aes_cbc.c shm/shm.c shm/aes.h
+	$(CC) $(CFLAGS) shm/aes_cbc.c shm/shm.c -o $@ -Ishm -lpthread
+
 check: $(progs)
 	./ncr
 	./pk
