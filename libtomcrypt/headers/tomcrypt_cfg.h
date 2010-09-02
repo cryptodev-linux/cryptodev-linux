@@ -19,10 +19,10 @@
 #define LTC_EXPORT
 #endif
 
-LTC_EXPORT void LTC_CALL XQSORT(void *base, size_t nmemb, size_t size, int(*compar)(const void *, const void *));
-
 /* certain platforms use macros for these, making the prototypes broken */
 #ifndef LTC_NO_PROTOTYPES
+
+LTC_EXPORT void LTC_CALL XQSORT(void *base, size_t nmemb, size_t size, int(*compar)(const void *, const void *));
 
 /* you can change how memory allocation works ... */
 LTC_EXPORT void * LTC_CALL XMALLOC(size_t n);

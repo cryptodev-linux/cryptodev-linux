@@ -6,6 +6,7 @@
 #include <linux/string.h>
 #include <linux/ctype.h>
 #include <linux/nls.h>
+#include <linux/sort.h>
 
 /* use configuration data */
 #include <tomcrypt_custom.h>

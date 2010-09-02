@@ -30,7 +30,7 @@ TOMMATH_OBJECTS = libtommath/bncore.o libtommath/bn_mp_init.o libtommath/bn_mp_c
 	libtommath/bn_mp_to_signed_bin_n.o libtommath/bn_mp_to_unsigned_bin_n.o
 
 TOMCRYPT_OBJECTS = libtomcrypt/misc/zeromem.o libtomcrypt/misc/crypt/crypt_argchk.o \
-	libtomcrypt/math/rand_prime.o  libtomcrypt/misc/qsort.o libtomcrypt/hashes/hash_get_oid.o \
+	libtomcrypt/math/rand_prime.o libtomcrypt/hashes/hash_get_oid.o \
 	libtomcrypt/hashes/crypt_hash_is_valid.o libtomcrypt/hashes/hash_memory.o libtomcrypt/hashes/hash_memory_multi.o \
 	libtomcrypt/pk/dsa/dsa_make_key.o libtomcrypt/pk/dsa/dsa_export.o libtomcrypt/pk/dsa/dsa_import.o \
 	libtomcrypt/pk/dsa/dsa_free.o libtomcrypt/pk/dsa/dsa_sign_hash.o libtomcrypt/pk/dsa/dsa_verify_hash.o \

@@ -71,7 +71,7 @@ extern "C" {
 # define DIGIT_BIT          15
 
 #elif BITS_PER_LONG == 64
-   
+
    typedef uint32_t      mp_digit;
    typedef uint64_t      mp_word;
 # define DIGIT_BIT          31

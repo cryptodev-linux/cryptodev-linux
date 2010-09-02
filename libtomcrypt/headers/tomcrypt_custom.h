@@ -65,7 +65,7 @@
    #ifdef qsort
    #define LTC_NO_PROTOTYPES
    #endif
-#define XQSORT qsort
+#define XQSORT(x,y,z,w) sort(x,y,z,w,NULL)
 #endif
 
 /* Easy button? */
