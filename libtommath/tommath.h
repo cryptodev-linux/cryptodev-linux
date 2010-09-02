@@ -64,6 +64,10 @@ extern "C" {
  * At the very least a mp_digit must be able to hold 7 bits
  * [any size beyond that is ok provided it doesn't overflow the data type]
  */
+ 
+/* FIXME: This can be improved, but might require to use a 64bit division
+ * on 32bit machines and an 128bit on 64.
+ */
 #if BITS_PER_LONG <= 32
 
    typedef uint16_t      mp_digit;
