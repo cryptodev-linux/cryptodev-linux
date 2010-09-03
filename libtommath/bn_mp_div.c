@@ -195,7 +195,7 @@ int mp_div (mp_int * a, mp_int * b, mp_int * c, mp_int * d)
       mp_word tmp;
       tmp = ((mp_word) x.dp[i]) << ((mp_word) DIGIT_BIT);
       tmp |= ((mp_word) x.dp[i - 1]);
-      tmp /= ((mp_word) y.dp[t]);
+      tmp = word_div_int(tmp, (int)y.dp[t]);
       if (tmp > (mp_word) MP_MASK)
         tmp = MP_MASK;
       q.dp[i - t - 1] = (mp_digit) (tmp & (mp_word) (MP_MASK));

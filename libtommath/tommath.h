@@ -20,6 +20,7 @@
 #include <linux/slab.h>
 #include <linux/random.h>
 #include <linux/ctype.h>
+#include <linux/math64.h>
 
 #define CHAR_BIT sizeof(uint8_t)*8
 
@@ -65,19 +66,22 @@ extern "C" {
  * [any size beyond that is ok provided it doesn't overflow the data type]
  */
  
-/* FIXME: This can be improved, but might require to use a 64bit division
- * on 32bit machines and an 128bit on 64.
+/* FIXME: This can be improved, but requires to use 128bit division
+ * on 64bit machines, which is not available in kernel now.
  */
-#if BITS_PER_LONG <= 32
+#if BITS_PER_LONG < 32
 
    typedef uint16_t      mp_digit;
    typedef uint32_t      mp_word;
 # define DIGIT_BIT          15
 
-#elif BITS_PER_LONG == 64
+#elif BITS_PER_LONG <= 64
 
    typedef uint32_t      mp_digit;
    typedef uint64_t      mp_word;
+
+# define word_div_int(x,y) div_u64((x),(y))
+
 # define DIGIT_BIT          31
 
 #endif
@@ -91,6 +95,11 @@ extern "C" {
 # define DIGIT_BIT          60
 
 #endif
+
+#ifndef word_div_int
+# define word_div_int(x,y) ((x)/(y))
+#endif
+
 
 /* define heap macros */
 #ifndef XMALLOC
