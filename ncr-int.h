@@ -25,17 +25,31 @@ enum ncr_algorithm {
 	NCR_ALG_NULL,
 
 	NCR_ALG_3DES_CBC,
+	NCR_ALG_3DES_ECB,
+	
+	NCR_ALG_AES_ECB,
+	NCR_ALG_AES_CBC,
+	NCR_ALG_AES_CTR,
 
-	NCR_ALG_MD5,
+	NCR_ALG_CAMELIA_ECB,
+	NCR_ALG_CAMELIA_CBC,
+	NCR_ALG_CAMELIA_CTR,
+	
+	NCR_ALG_MD5=60,
 	NCR_ALG_SHA1,
 	NCR_ALG_SHA2_224,
 	NCR_ALG_SHA2_256,
 	NCR_ALG_SHA2_384,
 	NCR_ALG_SHA2_512,
 
-	NCR_ALG_RSA,
+	NCR_ALG_RSA=120,
 	NCR_ALG_DSA,
 	NCR_ALG_DH,
+};
+
+struct algo_oid_st {
+	oid_st oid;
+	int key_size;
 };
 
 struct algo_properties_st {
@@ -56,6 +70,7 @@ struct algo_properties_st {
 	 * NCR_KEY_TYPE_PUBLIC for a public key algorithm.
 	 */
 	ncr_key_type_t key_type;
+	const struct algo_oid_st *oids;
 };
 
 struct key_item_st {
@@ -192,6 +207,8 @@ int key_to_storage_data( uint8_t** data, size_t * data_size, const struct key_it
 const struct algo_properties_st *_ncr_algo_to_properties(const char *algo);
 const struct algo_properties_st *_ncr_nla_to_properties(const struct nlattr *nla);
 int _ncr_key_get_sec_level(struct key_item_st* item);
+const struct algo_properties_st *_ncr_oid_to_properties(oid_st* oid);
+const oid_st* _ncr_properties_to_oid(const struct algo_properties_st * prop, int key_size);
 
 /* CONFIG_COMPAT handling */
 

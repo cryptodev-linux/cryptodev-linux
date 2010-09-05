@@ -831,8 +831,8 @@ fail:
 /* Packed data are DER encoded:
  * PackedData ::= SEQUENCE {
  *      version INTEGER { v1(0) }
- * 	type   INTEGER { secret_key(0), rsa_privkey(1), rsa_pubkey(2), dsa_privkey(3), dsa_pubkey(4),
- * 		dh_privkey(5), dh_pubkey(6) },
+ *      algorithm OBJECT IDENTIFIER,
+ * 	type   INTEGER { secret_key(0), public(1), private(2) },
  *      data   OCTET STRING
  * }
  * 
@@ -847,6 +847,7 @@ static int key_to_packed_data( uint8_t** sdata, size_t * sdata_size, const struc
 	unsigned long version = KEY_WRAP_VERSION;
 	unsigned long type;
 	unsigned long derlen;
+	const oid_st* oid;
 	
 	*sdata_size = KEY_DATA_MAX_SIZE;
 	pkey = kmalloc(*sdata_size, GFP_KERNEL);
@@ -875,37 +876,25 @@ static int key_to_packed_data( uint8_t** sdata, size_t * sdata_size, const struc
 			goto fail;
 		}
 		
-		switch (key->algorithm->algo) {
-			case NCR_ALG_RSA:
-				if (key->type == NCR_KEY_TYPE_PUBLIC)
-					type = 2;
-				else type = 1;
-				break;
-			case NCR_ALG_DSA:
-				if (key->type == NCR_KEY_TYPE_PUBLIC)
-					type = 4;
-				else type = 3;
-				break;
-			case NCR_ALG_DH:
-				if (key->type == NCR_KEY_TYPE_PUBLIC)
-					type = 6;
-				else type = 5;
-				break;
-			default:
-				/* unsupported yet */
-				ret = -EINVAL;
-				err();
-				goto fail;
-		}
-
+		if (key->type == NCR_KEY_TYPE_PUBLIC)
+			type = 1;
+		else type = 2;
 	} else {
 		err();
 		ret = -EINVAL;
 		goto fail;
 	}
+	
+	oid = _ncr_properties_to_oid(key->algorithm, pkey_size);
+	if (oid == NULL) {
+		err();
+		ret = -EOPNOTSUPP;
+		goto fail;
+	}
 
 	err = der_encode_sequence_multi(derkey, &derlen,
 				LTC_ASN1_SHORT_INTEGER, 1UL, &version, 
+				LTC_ASN1_OBJECT_IDENTIFIER, oid->OIDlen, oid->OID,
 				LTC_ASN1_SHORT_INTEGER, 1UL, &type, 
 				LTC_ASN1_OCTET_STRING, (unsigned long)pkey_size, pkey, 
 				LTC_ASN1_EOL, 0UL, NULL);
@@ -934,42 +923,17 @@ inline static int packed_type_to_key_type(unsigned long type, struct key_item_st
 	switch(type) {
 		case 0:
 			key->type = NCR_KEY_TYPE_SECRET;
-			key->algorithm = _ncr_algo_to_properties("cbc(aes)");
 			break;
 		case 1:
-			key->type = NCR_KEY_TYPE_PRIVATE;
-			key->algorithm = _ncr_algo_to_properties("rsa");
+			key->type = NCR_KEY_TYPE_PUBLIC;
 			break;
 		case 2:
-			key->type = NCR_KEY_TYPE_PUBLIC;
-			key->algorithm = _ncr_algo_to_properties("rsa");
-			break;
-		case 3:
 			key->type = NCR_KEY_TYPE_PRIVATE;
-			key->algorithm = _ncr_algo_to_properties("dsa");
-			break;
-		case 4:
-			key->type = NCR_KEY_TYPE_PUBLIC;
-			key->algorithm = _ncr_algo_to_properties("dsa");
-			break;
-		case 5:
-			key->type = NCR_KEY_TYPE_PRIVATE;
-			key->algorithm = _ncr_algo_to_properties("dh");
-			break;
-		case 6:
-			key->type = NCR_KEY_TYPE_PUBLIC;
-			key->algorithm = _ncr_algo_to_properties("dh");
 			break;
 		default:
 			err();
 			return -EINVAL;
 	}
-	
-	if (key->algorithm == NULL) {
-		err();
-		return -EINVAL;
-	}
-
 	return 0;
 }
 
@@ -981,9 +945,10 @@ static int key_from_packed_data(struct nlattr *tb[], struct key_item_st *key,
 				const void *data, size_t data_size)
 {
 	ltc_asn1_list list[6];
-	int ret, i = 0, pkey_size, err;
+	int ret, i, pkey_size, err;
 	unsigned long version, type;
 	uint8_t * pkey = NULL;
+	oid_st oid;
 
 	if (data_size > DER_KEY_MAX_SIZE) {
 		err();
@@ -997,9 +962,15 @@ static int key_from_packed_data(struct nlattr *tb[], struct key_item_st *key,
 		return -ENOMEM;
 	}
 
+	i = 0;
+
 	list[i].type   = LTC_ASN1_SHORT_INTEGER;
 	list[i].size   = 1;
 	list[i++].data = &version;
+
+	list[i].type   = LTC_ASN1_OBJECT_IDENTIFIER;
+	list[i].size   = sizeof(oid.OID)/sizeof(oid.OID[0]);
+	list[i++].data = oid.OID;
 
 	list[i].type   = LTC_ASN1_SHORT_INTEGER;
 	list[i].size   = 1;
@@ -1015,18 +986,26 @@ static int key_from_packed_data(struct nlattr *tb[], struct key_item_st *key,
 		ret = _ncr_tomerr(err);
 		goto fail;
 	}
-	
+
 	if (version != KEY_WRAP_VERSION) {
 		err();
 		ret = -EINVAL;
 		goto fail;
 	}
-	
-	pkey_size = list[2].size;
+
+	oid.OIDlen = list[1].size;
+	pkey_size = list[3].size;
 
 	ret = packed_type_to_key_type(type, key);
 	if (ret < 0) {
 		err();
+		goto fail;
+	}
+
+	key->algorithm = _ncr_oid_to_properties(&oid);
+	if (key->algorithm == NULL) {
+		err();
+		ret = -EINVAL;
 		goto fail;
 	}
 

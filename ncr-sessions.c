@@ -212,6 +212,89 @@ err_sess:
 	return NULL;
 }
 
+const oid_st* _ncr_properties_to_oid(const struct algo_properties_st * prop, int key_size)
+{
+int i = 0;
+
+	if (prop->oids == NULL)
+		return NULL;
+		
+	do {
+		if (key_size == prop->oids[i].key_size ||
+			prop->oids[i].key_size == -1 /* catch all */) {
+			
+			return &prop->oids[i].oid;
+		}
+	} while(prop->oids[++i].key_size != 0);
+
+	return NULL;
+}
+
+const static struct algo_oid_st aes_cbc_oids[] = {
+	{.key_size=16, 
+	.oid = {{2,16,840,1,101,3,4,1,2}, 9}},
+	{.key_size=24, 
+	.oid = {{2,16,840,1,101,3,4,1,22}, 9}},
+	{.key_size=32, 
+	.oid = {{2,16,840,1,101,3,4,1,42}, 9}},
+	{.key_size=0 }
+};
+
+const static struct algo_oid_st aes_ecb_oids[] = {
+	{.key_size=16, 
+	.oid = {{2,16,840,1,101,3,4,1,1}, 9}},
+	{.key_size=24, 
+	.oid = {{2,16,840,1,101,3,4,1,21}, 9}},
+	{.key_size=32, 
+	.oid = {{2,16,840,1,101,3,4,1,41}, 9}},
+	{.key_size=0 }
+};
+
+const static struct algo_oid_st des3_cbc_oids[] = {
+	{.key_size=-1, 
+	.oid = {{1,2,840,113549,3,7}, 6}},
+	{.key_size=0 }
+};
+
+/* http://www.oid-info.com/get/1.3.6.1.4.1.4929.1.7 
+ */
+const static struct algo_oid_st des3_ecb_oids[] = {
+	{.key_size=-1, 
+	.oid = {{1,3,6,1,4,1,4929,1,7}, 9}},
+	{.key_size=0 }
+};
+
+const static struct algo_oid_st camelia_cbc_oids[] = {
+	{.key_size=16, 
+	.oid = {{1,2,392,200011,61,1,1,1,2}, 9}},
+	{.key_size=24, 
+	.oid = {{1,2,392,200011,61,1,1,1,3}, 9}},
+	{.key_size=32, 
+	.oid = {{1,2,392,200011,61,1,1,1,4}, 9}},
+	{.key_size=0 }
+};
+
+const static struct algo_oid_st rsa_oid[] = {
+	{.key_size=-1, 
+	.oid = {{1,2,840,113549,1,1,1}, 7}},
+	{.key_size=0 }
+};
+
+const static struct algo_oid_st dsa_oid[] = {
+	{.key_size=-1, 
+	.oid = {{1,2,840,10040,4,1}, 6}},
+	{.key_size=0 }
+};
+
+const static struct algo_oid_st dh_oid[] = {
+	{.key_size=-1, 
+	.oid = {{1,2,840,10046,2,1}, 6}},
+	{.key_size=0 }
+};
+
+/* OIDs are used in cipher algorithms to distinguish keys on key wrapping.
+ */
+
 static const struct algo_properties_st algo_properties[] = {
 #define KSTR(x) .kstr = x, .kstr_len = sizeof(x) - 1
 	{ .algo = NCR_ALG_NULL, KSTR("ecb(cipher_null)"),
@@ -219,25 +302,28 @@ static const struct algo_properties_st algo_properties[] = {
 		.key_type = NCR_KEY_TYPE_INVALID },
 	{ .algo = NCR_ALG_3DES_CBC, KSTR("cbc(des3_ede)"),
 		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1,
-		.key_type = NCR_KEY_TYPE_SECRET },
-	{ KSTR("cbc(aes)"),
-		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1,
-		.key_type = NCR_KEY_TYPE_SECRET },
-	{ KSTR("cbc(camelia)"),
-		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1,
-		.key_type = NCR_KEY_TYPE_SECRET },
-	{ KSTR("ctr(aes)"),
-		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1,
-		.key_type = NCR_KEY_TYPE_SECRET },
-	{ KSTR("ctr(camelia)"),
-		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1,
-		.key_type = NCR_KEY_TYPE_SECRET },
-	{ KSTR("ecb(aes)"),
+		.key_type = NCR_KEY_TYPE_SECRET, .oids = des3_cbc_oids },
+	{ .algo = NCR_ALG_3DES_ECB, KSTR("ecb(des3_ede)"),
 		.needs_iv = 0, .is_symmetric=1, .can_encrypt=1,
-		.key_type = NCR_KEY_TYPE_SECRET },
-	{ KSTR("ecb(camelia)"),
+		.key_type = NCR_KEY_TYPE_SECRET, .oids = des3_ecb_oids },
+	{ .algo = NCR_ALG_AES_CBC, KSTR("cbc(aes)"),
+		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1,
+		.key_type = NCR_KEY_TYPE_SECRET, .oids = aes_cbc_oids },
+	{ .algo = NCR_ALG_CAMELIA_CBC, KSTR("cbc(camelia)"),
+		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1,
+		.key_type = NCR_KEY_TYPE_SECRET, .oids = camelia_cbc_oids },
+	{ .algo = NCR_ALG_AES_CTR, KSTR("ctr(aes)"),
+		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1,
+		.key_type = NCR_KEY_TYPE_SECRET, /* FIXME: no OIDs */ },
+	{ .algo = NCR_ALG_CAMELIA_CTR, KSTR("ctr(camelia)"),
+		.needs_iv = 1, .is_symmetric=1, .can_encrypt=1,
+		.key_type = NCR_KEY_TYPE_SECRET, /* FIXME: no OIDs */ },
+	{ .algo = NCR_ALG_AES_ECB, KSTR("ecb(aes)"),
 		.needs_iv = 0, .is_symmetric=1, .can_encrypt=1,
-		.key_type = NCR_KEY_TYPE_SECRET },
+		.key_type = NCR_KEY_TYPE_SECRET, .oids = aes_ecb_oids },
+	{ .algo = NCR_ALG_CAMELIA_ECB, KSTR("ecb(camelia)"),
+		.needs_iv = 0, .is_symmetric=1, .can_encrypt=1,
+		.key_type = NCR_KEY_TYPE_SECRET, /* FIXME: no OIDs */ },
 	{ .algo = NCR_ALG_SHA1, KSTR("sha1"),
 		.digest_size = 20, .can_digest=1,
 		.key_type = NCR_KEY_TYPE_INVALID },
@@ -277,17 +363,20 @@ static const struct algo_properties_st algo_properties[] = {
 	/* NOTE: These algorithm names are not available through the kernel API
 	   (yet). */
 	{ .algo = NCR_ALG_RSA, KSTR("rsa"), .is_pk = 1,
-		.can_encrypt=1, .can_sign=1, .key_type = NCR_KEY_TYPE_PUBLIC },
+		.can_encrypt=1, .can_sign=1, .key_type = NCR_KEY_TYPE_PUBLIC,
+		.oids = rsa_oid },
 	{ .algo = NCR_ALG_RSA, KSTR(NCR_ALG_RSA_TRANSPARENT_HASH), .is_pk = 1,
 	  .can_encrypt=1, .can_sign=1, .has_transparent_hash = 1,
-	  .key_type = NCR_KEY_TYPE_PUBLIC },
+	  .key_type = NCR_KEY_TYPE_PUBLIC, /* FIXME: no OIDs */ },
 	{ .algo = NCR_ALG_DSA, KSTR("dsa"), .is_pk = 1,
-		.can_sign=1, .key_type = NCR_KEY_TYPE_PUBLIC },
+		.can_sign=1, .key_type = NCR_KEY_TYPE_PUBLIC,
+		.oids = dsa_oid },
 	{ .algo = NCR_ALG_DSA, KSTR(NCR_ALG_DSA_TRANSPARENT_HASH), .is_pk = 1,
 	  .can_sign=1, .has_transparent_hash = 1,
-	  .key_type = NCR_KEY_TYPE_PUBLIC },
+	  .key_type = NCR_KEY_TYPE_PUBLIC, /* FIXME: no OIDs */ },
 	{ .algo = NCR_ALG_DH, KSTR("dh"), .is_pk = 1,
-		.can_kx=1, .key_type = NCR_KEY_TYPE_PUBLIC },
+		.can_kx=1, .key_type = NCR_KEY_TYPE_PUBLIC,
+		.oids = dh_oid },
 #undef KSTR
 };
 
@@ -306,6 +395,43 @@ const struct algo_properties_st *_ncr_algo_to_properties(const char *algo)
 			return a;
 	}
 
+	return NULL;
+}
+
+static void print_oid(oid_st* oid)
+{
+char txt[128]="";
+char tmp[64];
+int i;
+
+	for (i=0;i<oid->OIDlen;i++) {
+		sprintf(tmp, "%d.", (int)oid->OID[i]);
+		strcat(txt, tmp);
+	}
+	
+	dprintk(1, KERN_DEBUG, "unknown oid: %s\n", txt);
+}
+
+const struct algo_properties_st *_ncr_oid_to_properties(oid_st* oid)
+{
+	const struct algo_properties_st *a;
+	int i;
+
+	for (a = algo_properties;
+	     a < algo_properties + ARRAY_SIZE(algo_properties); a++) {
+
+		i=0;
+		
+		if (a->oids == NULL) continue;
+		
+		do {
+			if (a->oids[i].oid.OIDlen == oid->OIDlen && 
+				memcmp(oid->OID, a->oids[i].oid.OID, oid->OIDlen*sizeof(oid->OID[0]))==0)
+				return a;
+		} while(a->oids[++i].key_size != 0);
+	}
+
+	print_oid(oid);
 	return NULL;
 }
 
