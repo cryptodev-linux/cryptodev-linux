@@ -365,18 +365,20 @@ static const struct algo_properties_st algo_properties[] = {
 	{ .algo = NCR_ALG_RSA, KSTR("rsa"), .is_pk = 1,
 		.can_encrypt=1, .can_sign=1, .key_type = NCR_KEY_TYPE_PUBLIC,
 		.oids = rsa_oid },
-	{ .algo = NCR_ALG_RSA, KSTR(NCR_ALG_RSA_TRANSPARENT_HASH), .is_pk = 1,
-	  .can_encrypt=1, .can_sign=1, .has_transparent_hash = 1,
-	  .key_type = NCR_KEY_TYPE_PUBLIC, /* FIXME: no OIDs */ },
 	{ .algo = NCR_ALG_DSA, KSTR("dsa"), .is_pk = 1,
 		.can_sign=1, .key_type = NCR_KEY_TYPE_PUBLIC,
 		.oids = dsa_oid },
-	{ .algo = NCR_ALG_DSA, KSTR(NCR_ALG_DSA_TRANSPARENT_HASH), .is_pk = 1,
-	  .can_sign=1, .has_transparent_hash = 1,
-	  .key_type = NCR_KEY_TYPE_PUBLIC, /* FIXME: no OIDs */ },
 	{ .algo = NCR_ALG_DH, KSTR("dh"), .is_pk = 1,
 		.can_kx=1, .key_type = NCR_KEY_TYPE_PUBLIC,
 		.oids = dh_oid },
+
+	{ .algo = NCR_ALG_DSA, KSTR(NCR_ALG_DSA_TRANSPARENT_HASH), .is_pk = 1,
+	  .can_sign=1, .has_transparent_hash = 1,
+	  .key_type = NCR_KEY_TYPE_PUBLIC, .oids = rsa_oid },
+	{ .algo = NCR_ALG_RSA, KSTR(NCR_ALG_RSA_TRANSPARENT_HASH), .is_pk = 1,
+	  .can_encrypt=1, .can_sign=1, .has_transparent_hash = 1,
+	  .key_type = NCR_KEY_TYPE_PUBLIC, .oids = dsa_oid },
+
 #undef KSTR
 };
 
@@ -726,6 +728,14 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 					}
 
 					if (ns->algorithm->has_transparent_hash) {
+						/* transparent hash has to be allowed by the key
+						 */
+						if (!(ns->key->flags & NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH)) {
+							err();
+							ret = -EPERM;
+							goto fail;
+						}
+
 						ns->transparent_hash = kzalloc(ns->hash.digestsize, GFP_KERNEL);
 						if (ns->transparent_hash == NULL) {
 							err();

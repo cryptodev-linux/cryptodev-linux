@@ -21,7 +21,7 @@ struct ncr_out;
 // Not all known algorithms - only for quick internal identification.  Note
 // that more than one struct algo_properties_st may share the same enum value!
 enum ncr_algorithm {
-	NCR_ALG_NONE__,
+	NCR_ALG_NONE,
 	NCR_ALG_NULL,
 
 	NCR_ALG_3DES_CBC,

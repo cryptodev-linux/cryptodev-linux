@@ -1440,7 +1440,7 @@ static int test_ncr_rsa(int cfd)
 	strcpy(kgen.algo, ALG_RSA);
 	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
 	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kgen.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
+	kgen.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE|NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH;
 	kgen.bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.bits);
 	kgen.bits_head.nla_type = NCR_ATTR_RSA_MODULUS_BITS;
 	kgen.bits = 1024;
@@ -1580,7 +1580,7 @@ static int test_ncr_dsa(int cfd)
 	strcpy(kgen.algo, ALG_DSA);
 	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
 	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kgen.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
+	kgen.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE|NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH;
 	kgen.q_bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.q_bits);
 	kgen.q_bits_head.nla_type = NCR_ATTR_DSA_Q_BITS;
 	kgen.q_bits = 160;

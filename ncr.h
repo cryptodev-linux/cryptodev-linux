@@ -107,6 +107,7 @@ typedef __s32 ncr_key_t;
 #define NCR_KEY_FLAG_WRAPPING (1<<6)
 #define NCR_KEY_FLAG_UNWRAPPING (1<<7)
 #define NCR_KEY_FLAG_HASHABLE (1<<8)
+#define NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH (1<<9)
 
 struct ncr_key_generate {
 	__u32 input_size, output_size;
