@@ -92,20 +92,22 @@ int dh_generate_key(dh_key * key)
 		return -ENOMEM;
 	}
 
-	get_random_bytes(buf, size);
+	do {
+		get_random_bytes(buf, size);
 
-	if ((err = mp_read_unsigned_bin(&key->x, buf, size)) != CRYPT_OK) {
-		err();
-		ret = _ncr_tomerr(err);
-		goto fail;
-	}
+		if ((err = mp_read_unsigned_bin(&key->x, buf, size)) != CRYPT_OK) {
+			err();
+			ret = _ncr_tomerr(err);
+			goto fail;
+		}
 
-	err = mp_mod(&key->x, &key->p, &key->x);
-	if (err != CRYPT_OK) {
-		err();
-		ret = _ncr_tomerr(err);
-		goto fail;
-	}
+		err = mp_mod(&key->x, &key->p, &key->x);
+		if (err != CRYPT_OK) {
+			err();
+			ret = _ncr_tomerr(err);
+			goto fail;
+		}
+	} while(mp_cmp_d(&key->x, 0) == MP_EQ || mp_cmp_d(&key->x, 1) == MP_EQ);
 
 	key->type = PK_PRIVATE;
 
