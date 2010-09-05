@@ -123,7 +123,7 @@ static int ncr_pk_make_public_and_id( struct key_item_st * private, struct key_i
 	}
 
 	key_id_size = MAX_KEY_ID_SIZE;
-	cret = hash_memory(_ncr_algo_to_properties("sha1"), tmp, max_size,
+	cret = hash_memory(_ncr_algo_to_properties(NCR_ALG_SHA1), tmp, max_size,
 			   private->key_id, &key_id_size);
 	if (cret != CRYPT_OK) {
 		err();

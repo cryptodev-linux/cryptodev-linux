@@ -384,16 +384,13 @@ static const struct algo_properties_st algo_properties[] = {
 
 /* The lookups by string are inefficient - can we look up all we need from
    crypto API? */
-const struct algo_properties_st *_ncr_algo_to_properties(const char *algo)
+const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo)
 {
 	const struct algo_properties_st *a;
-	size_t name_len;
 
-	name_len = strlen(algo);
 	for (a = algo_properties;
 	     a < algo_properties + ARRAY_SIZE(algo_properties); a++) {
-		if (a->kstr_len == name_len
-		    && memcmp(a->kstr, algo, name_len) == 0)
+		if (a->algo == algo)
 			return a;
 	}
 

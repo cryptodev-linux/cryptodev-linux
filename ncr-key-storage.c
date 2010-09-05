@@ -35,7 +35,7 @@ struct packed_key {
 	uint32_t version;
 	uint8_t type;
 	uint32_t flags;
-	uint8_t algorithm[32];	/* NUL-terminated */
+	uint32_t algorithm;
 	uint8_t key_id[MAX_KEY_ID_SIZE];
 	uint8_t key_id_size;
 
@@ -43,7 +43,7 @@ struct packed_key {
 	uint32_t raw_size;
 } __attribute__((__packed__));
 
-#define THIS_VERSION 1
+#define THIS_VERSION 2
 
 int key_to_storage_data( uint8_t** sdata, size_t * sdata_size, const struct key_item_st *key)
 {
@@ -59,8 +59,9 @@ int key_to_storage_data( uint8_t** sdata, size_t * sdata_size, const struct key_
 	pkey->version = THIS_VERSION;
 	pkey->type = key->type;
 	pkey->flags = key->flags;
-	BUG_ON(strlen(key->algorithm->kstr) > sizeof(pkey->algorithm) - 1);
-	strcpy(pkey->algorithm, key->algorithm->kstr);
+
+	pkey->algorithm = key->algorithm->algo;
+
 	pkey->key_id_size = key->key_id_size;
 	memcpy(pkey->key_id, key->key_id, key->key_id_size);
 
@@ -96,7 +97,6 @@ int key_from_storage_data(struct key_item_st* key, const void* data, size_t data
 	int ret;
 
 	if (data_size != sizeof(*pkey) || pkey->version != THIS_VERSION
-	    || memchr(pkey->algorithm, '\0', sizeof(pkey->algorithm)) == NULL
 	    || pkey->key_id_size > MAX_KEY_ID_SIZE) {
 		err();
 		return -EINVAL;

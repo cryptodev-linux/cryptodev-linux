@@ -20,7 +20,7 @@ struct ncr_out;
 
 // Not all known algorithms - only for quick internal identification.  Note
 // that more than one struct algo_properties_st may share the same enum value!
-enum ncr_algorithm {
+typedef enum {
 	NCR_ALG_NONE,
 	NCR_ALG_NULL,
 
@@ -35,17 +35,17 @@ enum ncr_algorithm {
 	NCR_ALG_CAMELIA_CBC,
 	NCR_ALG_CAMELIA_CTR,
 	
-	NCR_ALG_MD5=60,
+	NCR_ALG_MD5=200,
 	NCR_ALG_SHA1,
 	NCR_ALG_SHA2_224,
 	NCR_ALG_SHA2_256,
 	NCR_ALG_SHA2_384,
 	NCR_ALG_SHA2_512,
 
-	NCR_ALG_RSA=120,
+	NCR_ALG_RSA=600,
 	NCR_ALG_DSA,
 	NCR_ALG_DH,
-};
+} ncr_algorithm_t;
 
 struct algo_oid_st {
 	oid_st oid;
@@ -53,7 +53,7 @@ struct algo_oid_st {
 };
 
 struct algo_properties_st {
-	enum ncr_algorithm algo;
+	ncr_algorithm_t algo;
 	const char *kstr;
 	size_t kstr_len;
 	unsigned needs_iv:1;
@@ -204,7 +204,7 @@ int key_to_storage_data( uint8_t** data, size_t * data_size, const struct key_it
 
 /* misc helper macros */
 
-const struct algo_properties_st *_ncr_algo_to_properties(const char *algo);
+const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo);
 const struct algo_properties_st *_ncr_nla_to_properties(const struct nlattr *nla);
 int _ncr_key_get_sec_level(struct key_item_st* item);
 const struct algo_properties_st *_ncr_oid_to_properties(oid_st* oid);
