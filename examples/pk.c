@@ -331,7 +331,7 @@ struct __attribute__((packed)) {
 struct nlattr *nla;
 ncr_key_t private1, public1, public2, private2;
 ncr_key_t z1, z2;
-int ret;
+int ret, j;
 gnutls_datum g, p, params;
 gnutls_dh_params_t dhp;
 unsigned char y1[1024], y2[1024];
@@ -374,223 +374,249 @@ struct __attribute__((packed)) {
 		return 1;
 	}
 
-	/* generate a DH key */
-	private1 = ioctl(cfd, NCRIO_KEY_INIT);
-	if (private1 == -1) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_INIT)");
-		return 1;
+	for (j=0;j<100;j++) {
+		/* generate a DH key */
+		private1 = ioctl(cfd, NCRIO_KEY_INIT);
+		if (private1 == -1) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_INIT)");
+			return 1;
+		}
+
+		public1 = ioctl(cfd, NCRIO_KEY_INIT);
+		if (public1 == -1) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_INIT)");
+			return 1;
+		}
+
+		memset(&kgen.f, 0, sizeof(kgen.f));
+		kgen.f.private_key = private1;
+		kgen.f.public_key = public1;
+		kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
+		kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+		strcpy(kgen.algo, ALG_DH);
+		kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
+		kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
+		kgen.flags = NCR_KEY_FLAG_EXPORTABLE;
+		nla = (struct nlattr *)kgen.buffer;
+		nla->nla_len = NLA_HDRLEN + p.size;
+		nla->nla_type = NCR_ATTR_DH_PRIME;
+		memcpy((char *)nla + NLA_HDRLEN, p.data, p.size);
+		nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
+		nla->nla_len = NLA_HDRLEN + g.size;
+		nla->nla_type = NCR_ATTR_DH_BASE;
+		memcpy((char *)nla + NLA_HDRLEN, g.data, g.size);
+		nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
+		kgen.f.input_size = (char *)nla - (char *)&kgen;
+		assert(kgen.f.input_size <= sizeof(kgen));
+
+		if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_GENERATE_PAIR)");
+			return 1;
+		}
+		
+		/* generate another DH key */
+		private2 = ioctl(cfd, NCRIO_KEY_INIT);
+		if (private2 == -1) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_INIT)");
+			return 1;
+		}
+
+		public2 = ioctl(cfd, NCRIO_KEY_INIT);
+		if (public2 == -1) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_INIT)");
+			return 1;
+		}
+		
+		memset(&kgen.f, 0, sizeof(kgen.f));
+		kgen.f.private_key = private2;
+		kgen.f.public_key = public2;
+		kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
+		kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
+		strcpy(kgen.algo, ALG_DH);
+		kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
+		kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
+		kgen.flags = NCR_KEY_FLAG_EXPORTABLE;
+		nla = (struct nlattr *)kgen.buffer;
+		nla->nla_len = NLA_HDRLEN + p.size;
+		nla->nla_type = NCR_ATTR_DH_PRIME;
+		memcpy((char *)nla + NLA_HDRLEN, p.data, p.size);
+		nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
+		nla->nla_len = NLA_HDRLEN + g.size;
+		nla->nla_type = NCR_ATTR_DH_BASE;
+		memcpy((char *)nla + NLA_HDRLEN, g.data, g.size);
+		nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
+		kgen.f.input_size = (char *)nla - (char *)&kgen;
+		assert(kgen.f.input_size <= sizeof(kgen));
+
+		if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_GENERATE_PAIR)");
+			return 1;
+		}
+
+		/* export y1=g^x1 */
+		memset(&kexport, 0, sizeof(kexport));
+		kexport.key = public1;
+		kexport.buffer = y1;
+		kexport.buffer_size = sizeof(y1);
+
+		y1_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
+		if (y1_size < 0) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_EXPORT)");
+			return 1;
+		}
+
+		/* export y2=g^x2 */
+		memset(&kexport, 0, sizeof(kexport));
+		kexport.key = public2;
+		kexport.buffer = y2;
+		kexport.buffer_size = sizeof(y2);
+
+		y2_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
+		if (y2_size < 0) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_EXPORT)");
+			return 1;
+		}
+		
+		/* z1=y1^x2 */
+		z1 = ioctl(cfd, NCRIO_KEY_INIT);
+		if (z1 == -1) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_INIT)");
+			return 1;
+		}
+
+		memset(&kderive.f, 0, sizeof(kderive.f));
+		kderive.f.input_key = private1;
+		kderive.f.new_key = z1;
+		kderive.algo_head.nla_len = NLA_HDRLEN + sizeof(kderive.algo);
+		kderive.algo_head.nla_type = NCR_ATTR_DERIVATION_ALGORITHM;
+		strcpy(kderive.algo, NCR_DERIVE_DH);
+		kderive.flags_head.nla_len = NLA_HDRLEN + sizeof(kderive.flags);
+		kderive.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
+		kderive.flags = NCR_KEY_FLAG_EXPORTABLE;
+		kderive.public_head.nla_len = NLA_HDRLEN + y2_size;
+		kderive.public_head.nla_type = NCR_ATTR_DH_PUBLIC;
+		memcpy(kderive.public, y2, y2_size);
+		nla = (struct nlattr *)((char *)&kderive.public_head
+					+ NLA_ALIGN(kderive.public_head.nla_len));
+		kderive.f.input_size = (char *)nla - (char *)&kderive;
+		assert(kderive.f.input_size <= sizeof(kderive));
+
+		if (ioctl(cfd, NCRIO_KEY_DERIVE, &kderive)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_DERIVE)");
+			return 1;
+		}
+		
+		/* z2=y2^x1 */
+		z2 = ioctl(cfd, NCRIO_KEY_INIT);
+		if (z2 == -1) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_INIT)");
+			return 1;
+		}
+
+		memset(&kderive.f, 0, sizeof(kderive.f));
+		kderive.f.input_key = private2;
+		kderive.f.new_key = z2;
+		kderive.algo_head.nla_len = NLA_HDRLEN + sizeof(kderive.algo);
+		kderive.algo_head.nla_type = NCR_ATTR_DERIVATION_ALGORITHM;
+		strcpy(kderive.algo, NCR_DERIVE_DH);
+		kderive.flags_head.nla_len = NLA_HDRLEN + sizeof(kderive.flags);
+		kderive.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
+		kderive.flags = NCR_KEY_FLAG_EXPORTABLE;
+		kderive.public_head.nla_len = NLA_HDRLEN + y2_size;
+		kderive.public_head.nla_type = NCR_ATTR_DH_PUBLIC;
+		memcpy(kderive.public, y1, y1_size);
+		nla = (struct nlattr *)((char *)&kderive.public_head
+					+ NLA_ALIGN(kderive.public_head.nla_len));
+		kderive.f.input_size = (char *)nla - (char *)&kderive;
+		assert(kderive.f.input_size <= sizeof(kderive));
+
+		if (ioctl(cfd, NCRIO_KEY_DERIVE, &kderive)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_DERIVE)");
+			return 1;
+		}
+		
+		/* z1==z2 */
+		memset(&kexport, 0, sizeof(kexport));
+		kexport.key = z1;
+		kexport.buffer = y1;
+		kexport.buffer_size = sizeof(y1);
+
+		y1_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
+		if (y1_size < 0) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_EXPORT)");
+			return 1;
+		}
+
+		memset(&kexport, 0, sizeof(kexport));
+		kexport.key = z2;
+		kexport.buffer = y2;
+		kexport.buffer_size = sizeof(y2);
+
+		y2_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
+		if (y2_size < 0) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_KEY_EXPORT)");
+			return 1;
+		}
+		
+		if (y1_size == 0 || y1_size != y2_size || memcmp(y1, y2, y1_size) != 0) {
+			int i;
+
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			fprintf(stderr, "Output in DH does not match (%d, %d)!\n", 
+				(int)y1_size, (int)y2_size);
+
+			fprintf(stderr, "Key1[%d]: ", (int) y1_size);
+			for(i=0;i<y1_size;i++)
+				fprintf(stderr, "%.2x:", y1[i]);
+			fprintf(stderr, "\n");
+
+			fprintf(stderr, "Key2[%d]: ", (int) y2_size);
+			for(i=0;i<y2_size;i++)
+				fprintf(stderr, "%.2x:", y2[i]);
+			fprintf(stderr, "\n");
+
+			return 1;
+		}
+
+		if (ioctl(cfd, NCRIO_KEY_DEINIT, &private1)) {
+			perror("ioctl(NCRIO_KEY_DEINIT)");
+			return 1;
+		}
+		if (ioctl(cfd, NCRIO_KEY_DEINIT, &public1)) {
+			perror("ioctl(NCRIO_KEY_DEINIT)");
+			return 1;
+		}
+		if (ioctl(cfd, NCRIO_KEY_DEINIT, &private2)) {
+			perror("ioctl(NCRIO_KEY_DEINIT)");
+			return 1;
+		}
+		if (ioctl(cfd, NCRIO_KEY_DEINIT, &public2)) {
+			perror("ioctl(NCRIO_KEY_DEINIT)");
+			return 1;
+		}
+		if (ioctl(cfd, NCRIO_KEY_DEINIT, &z1)) {
+			perror("ioctl(NCRIO_KEY_DEINIT)");
+			return 1;
+		}
+		if (ioctl(cfd, NCRIO_KEY_DEINIT, &z2)) {
+			perror("ioctl(NCRIO_KEY_DEINIT)");
+			return 1;
+		}
 	}
-
-	public1 = ioctl(cfd, NCRIO_KEY_INIT);
-	if (public1 == -1) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_INIT)");
-		return 1;
-	}
-	
-	memset(&kgen.f, 0, sizeof(kgen.f));
-	kgen.f.private_key = private1;
-	kgen.f.public_key = public1;
-	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
-	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(kgen.algo, ALG_DH);
-	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
-	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kgen.flags = NCR_KEY_FLAG_EXPORTABLE;
-	nla = (struct nlattr *)kgen.buffer;
-	nla->nla_len = NLA_HDRLEN + p.size;
-	nla->nla_type = NCR_ATTR_DH_PRIME;
-	memcpy((char *)nla + NLA_HDRLEN, p.data, p.size);
-	nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
-	nla->nla_len = NLA_HDRLEN + g.size;
-	nla->nla_type = NCR_ATTR_DH_BASE;
-	memcpy((char *)nla + NLA_HDRLEN, g.data, g.size);
-	nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
-	kgen.f.input_size = (char *)nla - (char *)&kgen;
-	assert(kgen.f.input_size <= sizeof(kgen));
-
-	if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_GENERATE_PAIR)");
-		return 1;
-	}
-	
-	/* generate another DH key */
-	private2 = ioctl(cfd, NCRIO_KEY_INIT);
-	if (private2 == -1) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_INIT)");
-		return 1;
-	}
-
-	public2 = ioctl(cfd, NCRIO_KEY_INIT);
-	if (public2 == -1) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_INIT)");
-		return 1;
-	}
-	
-	memset(&kgen.f, 0, sizeof(kgen.f));
-	kgen.f.private_key = private2;
-	kgen.f.public_key = public2;
-	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
-	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(kgen.algo, ALG_DH);
-	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
-	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kgen.flags = NCR_KEY_FLAG_EXPORTABLE;
-	nla = (struct nlattr *)kgen.buffer;
-	nla->nla_len = NLA_HDRLEN + p.size;
-	nla->nla_type = NCR_ATTR_DH_PRIME;
-	memcpy((char *)nla + NLA_HDRLEN, p.data, p.size);
-	nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
-	nla->nla_len = NLA_HDRLEN + g.size;
-	nla->nla_type = NCR_ATTR_DH_BASE;
-	memcpy((char *)nla + NLA_HDRLEN, g.data, g.size);
-	nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
-	kgen.f.input_size = (char *)nla - (char *)&kgen;
-	assert(kgen.f.input_size <= sizeof(kgen));
-
-	if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_GENERATE_PAIR)");
-		return 1;
-	}
-
-	/* export y1=g^x1 */
-	memset(&kexport, 0, sizeof(kexport));
-	kexport.key = public1;
-	kexport.buffer = y1;
-	kexport.buffer_size = sizeof(y1);
-
-	y1_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
-	if (y1_size < 0) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_EXPORT)");
-		return 1;
-	}
-
-	/* export y2=g^x2 */
-	memset(&kexport, 0, sizeof(kexport));
-	kexport.key = public2;
-	kexport.buffer = y2;
-	kexport.buffer_size = sizeof(y2);
-
-	y2_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
-	if (y2_size < 0) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_EXPORT)");
-		return 1;
-	}
-	
-	/* z1=y1^x2 */
-	z1 = ioctl(cfd, NCRIO_KEY_INIT);
-	if (z1 == -1) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_INIT)");
-		return 1;
-	}
-
-	memset(&kderive.f, 0, sizeof(kderive.f));
-	kderive.f.input_key = private1;
-	kderive.f.new_key = z1;
-	kderive.algo_head.nla_len = NLA_HDRLEN + sizeof(kderive.algo);
-	kderive.algo_head.nla_type = NCR_ATTR_DERIVATION_ALGORITHM;
-	strcpy(kderive.algo, NCR_DERIVE_DH);
-	kderive.flags_head.nla_len = NLA_HDRLEN + sizeof(kderive.flags);
-	kderive.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kderive.flags = NCR_KEY_FLAG_EXPORTABLE;
-	kderive.public_head.nla_len = NLA_HDRLEN + y2_size;
-	kderive.public_head.nla_type = NCR_ATTR_DH_PUBLIC;
-	memcpy(kderive.public, y2, y2_size);
-	nla = (struct nlattr *)((char *)&kderive.public_head
-				+ NLA_ALIGN(kderive.public_head.nla_len));
-	kderive.f.input_size = (char *)nla - (char *)&kderive;
-	assert(kderive.f.input_size <= sizeof(kderive));
-
-	if (ioctl(cfd, NCRIO_KEY_DERIVE, &kderive)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_DERIVE)");
-		return 1;
-	}
-	
-	/* z2=y2^x1 */
-	z2 = ioctl(cfd, NCRIO_KEY_INIT);
-	if (z2 == -1) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_INIT)");
-		return 1;
-	}
-
-	memset(&kderive.f, 0, sizeof(kderive.f));
-	kderive.f.input_key = private2;
-	kderive.f.new_key = z2;
-	kderive.algo_head.nla_len = NLA_HDRLEN + sizeof(kderive.algo);
-	kderive.algo_head.nla_type = NCR_ATTR_DERIVATION_ALGORITHM;
-	strcpy(kderive.algo, NCR_DERIVE_DH);
-	kderive.flags_head.nla_len = NLA_HDRLEN + sizeof(kderive.flags);
-	kderive.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kderive.flags = NCR_KEY_FLAG_EXPORTABLE;
-	kderive.public_head.nla_len = NLA_HDRLEN + y2_size;
-	kderive.public_head.nla_type = NCR_ATTR_DH_PUBLIC;
-	memcpy(kderive.public, y1, y1_size);
-	nla = (struct nlattr *)((char *)&kderive.public_head
-				+ NLA_ALIGN(kderive.public_head.nla_len));
-	kderive.f.input_size = (char *)nla - (char *)&kderive;
-	assert(kderive.f.input_size <= sizeof(kderive));
-
-	if (ioctl(cfd, NCRIO_KEY_DERIVE, &kderive)) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_DERIVE)");
-		return 1;
-	}
-	
-	/* z1==z2 */
-	memset(&kexport, 0, sizeof(kexport));
-	kexport.key = z1;
-	kexport.buffer = y1;
-	kexport.buffer_size = sizeof(y1);
-
-	y1_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
-	if (y1_size < 0) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_EXPORT)");
-		return 1;
-	}
-
-	memset(&kexport, 0, sizeof(kexport));
-	kexport.key = z2;
-	kexport.buffer = y2;
-	kexport.buffer_size = sizeof(y2);
-
-	y2_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
-	if (y2_size < 0) {
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		perror("ioctl(NCRIO_KEY_EXPORT)");
-		return 1;
-	}
-	
-	if (y1_size == 0 || y1_size != y2_size || memcmp(y1, y2, y1_size) != 0) {
-		int i;
-
-		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		fprintf(stderr, "Output in DH does not match (%d, %d)!\n", 
-			(int)y1_size, (int)y2_size);
-
-		fprintf(stderr, "Key1[%d]: ", (int) y1_size);
-		for(i=0;i<y1_size;i++)
-			fprintf(stderr, "%.2x:", y1[i]);
-		fprintf(stderr, "\n");
-
-		fprintf(stderr, "Key2[%d]: ", (int) y2_size);
-		for(i=0;i<y2_size;i++)
-			fprintf(stderr, "%.2x:", y2[i]);
-		fprintf(stderr, "\n");
-
-		return 1;
-	}
-
 
 	fprintf(stdout, " Success\n");
 
