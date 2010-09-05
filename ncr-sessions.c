@@ -1301,6 +1301,12 @@ static int _ncr_session_update_key(struct ncr_lists *lists,
 		ret = -EINVAL;
 		goto fail;
 	}
+	
+	if (!(key->flags & NCR_KEY_FLAG_HASHABLE)) {
+		err();
+		ret = -EPERM;
+		goto fail;
+	}
 
 	switch(sess->op) {
 		case NCR_OP_ENCRYPT:

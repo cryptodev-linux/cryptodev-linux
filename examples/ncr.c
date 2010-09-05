@@ -1507,7 +1507,7 @@ test_ncr_hash_key(int cfd)
 	kimport.type = NCR_KEY_TYPE_SECRET;
 	kimport.flags_head.nla_len = NLA_HDRLEN + sizeof(kimport.flags);
 	kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kimport.flags = NCR_KEY_FLAG_EXPORTABLE;
+	kimport.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_HASHABLE;
 	kimport.algo_head.nla_len = NLA_HDRLEN + algo_size;
 	kimport.algo_head.nla_type = NCR_ATTR_ALGORITHM;
 	memcpy(kimport.algo, hash_vectors[0].algorithm, algo_size);
