@@ -558,7 +558,7 @@ int bits;
 	/* FIXME: should we move everything here into algorithm properties? 
 	 */
 	if (item->type == NCR_KEY_TYPE_SECRET) {
-		if (item->algorithm->algo == NCR_ALG_3DES_CBC)
+		if (item->algorithm->algo == NCR_ALG_3DES_CBC || item->algorithm->algo == NCR_ALG_3DES_ECB)
 			return 112;
 
 		return item->key.secret.size*8;
