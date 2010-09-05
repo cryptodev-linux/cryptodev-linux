@@ -36,6 +36,12 @@
 
 #define KEY_WRAP_VERSION 0
 
+/* To be further checked. If the current implemented key wrapping mechanism
+ * has no issues, it might be possible to relax the requirement for
+ * privileged key wrapping.
+ */
+#define KEY_WRAP_IS_PRIVILEGED
+
 typedef uint8_t val64_t[8];
 
 static const val64_t initA = "\xA6\xA6\xA6\xA6\xA6\xA6\xA6\xA6";
@@ -537,6 +543,13 @@ const void *iv;
 size_t data_size, iv_size;
 int ret;
 
+#ifdef KEY_WRAP_IS_PRIVILEGED
+	if (current_euid() != 0) {
+		err();
+		return -EPERM;
+	}
+#endif
+
 	if (wrap->buffer_size < 0) {
 		err();
 		return -EINVAL;
@@ -639,6 +652,13 @@ struct key_item_st* key = NULL;
 void* data = NULL;
 size_t data_size;
 int ret;
+
+#ifdef KEY_WRAP_IS_PRIVILEGED
+	if (current_euid() != 0) {
+		err();
+		return -EPERM;
+	}
+#endif
 
 	ret = ncr_key_item_get_write(&wkey, lst, wrap->dest_key);
 	if (ret < 0) {
@@ -1014,6 +1034,14 @@ static int key_from_packed_data(struct nlattr *tb[], struct key_item_st *key,
 		err();
 		return ret;
 	}
+	
+
+#ifndef KEY_WRAP_IS_PRIVILEGED
+	/* Do not allow key unwrapping to result to exportable keys
+	 */
+	if (current_euid() != 0)
+		key->flags &= (~NCR_KEY_FLAG_EXPORTABLE);
+#endif
 
 	if (key->type == NCR_KEY_TYPE_SECRET) {
 		if (data_size > NCR_CIPHER_MAX_KEY_LEN) {
