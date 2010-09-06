@@ -1,5 +1,7 @@
 KERNEL_DIR = /lib/modules/$(shell uname -r)/build
 VERSION = 0.99
+CONFIG_ASYMMETRIC=y
+EXTRA_CFLAGS += -DCONFIG_ASSYMETRIC
 
 EXTRA_CFLAGS += -I$(SUBDIRS)/libtommath -I$(SUBDIRS)/libtomcrypt/headers -I$(SUBDIRS)/ -DLTC_SOURCE -Wall
 
@@ -30,11 +32,6 @@ TOMMATH_OBJECTS = libtommath/bncore.o libtommath/bn_mp_init.o libtommath/bn_mp_c
 	libtommath/bn_mp_to_signed_bin_n.o libtommath/bn_mp_to_unsigned_bin_n.o
 
 TOMCRYPT_OBJECTS = libtomcrypt/misc/zeromem.o libtomcrypt/misc/crypt/crypt_argchk.o \
-	libtomcrypt/math/rand_prime.o libtomcrypt/hashes/hash_get_oid.o \
-	libtomcrypt/hashes/crypt_hash_is_valid.o libtomcrypt/hashes/hash_memory.o libtomcrypt/hashes/hash_memory_multi.o \
-	libtomcrypt/pk/dsa/dsa_make_key.o libtomcrypt/pk/dsa/dsa_export.o libtomcrypt/pk/dsa/dsa_import.o \
-	libtomcrypt/pk/dsa/dsa_free.o libtomcrypt/pk/dsa/dsa_sign_hash.o libtomcrypt/pk/dsa/dsa_verify_hash.o \
-	libtomcrypt/pk/dsa/dsa_verify_key.o \
 	libtomcrypt/pk/asn1/der/bit/der_decode_bit_string.o libtomcrypt/pk/asn1/der/bit/der_encode_bit_string.o \
 	libtomcrypt/pk/asn1/der/bit/der_length_bit_string.o libtomcrypt/pk/asn1/der/boolean/der_decode_boolean.o \
 	libtomcrypt/pk/asn1/der/boolean/der_encode_boolean.o libtomcrypt/pk/asn1/der/boolean/der_length_boolean.o \
@@ -55,6 +52,12 @@ TOMCRYPT_OBJECTS = libtomcrypt/misc/zeromem.o libtomcrypt/misc/crypt/crypt_argch
 	libtomcrypt/pk/asn1/der/utctime/der_length_utctime.o libtomcrypt/pk/asn1/der/utf8/der_decode_utf8_string.o \
 	libtomcrypt/pk/asn1/der/utf8/der_encode_utf8_string.o libtomcrypt/pk/asn1/der/utf8/der_length_utf8_string.o \
 	libtomcrypt/pk/asn1/der/set/der_encode_set.o  libtomcrypt/pk/asn1/der/set/der_encode_setof.o \
+	libtomcrypt/pk/asn1/der/x509/der_decode_subject_public_key_info.o \
+	libtomcrypt/math/rand_prime.o libtomcrypt/hashes/hash_get_oid.o \
+	libtomcrypt/hashes/crypt_hash_is_valid.o libtomcrypt/hashes/hash_memory.o libtomcrypt/hashes/hash_memory_multi.o \
+	libtomcrypt/pk/dsa/dsa_make_key.o libtomcrypt/pk/dsa/dsa_export.o libtomcrypt/pk/dsa/dsa_import.o \
+	libtomcrypt/pk/dsa/dsa_free.o libtomcrypt/pk/dsa/dsa_sign_hash.o libtomcrypt/pk/dsa/dsa_verify_hash.o \
+	libtomcrypt/pk/dsa/dsa_verify_key.o \
 	libtomcrypt/pk/rsa/rsa_decrypt_key.o libtomcrypt/pk/rsa/rsa_encrypt_key.o libtomcrypt/pk/rsa/rsa_export.o \
 	libtomcrypt/pk/rsa/rsa_exptmod.o libtomcrypt/pk/rsa/rsa_free.o libtomcrypt/pk/rsa/rsa_import.o \
 	libtomcrypt/pk/rsa/rsa_make_key.o libtomcrypt/pk/rsa/rsa_sign_hash.o libtomcrypt/pk/rsa/rsa_verify_hash.o \
@@ -65,12 +68,13 @@ TOMCRYPT_OBJECTS = libtomcrypt/misc/zeromem.o libtomcrypt/misc/crypt/crypt_argch
 	libtomcrypt/pk/asn1/der/x509/der_decode_subject_public_key_info.o
 
 cryptodev-objs = cryptodev_main.o cryptodev_cipher.o ncr.o \
-	ncr-key.o ncr-limits.o  ncr-pk.o ncr-sessions.o ncr-dh.o \
-	ncr-key-wrap.o ncr-key-storage.o utils.o $(TOMMATH_OBJECTS) \
-	$(TOMCRYPT_OBJECTS)
-
+	ncr-key.o ncr-limits.o  ncr-sessions.o \
+	ncr-key-storage.o utils.o ncr-key-wrap.o
 
 obj-m += cryptodev.o
+
+cryptodev-$(CONFIG_ASYMMETRIC) += $(TOMMATH_OBJECTS) \
+	$(TOMCRYPT_OBJECTS) ncr-dh.o ncr-pk.o
 
 build:
 	@$(MAKE) version.h

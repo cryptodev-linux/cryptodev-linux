@@ -68,6 +68,7 @@ int key_to_storage_data( uint8_t** sdata, size_t * sdata_size, const struct key_
 	if (key->type == NCR_KEY_TYPE_SECRET) {
 		pkey->raw_size = key->key.secret.size;
 		memcpy(pkey->raw, key->key.secret.data, pkey->raw_size);
+#ifdef CONFIG_ASSYMETRIC
 	} else if (key->type == NCR_KEY_TYPE_PRIVATE || key->type == NCR_KEY_TYPE_PUBLIC) {
 		pkey->raw_size = sizeof(pkey->raw);
 		ret = ncr_pk_pack( key, pkey->raw, &pkey->raw_size);
@@ -75,6 +76,7 @@ int key_to_storage_data( uint8_t** sdata, size_t * sdata_size, const struct key_
 			err();
 			goto fail;
 		}
+#endif
 	} else {
 		err();
 		ret = -EINVAL;
@@ -94,7 +96,6 @@ fail:
 int key_from_storage_data(struct key_item_st* key, const void* data, size_t data_size)
 {
 	const struct packed_key * pkey = data;
-	int ret;
 
 	if (data_size != sizeof(*pkey) || pkey->version != THIS_VERSION
 	    || pkey->key_id_size > MAX_KEY_ID_SIZE) {
@@ -120,13 +121,17 @@ int key_from_storage_data(struct key_item_st* key, const void* data, size_t data
 		}
 		key->key.secret.size = pkey->raw_size;
 		memcpy(key->key.secret.data, pkey->raw, pkey->raw_size);
+#ifdef CONFIG_ASSYMETRIC
 	} else if (key->type == NCR_KEY_TYPE_PUBLIC 
 		|| key->type == NCR_KEY_TYPE_PRIVATE) {
+		int ret;
+
 		ret = ncr_pk_unpack( key, pkey->raw, pkey->raw_size);
 		if (ret < 0) {
 			err();
 			return ret;
 		}
+#endif
 	} else {
 		err();
 		return -EINVAL;

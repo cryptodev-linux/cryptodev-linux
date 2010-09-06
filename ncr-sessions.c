@@ -47,7 +47,9 @@ struct session_item_st {
 	 * in a union.
 	 */
 	struct cipher_data cipher;
+#ifdef CONFIG_ASSYMETRIC
 	struct ncr_pk_ctx pk;
+#endif
 	struct hash_data hash;
 	/* This is a hack, ideally we'd have a hash algorithm that simply
 	   outputs its input as a digest.  We'd still need to distinguish
@@ -168,7 +170,9 @@ static void _ncr_sessions_item_put(struct session_item_st *item)
 {
 	if (atomic_dec_and_test(&item->refcnt)) {
 		cryptodev_cipher_deinit(&item->cipher);
+#ifdef CONFIG_ASSYMETRIC
 		ncr_pk_cipher_deinit(&item->pk);
+#endif
 		cryptodev_hash_deinit(&item->hash);
 		kfree(item->transparent_hash);
 		if (item->key)
@@ -504,7 +508,6 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 	const struct nlattr *nla;
 	struct session_item_st *ns, *old_session = NULL;
 	int ret;
-	const struct algo_properties_st *sign_hash;
 
 	ns = ncr_session_new(desc);
 	if (ns == NULL) {
@@ -602,6 +605,7 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 								nla_data(nla),
 								nla_len(nla));
 				}
+#ifdef CONFIG_ASSYMETRIC
 			} else if (ns->key->type == NCR_KEY_TYPE_PRIVATE || ns->key->type == NCR_KEY_TYPE_PUBLIC) {
 				ret = ncr_pk_cipher_init(ns->algorithm, &ns->pk, 
 							 tb, ns->key, NULL);
@@ -609,6 +613,7 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 					err();
 					goto fail;
 				}
+#endif
 			} else {
 				err();
 				ret = -EINVAL;
@@ -683,8 +688,10 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 						err();
 						goto fail;
 					}
-
+#ifdef CONFIG_ASSYMETRIC
 				} else if (ns->algorithm->is_pk && (ns->key->type == NCR_KEY_TYPE_PRIVATE || ns->key->type == NCR_KEY_TYPE_PUBLIC)) {
+				        const struct algo_properties_st *sign_hash;
+
 					if (old_session != NULL) {
 						err();
 						ret = -EOPNOTSUPP;
@@ -740,6 +747,7 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 							goto fail;
 						}
 					}
+#endif
 				} else {
 					err();
 					ret = -EINVAL;
@@ -809,6 +817,7 @@ int ret;
 		/* FIXME: handle ciphers that do not require that */
 		*output_size = input_size;
 	} else { /* public key */
+#ifdef CONFIG_ASSYMETRIC
 		ret = ncr_pk_cipher_encrypt(&sess->pk, input, input_cnt, input_size,
 			output, output_cnt, output_size);
 		
@@ -816,6 +825,10 @@ int ret;
 			err();
 			return ret;
 		}
+#else
+		return -EOPNOTSUPP;
+#endif
+
 	}
 	
 	return 0;
@@ -839,6 +852,7 @@ int ret;
 		/* FIXME: handle ciphers that do not require equality */
 		*output_size = input_size;
 	} else { /* public key */
+#ifdef CONFIG_ASSYMETRIC
 		ret = ncr_pk_cipher_decrypt(&sess->pk, input, input_cnt, input_size,
 			output, output_cnt, output_size);
 		
@@ -846,6 +860,10 @@ int ret;
 			err();
 			return ret;
 		}
+#else
+		return -EOPNOTSUPP;
+#endif
+
 	}
 	
 	return 0;
@@ -1190,6 +1208,7 @@ static int _ncr_session_final(struct ncr_lists *lists,
 			ret = (digest_size == src.data_size
 			       && memcmp(buffer, digest, digest_size) == 0);
 		else {
+#ifdef CONFIG_ASSYMETRIC
 			ret = ncr_pk_cipher_verify(&sess->pk, buffer,
 						   src.data_size, digest,
 						   digest_size);
@@ -1197,6 +1216,10 @@ static int _ncr_session_final(struct ncr_lists *lists,
 				err();
 				goto fail;
 			}
+#else
+			ret = -EOPNOTSUPP;
+			goto fail;
+#endif
 		}
 		break;
 	}
@@ -1245,6 +1268,7 @@ static int _ncr_session_final(struct ncr_lists *lists,
 			}
 			output_size = digest_size;
 		} else {
+#ifdef CONFIG_ASSYMETRIC
 			output_size = dst.buffer_size;
 			buffer = kmalloc(output_size, GFP_KERNEL);
 			if (buffer == NULL) {
@@ -1264,6 +1288,10 @@ static int _ncr_session_final(struct ncr_lists *lists,
 				ret = -EFAULT;
 				goto fail;
 			}
+#else
+			ret = -EOPNOTSUPP;
+			goto fail;
+#endif
 		}
 
 		ret = ncr_session_output_buffer_set_size(&dst, output_size,

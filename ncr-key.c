@@ -247,6 +247,7 @@ int ret;
 
 			ret = item->key.secret.size;
 			break;
+#ifdef CONFIG_ASSYMETRIC
 		case NCR_KEY_TYPE_PUBLIC:
 		case NCR_KEY_TYPE_PRIVATE:
 			tmp_size = data->buffer_size;
@@ -273,6 +274,7 @@ int ret;
 			
 			ret = tmp_size;
 			break;
+#endif
 		default:
 			err();
 			ret = -EINVAL;
@@ -376,6 +378,7 @@ size_t tmp_size;
 			memcpy(item->key.secret.data, tmp, tmp_size);
 			item->key.secret.size = tmp_size;
 			break;
+#ifdef CONFIG_ASSYMETRIC
 		case NCR_KEY_TYPE_PRIVATE:
 		case NCR_KEY_TYPE_PUBLIC:
 			ret = ncr_pk_unpack( item, tmp, tmp_size);
@@ -384,7 +387,7 @@ size_t tmp_size;
 				goto fail;
 			}
 			break;
-
+#endif
 		default:
 			err();
 			ret = -EINVAL;
@@ -404,11 +407,13 @@ fail:
 void ncr_key_clear(struct key_item_st* item)
 {
 	/* clears any previously allocated parameters */
+#ifdef CONFIG_ASSYMETRIC
 	if (item->type == NCR_KEY_TYPE_PRIVATE ||
 		item->type == NCR_KEY_TYPE_PUBLIC) {
 		
 		ncr_pk_clear(item);
 	}
+#endif
 	memset(&item->key, 0, sizeof(item->key));
 	memset(item->key_id, 0, sizeof(item->key_id));
 	item->key_id_size = 0;
@@ -491,6 +496,8 @@ fail:
 	return ret;
 }
 
+#ifdef CONFIG_ASSYMETRIC
+
 /* Those values are derived from "ECRYPT II Yearly Report on Algorithms and
  * Keysizes (2009-2010)". It maps the strength of public key algorithms to 
  * symmetric ones. Should be kept up to date.
@@ -548,13 +555,13 @@ int i = 1;
 	return ecrypt_vals[i-1].bits;
 }
 
+#endif
+
 /* returns the security level of the key in bits. Private/Public keys
  * are mapped to symmetric key bits using the ECRYPT II 2010 recommendation.
  */
 int _ncr_key_get_sec_level(struct key_item_st* item)
 {
-int bits;
-
 	/* FIXME: should we move everything here into algorithm properties? 
 	 */
 	if (item->type == NCR_KEY_TYPE_SECRET) {
@@ -562,7 +569,10 @@ int bits;
 			return 112;
 
 		return item->key.secret.size*8;
+#ifdef CONFIG_ASSYMETRIC
 	} else if (item->type == NCR_KEY_TYPE_PRIVATE) {
+		int bits;
+
 		switch(item->algorithm->algo) {
 			case NCR_ALG_RSA:
 				bits = ncr_pk_get_rsa_size(&item->key.pk.rsa);
@@ -591,6 +601,7 @@ int bits;
 			default:
 				return -EINVAL;
 		}
+#endif
 	} else {
 		return -EINVAL;
 	}
@@ -662,6 +673,7 @@ int ncr_key_generate_pair(struct ncr_lists *lst,
 			  const struct ncr_key_generate_pair *gen,
 			  struct nlattr *tb[])
 {
+#ifdef CONFIG_ASSYMETRIC
 struct key_item_st* private = NULL;
 struct key_item_st* public = NULL;
 int ret;
@@ -727,6 +739,9 @@ fail:
 		_ncr_key_item_put(private);
 	}
 	return ret;
+#else
+	return -EOPNOTSUPP;
+#endif
 }
 
 int ncr_key_derive(struct ncr_lists *lst, const struct ncr_key_derive *data,
@@ -765,6 +780,7 @@ struct key_item_st* newkey = NULL;
 	}
 
 	switch (key->type) {
+#ifdef CONFIG_ASSYMETRIC
 		case NCR_KEY_TYPE_PUBLIC:
 		case NCR_KEY_TYPE_PRIVATE:
 			ret = ncr_pk_derive(newkey, key, tb);
@@ -773,6 +789,7 @@ struct key_item_st* newkey = NULL;
 				goto fail;
 			}
 			break;
+#endif
 		default:
 			err();
 			ret = -EINVAL;

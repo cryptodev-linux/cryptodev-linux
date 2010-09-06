@@ -33,6 +33,8 @@
 #include "ncr-int.h"
 #include <tomcrypt.h>
 
+#ifdef CONFIG_ASSYMETRIC
+
 int _ncr_tomerr(int err)
 {
 	switch (err) {
@@ -683,3 +685,5 @@ int ret;
 	
 	return ret;
 }
+
+#endif /* CONFIG_ASSYMETRIC */

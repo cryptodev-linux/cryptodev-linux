@@ -535,6 +535,7 @@ int kek_level, wkey_level;
 int ncr_key_wrap(struct ncr_lists *lst, const struct ncr_key_wrap *wrap,
 		 struct nlattr *tb[])
 {
+#ifdef CONFIG_ASSYMETRIC
 const struct nlattr *nla;
 struct key_item_st* wkey = NULL;
 struct key_item_st* key = NULL;
@@ -638,6 +639,9 @@ fail:
 	kfree(data);
 
 	return ret;
+#else
+	return -EOPNOTSUPP;
+#endif
 }
 
 /* Unwraps keys. All keys unwrapped are not accessible by 
@@ -646,6 +650,7 @@ fail:
 int ncr_key_unwrap(struct ncr_lists *lst, const struct ncr_key_unwrap *wrap,
 		   struct nlattr *tb[])
 {
+#ifdef CONFIG_ASSYMETRIC
 const struct nlattr *nla;
 struct key_item_st* wkey = NULL;
 struct key_item_st* key = NULL;
@@ -715,6 +720,9 @@ fail:
 	if (data != NULL) kfree(data);
 
 	return ret;
+#else
+	return -EOPNOTSUPP;
+#endif
 }
 
 int ncr_key_storage_wrap(struct ncr_lists *lst,
@@ -1050,6 +1058,7 @@ static int key_from_packed_data(struct nlattr *tb[], struct key_item_st *key,
 		}
 		key->key.secret.size = pkey_size;
 		memcpy(key->key.secret.data, pkey, pkey_size);
+#ifdef CONFIG_ASSYMETRIC
 	} else if (key->type == NCR_KEY_TYPE_PUBLIC 
 		|| key->type == NCR_KEY_TYPE_PRIVATE) {
 
@@ -1058,6 +1067,7 @@ static int key_from_packed_data(struct nlattr *tb[], struct key_item_st *key,
 			err();
 			return ret;
 		}
+#endif
 	} else {
 		err();
 		return -EINVAL;
