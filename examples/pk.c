@@ -533,7 +533,7 @@ struct __attribute__((packed)) {
 		kderive.flags_head.nla_len = NLA_HDRLEN + sizeof(kderive.flags);
 		kderive.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
 		kderive.flags = NCR_KEY_FLAG_EXPORTABLE;
-		kderive.public_head.nla_len = NLA_HDRLEN + y2_size;
+		kderive.public_head.nla_len = NLA_HDRLEN + y1_size;
 		kderive.public_head.nla_type = NCR_ATTR_DH_PUBLIC;
 		memcpy(kderive.public, y1, y1_size);
 		nla = (struct nlattr *)((char *)&kderive.public_head
