@@ -1,7 +1,7 @@
 KERNEL_DIR = /lib/modules/$(shell uname -r)/build
 VERSION = 0.99
-CONFIG_ASYMMETRIC=y
-EXTRA_CFLAGS += -DCONFIG_ASSYMETRIC
+CONFIG_CRYPTO_USERSPACE_ASYMMETRIC=y
+EXTRA_CFLAGS += -DCONFIG_CRYPTO_USERSPACE_ASYMMETRIC
 
 EXTRA_CFLAGS += -I$(SUBDIRS)/libtommath -I$(SUBDIRS)/libtomcrypt/headers -I$(SUBDIRS)/ -DLTC_SOURCE -Wall
 
@@ -73,7 +73,7 @@ cryptodev-objs = cryptodev_main.o cryptodev_cipher.o ncr.o \
 
 obj-m += cryptodev.o
 
-cryptodev-$(CONFIG_ASYMMETRIC) += $(TOMMATH_OBJECTS) \
+cryptodev-$(CONFIG_CRYPTO_USERSPACE_ASYMMETRIC) += $(TOMMATH_OBJECTS) \
 	$(TOMCRYPT_OBJECTS) ncr-dh.o ncr-pk.o
 
 build:

@@ -46,10 +46,12 @@ typedef uint8_t val64_t[8];
 
 static const val64_t initA = "\xA6\xA6\xA6\xA6\xA6\xA6\xA6\xA6";
 
+#ifdef CONFIG_CRYPTO_USERSPACE_ASYMMETRIC
 static int key_to_packed_data(uint8_t ** sdata, size_t * sdata_size,
 			      const struct key_item_st *key);
 static int key_from_packed_data(struct nlattr *tb[], struct key_item_st *key,
 				const void *data, size_t data_size);
+#endif
 
 static void val64_xor(val64_t val, uint32_t x)
 {
@@ -277,6 +279,7 @@ cleanup:
 	return ret;
 }
 
+#ifdef CONFIG_CRYPTO_USERSPACE_ASYMMETRIC
 static int wrap_aes_rfc5649(struct key_item_st *tobewrapped,
 			    struct key_item_st *kek, void *output,
 			    size_t * output_size, const void *iv,
@@ -551,7 +554,6 @@ static int check_key_level(struct key_item_st *kek, struct key_item_st *wkey)
 int ncr_key_wrap(struct ncr_lists *lst, const struct ncr_key_wrap *wrap,
 		 struct nlattr *tb[])
 {
-#ifdef CONFIG_ASSYMETRIC
 	const struct nlattr *nla;
 	struct key_item_st *wkey = NULL;
 	struct key_item_st *key = NULL;
@@ -657,9 +659,6 @@ fail:
 	kfree(data);
 
 	return ret;
-#else
-	return -EOPNOTSUPP;
-#endif
 }
 
 /* Unwraps keys. All keys unwrapped are not accessible by 
@@ -668,7 +667,6 @@ fail:
 int ncr_key_unwrap(struct ncr_lists *lst, const struct ncr_key_unwrap *wrap,
 		   struct nlattr *tb[])
 {
-#ifdef CONFIG_ASSYMETRIC
 	const struct nlattr *nla;
 	struct key_item_st *wkey = NULL;
 	struct key_item_st *key = NULL;
@@ -741,10 +739,8 @@ fail:
 		kfree(data);
 
 	return ret;
-#else
-	return -EOPNOTSUPP;
-#endif
 }
+#endif /* CONFIG_CRYPTO_USERSPACE_ASYMMETRIC */
 
 int ncr_key_storage_wrap(struct ncr_lists *lst,
 			 const struct ncr_key_storage_wrap *wrap,
@@ -883,6 +879,8 @@ fail:
 
 	return ret;
 }
+
+#ifdef CONFIG_CRYPTO_USERSPACE_ASYMMETRIC
 
 #define DER_KEY_MAX_SIZE (KEY_DATA_MAX_SIZE+16)
 
@@ -1090,7 +1088,6 @@ static int key_from_packed_data(struct nlattr *tb[], struct key_item_st *key,
 		}
 		key->key.secret.size = pkey_size;
 		memcpy(key->key.secret.data, pkey, pkey_size);
-#ifdef CONFIG_ASSYMETRIC
 	} else if (key->type == NCR_KEY_TYPE_PUBLIC
 		   || key->type == NCR_KEY_TYPE_PRIVATE) {
 
@@ -1099,7 +1096,6 @@ static int key_from_packed_data(struct nlattr *tb[], struct key_item_st *key,
 			err();
 			return ret;
 		}
-#endif
 	} else {
 		err();
 		return -EINVAL;
@@ -1112,3 +1108,4 @@ fail:
 
 	return ret;
 }
+#endif /* CONFIG_CRYPTO_USERSPACE_ASYMMETRIC */

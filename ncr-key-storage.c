@@ -69,7 +69,6 @@ int key_to_storage_data(uint8_t ** sdata, size_t * sdata_size,
 	if (key->type == NCR_KEY_TYPE_SECRET) {
 		pkey->raw_size = key->key.secret.size;
 		memcpy(pkey->raw, key->key.secret.data, pkey->raw_size);
-#ifdef CONFIG_ASSYMETRIC
 	} else if (key->type == NCR_KEY_TYPE_PRIVATE
 		   || key->type == NCR_KEY_TYPE_PUBLIC) {
 		pkey->raw_size = sizeof(pkey->raw);
@@ -78,7 +77,6 @@ int key_to_storage_data(uint8_t ** sdata, size_t * sdata_size,
 			err();
 			goto fail;
 		}
-#endif
 	} else {
 		err();
 		ret = -EINVAL;
@@ -124,7 +122,6 @@ int key_from_storage_data(struct key_item_st *key, const void *data,
 		}
 		key->key.secret.size = pkey->raw_size;
 		memcpy(key->key.secret.data, pkey->raw, pkey->raw_size);
-#ifdef CONFIG_ASSYMETRIC
 	} else if (key->type == NCR_KEY_TYPE_PUBLIC
 		   || key->type == NCR_KEY_TYPE_PRIVATE) {
 		int ret;
@@ -134,7 +131,6 @@ int key_from_storage_data(struct key_item_st *key, const void *data,
 			err();
 			return ret;
 		}
-#endif
 	} else {
 		err();
 		return -EINVAL;

@@ -143,9 +143,18 @@ int ncr_key_generate(struct ncr_lists *lst, const struct ncr_key_generate *gen,
 int ncr_key_get_info(struct ncr_lists *lst, struct ncr_out *out,
 		     const struct ncr_key_get_info *info, struct nlattr *tb[]);
 
+#ifdef CONFIG_CRYPTO_USERSPACE_ASYMMETRIC
 int ncr_key_generate_pair(struct ncr_lists *lst,
 			  const struct ncr_key_generate_pair *gen,
 			  struct nlattr *tb[]);
+#else
+static inline int ncr_key_generate_pair(struct ncr_lists *lst,
+					const struct ncr_key_generate_pair *gen,
+					struct nlattr *tb[])
+{
+	return -EOPNOTSUPP;
+}
+#endif
 int ncr_key_get_public(struct ncr_lists *lst, void __user * arg);
 
 int ncr_key_item_get_read(struct key_item_st **st, struct ncr_lists *lst,
@@ -165,10 +174,25 @@ int ncr_limits_add_and_check(uid_t uid, pid_t pid, limits_type_t type);
 void ncr_limits_init(void);
 void ncr_limits_deinit(void);
 
+#ifdef CONFIG_CRYPTO_USERSPACE_ASYMMETRIC
 int ncr_key_wrap(struct ncr_lists *lst, const struct ncr_key_wrap *wrap,
 		 struct nlattr *tb[]);
 int ncr_key_unwrap(struct ncr_lists *lst, const struct ncr_key_unwrap *wrap,
 		   struct nlattr *tb[]);
+#else
+static inline int ncr_key_wrap(struct ncr_lists *lst,
+			       const struct ncr_key_wrap *wrap,
+			       struct nlattr *tb[])
+{
+	return -EOPNOTSUPP;
+}
+static inline int ncr_key_unwrap(struct ncr_lists *lst,
+				 const struct ncr_key_unwrap *wrap,
+				 struct nlattr *tb[])
+{
+	return -EOPNOTSUPP;
+}
+#endif
 int ncr_key_storage_wrap(struct ncr_lists *lst,
 			 const struct ncr_key_storage_wrap *wrap,
 			 struct nlattr *tb[]);

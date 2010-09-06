@@ -4,7 +4,9 @@
 #include <tomcrypt.h>
 
 struct nlattr;
+struct key_item_st;
 
+#ifdef CONFIG_CRYPTO_USERSPACE_ASYMMETRIC
 struct ncr_pk_ctx {
 	const struct algo_properties_st *algorithm;	/* algorithm */
 
@@ -58,5 +60,19 @@ int ncr_pk_derive(struct key_item_st *newkey, struct key_item_st *oldkey,
 
 int ncr_pk_get_rsa_size(rsa_key * key);
 int ncr_pk_get_dsa_size(dsa_key * key);
+
+#else /* !CONFIG_CRYPTO_USERSPACE_ASYMMETRIC */
+struct ncr_pk_ctx {};
+#define ncr_pk_clear(key) ((void)0)
+#define ncr_pk_pack(key, packed, packed_size) (-EOPNOTSUPP)
+#define ncr_pk_unpack(key, packed, packed_size) (-EOPNOTSUPP)
+#define ncr_pk_cipher_init(algo, ctx, tb, key, sign_hash) (-EOPNOTSUPP)
+#define ncr_pk_cipher_deinit(ctx) ((void)0)
+#define ncr_pk_cipher_encrypt(ctx, i, icnt, isize, o, ocnt, osize) (-EOPNOTSUPP)
+#define ncr_pk_cipher_decrypt(ctx, i, icnt, isize, o, ocnt, osize) (-EOPNOTSUPP)
+#define ncr_pk_cipher_sign(ctx, hash, hash_size, sig, sig_size) (-EOPNOTSUPP)
+#define ncr_pk_cipher_verify(ctx, sig, sig_size, hash, hash_size) (-EOPNOTSUPP)
+#define ncr_pk_derive(newkey, oldkey, tb) (-EOPNOTSUPP)
+#endif /* !CONFIG_CRYPTO_USERSPACE_ASYMMETRIC */
 
 #endif

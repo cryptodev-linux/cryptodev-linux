@@ -33,7 +33,7 @@
 #include "ncr-int.h"
 #include <tomcrypt.h>
 
-#ifdef CONFIG_ASSYMETRIC
+#ifdef CONFIG_CRYPTO_USERSPACE_ASYMMETRIC
 
 int _ncr_tomerr(int err)
 {
@@ -709,4 +709,4 @@ int ncr_pk_get_dsa_size(dsa_key * key)
 	return ret;
 }
 
-#endif /* CONFIG_ASSYMETRIC */
+#endif /* CONFIG_CRYPTO_USERSPACE_ASYMMETRIC */
