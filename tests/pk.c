@@ -23,10 +23,9 @@
 #if GNUTLS_VERSION_NUMBER >= 0x020b00
 # include <gnutls/abstract.h>
 #endif
+#include "utils.h"
 
 #define DATA_SIZE 4096
-
-#define ALIGN_NL __attribute__((aligned(NLA_ALIGNTO)))
 
 #define SIGNATURE_HASH "sha1"
 #define SIGNATURE_HASH_SIZE 20
@@ -335,14 +334,7 @@ const char dh_params_txt[] = "-----BEGIN DH PARAMETERS-----\n"
 
 static int test_ncr_dh(int cfd)
 {
-	struct __attribute__ ((packed)) {
-		struct ncr_key_generate_pair f;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(ALG_DH)] ALIGN_NL;
-		struct nlattr flags_head ALIGN_NL;
-		uint32_t flags ALIGN_NL;
-		unsigned char buffer[DATA_SIZE] ALIGN_NL;
-	} kgen;
+	NCR_STRUCT(ncr_key_generate_pair) kgen;
 	struct nlattr *nla;
 	ncr_key_t private1, public1, public2, private2;
 	ncr_key_t z1, z2;
@@ -352,15 +344,7 @@ static int test_ncr_dh(int cfd)
 	unsigned char y1[1024], y2[1024];
 	ssize_t y1_size, y2_size;
 	struct ncr_key_export kexport;
-	struct __attribute__ ((packed)) {
-		struct ncr_key_derive f;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(NCR_DERIVE_DH)] ALIGN_NL;
-		struct nlattr flags_head ALIGN_NL;
-		uint32_t flags ALIGN_NL;
-		struct nlattr public_head ALIGN_NL;
-		unsigned char public[DATA_SIZE] ALIGN_NL;
-	} kderive;
+	NCR_STRUCT(ncr_key_derive) kderive;
 
 	fprintf(stdout, "Tests on DH key exchange:");
 	fflush(stdout);
@@ -405,25 +389,14 @@ static int test_ncr_dh(int cfd)
 			return 1;
 		}
 
-		memset(&kgen.f, 0, sizeof(kgen.f));
+		nla = NCR_INIT(kgen);
 		kgen.f.private_key = private1;
 		kgen.f.public_key = public1;
-		kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
-		kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-		strcpy(kgen.algo, ALG_DH);
-		kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
-		kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-		kgen.flags = NCR_KEY_FLAG_EXPORTABLE;
-		nla = (struct nlattr *)kgen.buffer;
-		nla->nla_len = NLA_HDRLEN + p.size;
-		nla->nla_type = NCR_ATTR_DH_PRIME;
-		memcpy((char *)nla + NLA_HDRLEN, p.data, p.size);
-		nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
-		nla->nla_len = NLA_HDRLEN + g.size;
-		nla->nla_type = NCR_ATTR_DH_BASE;
-		memcpy((char *)nla + NLA_HDRLEN, g.data, g.size);
-		nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
-		kgen.f.input_size = (char *)nla - (char *)&kgen;
+		ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_DH);
+		ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, NCR_KEY_FLAG_EXPORTABLE);
+		ncr_put(&nla, NCR_ATTR_DH_PRIME, p.data, p.size);
+		ncr_put(&nla, NCR_ATTR_DH_BASE, g.data, g.size);
+		NCR_FINISH(kgen, nla);
 		assert(kgen.f.input_size <= sizeof(kgen));
 
 		if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
@@ -447,25 +420,14 @@ static int test_ncr_dh(int cfd)
 			return 1;
 		}
 
-		memset(&kgen.f, 0, sizeof(kgen.f));
+		nla = NCR_INIT(kgen);
 		kgen.f.private_key = private2;
 		kgen.f.public_key = public2;
-		kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
-		kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-		strcpy(kgen.algo, ALG_DH);
-		kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
-		kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-		kgen.flags = NCR_KEY_FLAG_EXPORTABLE;
-		nla = (struct nlattr *)kgen.buffer;
-		nla->nla_len = NLA_HDRLEN + p.size;
-		nla->nla_type = NCR_ATTR_DH_PRIME;
-		memcpy((char *)nla + NLA_HDRLEN, p.data, p.size);
-		nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
-		nla->nla_len = NLA_HDRLEN + g.size;
-		nla->nla_type = NCR_ATTR_DH_BASE;
-		memcpy((char *)nla + NLA_HDRLEN, g.data, g.size);
-		nla = (struct nlattr *)((char *)nla + NLA_ALIGN(nla->nla_len));
-		kgen.f.input_size = (char *)nla - (char *)&kgen;
+		ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_DH);
+		ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, NCR_KEY_FLAG_EXPORTABLE);
+		ncr_put(&nla, NCR_ATTR_DH_PRIME, p.data, p.size);
+		ncr_put(&nla, NCR_ATTR_DH_BASE, g.data, g.size);
+		NCR_FINISH(kgen, nla);
 		assert(kgen.f.input_size <= sizeof(kgen));
 
 		if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
@@ -508,22 +470,14 @@ static int test_ncr_dh(int cfd)
 			return 1;
 		}
 
-		memset(&kderive.f, 0, sizeof(kderive.f));
+		nla = NCR_INIT(kderive);
 		kderive.f.input_key = private1;
 		kderive.f.new_key = z1;
-		kderive.algo_head.nla_len = NLA_HDRLEN + sizeof(kderive.algo);
-		kderive.algo_head.nla_type = NCR_ATTR_DERIVATION_ALGORITHM;
-		strcpy(kderive.algo, NCR_DERIVE_DH);
-		kderive.flags_head.nla_len = NLA_HDRLEN + sizeof(kderive.flags);
-		kderive.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-		kderive.flags = NCR_KEY_FLAG_EXPORTABLE;
-		kderive.public_head.nla_len = NLA_HDRLEN + y2_size;
-		kderive.public_head.nla_type = NCR_ATTR_DH_PUBLIC;
-		memcpy(kderive.public, y2, y2_size);
-		nla = (struct nlattr *)((char *)&kderive.public_head
-					+
-					NLA_ALIGN(kderive.public_head.nla_len));
-		kderive.f.input_size = (char *)nla - (char *)&kderive;
+		ncr_put_string(&nla, NCR_ATTR_DERIVATION_ALGORITHM,
+			       NCR_DERIVE_DH);
+		ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, NCR_KEY_FLAG_EXPORTABLE);
+		ncr_put(&nla, NCR_ATTR_DH_PUBLIC, y2, y2_size);
+		NCR_FINISH(kderive, nla);
 		assert(kderive.f.input_size <= sizeof(kderive));
 
 		if (ioctl(cfd, NCRIO_KEY_DERIVE, &kderive)) {
@@ -540,22 +494,14 @@ static int test_ncr_dh(int cfd)
 			return 1;
 		}
 
-		memset(&kderive.f, 0, sizeof(kderive.f));
+		nla = NCR_INIT(kderive);
 		kderive.f.input_key = private2;
 		kderive.f.new_key = z2;
-		kderive.algo_head.nla_len = NLA_HDRLEN + sizeof(kderive.algo);
-		kderive.algo_head.nla_type = NCR_ATTR_DERIVATION_ALGORITHM;
-		strcpy(kderive.algo, NCR_DERIVE_DH);
-		kderive.flags_head.nla_len = NLA_HDRLEN + sizeof(kderive.flags);
-		kderive.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-		kderive.flags = NCR_KEY_FLAG_EXPORTABLE;
-		kderive.public_head.nla_len = NLA_HDRLEN + y1_size;
-		kderive.public_head.nla_type = NCR_ATTR_DH_PUBLIC;
-		memcpy(kderive.public, y1, y1_size);
-		nla = (struct nlattr *)((char *)&kderive.public_head
-					+
-					NLA_ALIGN(kderive.public_head.nla_len));
-		kderive.f.input_size = (char *)nla - (char *)&kderive;
+		ncr_put_string(&nla, NCR_ATTR_DERIVATION_ALGORITHM,
+			       NCR_DERIVE_DH);
+		ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, NCR_KEY_FLAG_EXPORTABLE);
+		ncr_put(&nla, NCR_ATTR_DH_PUBLIC, y1, y1_size);
+		NCR_FINISH(kderive, nla);
 		assert(kderive.f.input_size <= sizeof(kderive));
 
 		if (ioctl(cfd, NCRIO_KEY_DERIVE, &kderive)) {
@@ -649,39 +595,11 @@ static int test_ncr_wrap_key3(int cfd)
 	int ret, i;
 	ncr_key_t key;
 	size_t data_size;
-	struct __attribute__ ((packed)) {
-		struct ncr_key_import f;
-		struct nlattr id_head ALIGN_NL;
-		uint8_t id[2] ALIGN_NL;
-		struct nlattr type_head ALIGN_NL;
-		uint32_t type ALIGN_NL;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(ALG_AES_CBC)] ALIGN_NL;
-		struct nlattr flags_head ALIGN_NL;
-		uint32_t flags ALIGN_NL;
-	} kimport;
-	struct __attribute__ ((packed)) {
-		struct ncr_key_wrap f;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(NCR_WALG_AES_RFC5649)] ALIGN_NL;
-	}
-	kwrap;
-	struct __attribute__ ((packed)) {
-		struct ncr_key_unwrap f;
-		struct nlattr wrap_algo_head ALIGN_NL;
-		char wrap_algo[sizeof(NCR_WALG_AES_RFC5649)] ALIGN_NL;
-		struct nlattr flags_head ALIGN_NL;
-		uint32_t flags ALIGN_NL;
-	} kunwrap;
-	struct __attribute__ ((packed)) {
-		struct ncr_key_generate_pair f;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(ALG_RSA)] ALIGN_NL;
-		struct nlattr flags_head ALIGN_NL;
-		uint32_t flags ALIGN_NL;
-		struct nlattr bits_head ALIGN_NL;
-		uint32_t bits ALIGN_NL;
-	} kgen;
+	NCR_STRUCT(ncr_key_import) kimport;
+	NCR_STRUCT(ncr_key_wrap) kwrap;
+	NCR_STRUCT(ncr_key_unwrap) kunwrap;
+	NCR_STRUCT(ncr_key_generate_pair) kgen;
+	struct nlattr *nla;
 	ncr_key_t pubkey, privkey;
 	uint8_t data[DATA_SIZE];
 	/* only the first two should be allowed to be wrapped.
@@ -722,27 +640,18 @@ static int test_ncr_wrap_key3(int cfd)
 		return 1;
 	}
 
-	memset(&kimport.f, 0, sizeof(kimport.f));
-	kimport.f.input_size = sizeof(kimport);
+	nla = NCR_INIT(kimport);
 	kimport.f.key = key;
 	kimport.f.data =
 	    "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
 	kimport.f.data_size = 16;
-	kimport.id_head.nla_len = NLA_HDRLEN + sizeof(kimport.id);
-	kimport.id_head.nla_type = NCR_ATTR_KEY_ID;
-	kimport.id[0] = 'a';
-	kimport.id[1] = 'b';
-	kimport.type_head.nla_len = NLA_HDRLEN + sizeof(kimport.type);
-	kimport.type_head.nla_type = NCR_ATTR_KEY_TYPE;
-	kimport.type = NCR_KEY_TYPE_SECRET;
-	kimport.algo_head.nla_len = NLA_HDRLEN + sizeof(kimport.algo);
-	kimport.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(kimport.algo, ALG_AES_CBC);
-	kimport.flags_head.nla_len = NLA_HDRLEN + sizeof(kimport.flags);
-	kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kimport.flags =
-	    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPING |
-	    NCR_KEY_FLAG_UNWRAPPING;
+	ncr_put(&nla, NCR_ATTR_KEY_ID, "ab", 2);
+	ncr_put_u32(&nla, NCR_ATTR_KEY_TYPE, NCR_KEY_TYPE_SECRET);
+	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_AES_CBC);
+	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
+		    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPING
+		    | NCR_KEY_FLAG_UNWRAPPING);
+	NCR_FINISH(kimport, nla);
 
 	if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -755,19 +664,14 @@ static int test_ncr_wrap_key3(int cfd)
 		fprintf(stdout, ".");
 		fflush(stdout);
 
-		memset(&kgen.f, 0, sizeof(kgen.f));
-		kgen.f.input_size = sizeof(kgen);
+		nla = NCR_INIT(kgen);
 		kgen.f.private_key = privkey;
 		kgen.f.public_key = pubkey;
-		kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
-		kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-		strcpy(kgen.algo, ALG_RSA);
-		kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
-		kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-		kgen.flags = NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE;
-		kgen.bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.bits);
-		kgen.bits_head.nla_type = NCR_ATTR_RSA_MODULUS_BITS;
-		kgen.bits = sizes[i];
+		ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_RSA);
+		ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
+			    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE);
+		ncr_put_u32(&nla, NCR_ATTR_RSA_MODULUS_BITS, sizes[i]);
+		NCR_FINISH(kgen, nla);
 
 		if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
 			fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i],
@@ -777,15 +681,14 @@ static int test_ncr_wrap_key3(int cfd)
 		}
 
 		/* now try wrapping key2 using key */
-		memset(&kwrap.f, 0, sizeof(kwrap.f));
-		kwrap.f.input_size = sizeof(kwrap);
+		nla = NCR_INIT(kwrap);
 		kwrap.f.wrapping_key = key;
 		kwrap.f.source_key = pubkey;
 		kwrap.f.buffer = data;
 		kwrap.f.buffer_size = sizeof(data);
-		kwrap.algo_head.nla_len = NLA_HDRLEN + sizeof(kwrap.algo);
-		kwrap.algo_head.nla_type = NCR_ATTR_WRAPPING_ALGORITHM;
-		strcpy(kwrap.algo, NCR_WALG_AES_RFC5649);
+		ncr_put_string(&nla, NCR_ATTR_WRAPPING_ALGORITHM,
+			       NCR_WALG_AES_RFC5649);
+		NCR_FINISH(kwrap, nla);
 
 		ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
 		if (ret < 0) {
@@ -796,15 +699,14 @@ static int test_ncr_wrap_key3(int cfd)
 		}
 
 		/* now try wrapping private using key */
-		memset(&kwrap.f, 0, sizeof(kwrap.f));
-		kwrap.f.input_size = sizeof(kwrap);
+		nla = NCR_INIT(kwrap);
 		kwrap.f.wrapping_key = key;
 		kwrap.f.source_key = privkey;
 		kwrap.f.buffer = data;
 		kwrap.f.buffer_size = sizeof(data);
-		kwrap.algo_head.nla_len = NLA_HDRLEN + sizeof(kwrap.algo);
-		kwrap.algo_head.nla_type = NCR_ATTR_WRAPPING_ALGORITHM;
-		strcpy(kwrap.algo, NCR_WALG_AES_RFC5649);
+		ncr_put_string(&nla, NCR_ATTR_WRAPPING_ALGORITHM,
+			       NCR_WALG_AES_RFC5649);
+		NCR_FINISH(kwrap, nla);
 
 		ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
 		if (ret < 0 && i != 2) {
@@ -823,21 +725,15 @@ static int test_ncr_wrap_key3(int cfd)
 			data_size = ret;
 
 			/* try unwrapping */
-			memset(&kunwrap.f, 0, sizeof(kunwrap.f));
-			kunwrap.f.input_size = sizeof(kunwrap);
+			nla = NCR_INIT(kunwrap);
 			kunwrap.f.wrapping_key = key;
 			kunwrap.f.dest_key = privkey;
 			kunwrap.f.data = data;
 			kunwrap.f.data_size = data_size;
-			kunwrap.wrap_algo_head.nla_len
-			    = NLA_HDRLEN + sizeof(kunwrap.wrap_algo);
-			kunwrap.wrap_algo_head.nla_type
-			    = NCR_ATTR_WRAPPING_ALGORITHM;
-			strcpy(kunwrap.wrap_algo, NCR_WALG_AES_RFC5649);
-			kunwrap.flags_head.nla_len
-			    = NLA_HDRLEN + sizeof(kunwrap.flags);
-			kunwrap.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-			kunwrap.flags = 0;
+			ncr_put_string(&nla, NCR_ATTR_WRAPPING_ALGORITHM,
+				       NCR_WALG_AES_RFC5649);
+			ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, 0);
+			NCR_FINISH(kunwrap, nla);
 
 			ret = ioctl(cfd, NCRIO_KEY_UNWRAP, &kunwrap);
 			if (ret) {
@@ -860,21 +756,8 @@ static int test_ncr_wrap_key3(int cfd)
 static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey,
 			   int oaep)
 {
-	struct __attribute__ ((packed)) {
-		struct ncr_session_once f;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(ALG_RSA)] ALIGN_NL;
-		struct nlattr key_head ALIGN_NL;
-		uint32_t key ALIGN_NL;
-		struct nlattr rsa_head ALIGN_NL;
-		uint32_t rsa ALIGN_NL;
-		struct nlattr oaep_hash_head ALIGN_NL;
-		char oaep_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
-		struct nlattr input_head ALIGN_NL;
-		struct ncr_session_input_data input ALIGN_NL;
-		struct nlattr output_head ALIGN_NL;
-		struct ncr_session_output_buffer output ALIGN_NL;
-	} op;
+	NCR_STRUCT(ncr_session_once) op;
+	struct nlattr *nla;
 	uint8_t data[DATA_SIZE];
 	uint8_t vdata[RSA_ENCRYPT_SIZE];
 	size_t enc_size, dec_size;
@@ -887,34 +770,19 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey,
 	memcpy(vdata, data, sizeof(vdata));
 
 	/* do encryption */
-	memset(&op.f, 0, sizeof(op.f));
-	op.f.input_size = sizeof(op);
+	nla = NCR_INIT(op);
 	op.f.op = NCR_OP_ENCRYPT;
-	op.algo_head.nla_len = NLA_HDRLEN + sizeof(op.algo);
-	op.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(op.algo, ALG_RSA);
-	op.key_head.nla_len = NLA_HDRLEN + sizeof(op.key);
-	op.key_head.nla_type = NCR_ATTR_KEY;
-	op.key = pubkey;
-	op.rsa_head.nla_len = NLA_HDRLEN + sizeof(op.rsa);
-	op.rsa_head.nla_type = NCR_ATTR_RSA_ENCODING_METHOD;
-	if (oaep) {
-		op.rsa = RSA_PKCS1_OAEP;
-	} else {
-		op.rsa = RSA_PKCS1_V1_5;
-	}
-	op.oaep_hash_head.nla_len = NLA_HDRLEN + sizeof(op.oaep_hash);
-	op.oaep_hash_head.nla_type = NCR_ATTR_RSA_OAEP_HASH_ALGORITHM;
-	strcpy(op.oaep_hash, SIGNATURE_HASH);	/* Ignored if not using OAEP */
-	op.input_head.nla_len = NLA_HDRLEN + sizeof(op.input);
-	op.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
-	op.input.data = data;
-	op.input.data_size = RSA_ENCRYPT_SIZE;
-	op.output_head.nla_len = NLA_HDRLEN + sizeof(op.output);
-	op.output_head.nla_type = NCR_ATTR_UPDATE_OUTPUT_BUFFER;
-	op.output.buffer = data;
-	op.output.buffer_size = sizeof(data);
-	op.output.result_size_ptr = &enc_size;
+	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_RSA);
+	ncr_put_u32(&nla, NCR_ATTR_KEY, pubkey);
+	ncr_put_u32(&nla, NCR_ATTR_RSA_ENCODING_METHOD,
+		    oaep ? RSA_PKCS1_OAEP : RSA_PKCS1_V1_5);
+	ncr_put_string(&nla, NCR_ATTR_RSA_OAEP_HASH_ALGORITHM,
+		       SIGNATURE_HASH);	/* Ignored if not using OAEP */
+	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
+				   RSA_ENCRYPT_SIZE);
+	ncr_put_session_output_buffer(&nla, NCR_ATTR_UPDATE_OUTPUT_BUFFER, data,
+				      sizeof(data), &enc_size);
+	NCR_FINISH(op, nla);
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &op)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -923,34 +791,19 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey,
 	}
 
 	/* decrypt data */
-	memset(&op.f, 0, sizeof(op.f));
-	op.f.input_size = sizeof(op);
+	nla = NCR_INIT(op);
 	op.f.op = NCR_OP_DECRYPT;
-	op.algo_head.nla_len = NLA_HDRLEN + sizeof(op.algo);
-	op.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(op.algo, ALG_RSA);
-	op.key_head.nla_len = NLA_HDRLEN + sizeof(op.key);
-	op.key_head.nla_type = NCR_ATTR_KEY;
-	op.key = privkey;
-	op.rsa_head.nla_len = NLA_HDRLEN + sizeof(op.rsa);
-	op.rsa_head.nla_type = NCR_ATTR_RSA_ENCODING_METHOD;
-	if (oaep) {
-		op.rsa = RSA_PKCS1_OAEP;
-	} else {
-		op.rsa = RSA_PKCS1_V1_5;
-	}
-	op.oaep_hash_head.nla_len = NLA_HDRLEN + sizeof(op.oaep_hash);
-	op.oaep_hash_head.nla_type = NCR_ATTR_RSA_OAEP_HASH_ALGORITHM;
-	strcpy(op.oaep_hash, SIGNATURE_HASH);	/* Ignored if not using OAEP */
-	op.input_head.nla_len = NLA_HDRLEN + sizeof(op.input);
-	op.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
-	op.input.data = data;
-	op.input.data_size = enc_size;
-	op.output_head.nla_len = NLA_HDRLEN + sizeof(op.output);
-	op.output_head.nla_type = NCR_ATTR_UPDATE_OUTPUT_BUFFER;
-	op.output.buffer = data;
-	op.output.buffer_size = sizeof(data);
-	op.output.result_size_ptr = &dec_size;
+	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_RSA);
+	ncr_put_u32(&nla, NCR_ATTR_KEY, privkey);
+	ncr_put_u32(&nla, NCR_ATTR_RSA_ENCODING_METHOD,
+		    oaep ? RSA_PKCS1_OAEP :  RSA_PKCS1_V1_5);
+	ncr_put_string(&nla, NCR_ATTR_RSA_OAEP_HASH_ALGORITHM,
+		       SIGNATURE_HASH);	/* Ignored if not using OAEP */
+	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
+				   enc_size);
+	ncr_put_session_output_buffer(&nla, NCR_ATTR_UPDATE_OUTPUT_BUFFER, data,
+				      sizeof(data), &dec_size);
+	NCR_FINISH(op, nla);
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &op)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -976,36 +829,9 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey,
 static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey,
 			       int pss)
 {
-	struct __attribute__ ((packed)) {
-		struct ncr_session_once f;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(ALG_RSA)] ALIGN_NL;
-		struct nlattr key_head ALIGN_NL;
-		uint32_t key ALIGN_NL;
-		struct nlattr rsa_head ALIGN_NL;
-		uint32_t rsa ALIGN_NL;
-		struct nlattr sign_hash_head ALIGN_NL;
-		char sign_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
-		struct nlattr input_head ALIGN_NL;
-		struct ncr_session_input_data input ALIGN_NL;
-		struct nlattr signature_head ALIGN_NL;
-		struct ncr_session_output_buffer signature ALIGN_NL;
-	} ksign;
-	struct __attribute__ ((packed)) {
-		struct ncr_session_once f;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(ALG_RSA)] ALIGN_NL;
-		struct nlattr key_head ALIGN_NL;
-		uint32_t key ALIGN_NL;
-		struct nlattr rsa_head ALIGN_NL;
-		uint32_t rsa ALIGN_NL;
-		struct nlattr sign_hash_head ALIGN_NL;
-		char sign_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
-		struct nlattr input_head ALIGN_NL;
-		struct ncr_session_input_data input ALIGN_NL;
-		struct nlattr signature_head ALIGN_NL;
-		struct ncr_session_input_data signature ALIGN_NL;
-	} kverify;
+	NCR_STRUCT(ncr_session_once) ksign;
+	NCR_STRUCT(ncr_session_once) kverify;
+	struct nlattr *nla;
 	uint8_t data[DATA_SIZE];
 	uint8_t sig[DATA_SIZE];
 	size_t sig_size;
@@ -1018,30 +844,18 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey,
 	memset(data, 0x3, sizeof(data));
 
 	/* sign data */
-	memset(&ksign.f, 0, sizeof(ksign.f));
-	ksign.f.input_size = sizeof(ksign);
+	nla = NCR_INIT(ksign);
 	ksign.f.op = NCR_OP_SIGN;
-	ksign.algo_head.nla_len = NLA_HDRLEN + sizeof(ksign.algo);
-	ksign.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(ksign.algo, ALG_RSA);
-	ksign.key_head.nla_len = NLA_HDRLEN + sizeof(ksign.key);
-	ksign.key_head.nla_type = NCR_ATTR_KEY;
-	ksign.key = privkey;
-	ksign.rsa_head.nla_len = NLA_HDRLEN + sizeof(ksign.rsa);
-	ksign.rsa_head.nla_type = NCR_ATTR_RSA_ENCODING_METHOD;
-	ksign.rsa = (pss != 0) ? RSA_PKCS1_PSS : RSA_PKCS1_V1_5;
-	ksign.sign_hash_head.nla_len = NLA_HDRLEN + sizeof(ksign.sign_hash);
-	ksign.sign_hash_head.nla_type = NCR_ATTR_SIGNATURE_HASH_ALGORITHM;
-	strcpy(ksign.sign_hash, SIGNATURE_HASH);
-	ksign.input_head.nla_len = NLA_HDRLEN + sizeof(ksign.input);
-	ksign.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
-	ksign.input.data = data;
-	ksign.input.data_size = DATA_TO_SIGN;
-	ksign.signature_head.nla_len = NLA_HDRLEN + sizeof(ksign.signature);
-	ksign.signature_head.nla_type = NCR_ATTR_FINAL_OUTPUT_BUFFER;
-	ksign.signature.buffer = sig;
-	ksign.signature.buffer_size = sizeof(sig);
-	ksign.signature.result_size_ptr = &sig_size;
+	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_RSA);
+	ncr_put_u32(&nla, NCR_ATTR_KEY, privkey);
+	ncr_put_u32(&nla, NCR_ATTR_RSA_ENCODING_METHOD,
+		    (pss != 0) ? RSA_PKCS1_PSS : RSA_PKCS1_V1_5);
+	ncr_put_string(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
+	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
+				   DATA_TO_SIGN);
+	ncr_put_session_output_buffer(&nla, NCR_ATTR_FINAL_OUTPUT_BUFFER, sig,
+				      sizeof(sig), &sig_size);
+	NCR_FINISH(ksign, nla);
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &ksign)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -1052,29 +866,18 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey,
 	/* verify signature */
 	memset(data, 0x3, sizeof(data));
 
-	memset(&kverify.f, 0, sizeof(kverify.f));
-	kverify.f.input_size = sizeof(kverify);
+	nla = NCR_INIT(kverify);
 	kverify.f.op = NCR_OP_VERIFY;
-	kverify.algo_head.nla_len = NLA_HDRLEN + sizeof(kverify.algo);
-	kverify.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(kverify.algo, ALG_RSA);
-	kverify.key_head.nla_len = NLA_HDRLEN + sizeof(kverify.key);
-	kverify.key_head.nla_type = NCR_ATTR_KEY;
-	kverify.key = pubkey;
-	kverify.rsa_head.nla_len = NLA_HDRLEN + sizeof(kverify.rsa);
-	kverify.rsa_head.nla_type = NCR_ATTR_RSA_ENCODING_METHOD;
-	kverify.rsa = (pss != 0) ? RSA_PKCS1_PSS : RSA_PKCS1_V1_5;
-	kverify.sign_hash_head.nla_len = NLA_HDRLEN + sizeof(kverify.sign_hash);
-	kverify.sign_hash_head.nla_type = NCR_ATTR_SIGNATURE_HASH_ALGORITHM;
-	strcpy(kverify.sign_hash, SIGNATURE_HASH);
-	kverify.input_head.nla_len = NLA_HDRLEN + sizeof(kverify.input);
-	kverify.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
-	kverify.input.data = data;
-	kverify.input.data_size = DATA_TO_SIGN;
-	kverify.signature_head.nla_len = NLA_HDRLEN + sizeof(kverify.signature);
-	kverify.signature_head.nla_type = NCR_ATTR_FINAL_INPUT_DATA;
-	kverify.signature.data = sig;
-	kverify.signature.data_size = sig_size;
+	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_RSA);
+	ncr_put_u32(&nla, NCR_ATTR_KEY, pubkey);
+	ncr_put_u32(&nla, NCR_ATTR_RSA_ENCODING_METHOD,
+		    (pss != 0) ? RSA_PKCS1_PSS : RSA_PKCS1_V1_5);
+	ncr_put_string(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
+	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
+				   DATA_TO_SIGN);
+	ncr_put_session_input_data(&nla, NCR_ATTR_FINAL_INPUT_DATA, sig,
+				   sig_size);
+	NCR_FINISH(kverify, nla);
 
 	ret = ioctl(cfd, NCRIO_SESSION_ONCE, &kverify);
 	if (ret < 0) {
@@ -1097,36 +900,9 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey,
 static int rsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 					   ncr_key_t pubkey, int pss)
 {
-	struct __attribute__ ((packed)) {
-		struct ncr_session_once f;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(NCR_ALG_RSA_TRANSPARENT_HASH)] ALIGN_NL;
-		struct nlattr key_head ALIGN_NL;
-		uint32_t key ALIGN_NL;
-		struct nlattr rsa_head ALIGN_NL;
-		uint32_t rsa ALIGN_NL;
-		struct nlattr sign_hash_head ALIGN_NL;
-		char sign_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
-		struct nlattr input_head ALIGN_NL;
-		struct ncr_session_input_data input ALIGN_NL;
-		struct nlattr signature_head ALIGN_NL;
-		struct ncr_session_output_buffer signature ALIGN_NL;
-	} ksign;
-	struct __attribute__ ((packed)) {
-		struct ncr_session_once f;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(NCR_ALG_RSA_TRANSPARENT_HASH)] ALIGN_NL;
-		struct nlattr key_head ALIGN_NL;
-		uint32_t key ALIGN_NL;
-		struct nlattr rsa_head ALIGN_NL;
-		uint32_t rsa ALIGN_NL;
-		struct nlattr sign_hash_head ALIGN_NL;
-		char sign_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
-		struct nlattr input_head ALIGN_NL;
-		struct ncr_session_input_data input ALIGN_NL;
-		struct nlattr signature_head ALIGN_NL;
-		struct ncr_session_input_data signature ALIGN_NL;
-	} kverify;
+	NCR_STRUCT(ncr_session_once) ksign;
+	NCR_STRUCT(ncr_session_once) kverify;
+	struct nlattr *nla;
 	uint8_t data[SIGNATURE_HASH_SIZE];
 	uint8_t sig[DATA_SIZE];
 	size_t sig_size;
@@ -1139,30 +915,18 @@ static int rsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 	memset(data, 0x3, sizeof(data));
 
 	/* sign data */
-	memset(&ksign.f, 0, sizeof(ksign.f));
-	ksign.f.input_size = sizeof(ksign);
+	nla = NCR_INIT(ksign);
 	ksign.f.op = NCR_OP_SIGN;
-	ksign.algo_head.nla_len = NLA_HDRLEN + sizeof(ksign.algo);
-	ksign.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(ksign.algo, NCR_ALG_RSA_TRANSPARENT_HASH);
-	ksign.key_head.nla_len = NLA_HDRLEN + sizeof(ksign.key);
-	ksign.key_head.nla_type = NCR_ATTR_KEY;
-	ksign.key = privkey;
-	ksign.rsa_head.nla_len = NLA_HDRLEN + sizeof(ksign.rsa);
-	ksign.rsa_head.nla_type = NCR_ATTR_RSA_ENCODING_METHOD;
-	ksign.rsa = (pss != 0) ? RSA_PKCS1_PSS : RSA_PKCS1_V1_5;
-	ksign.sign_hash_head.nla_len = NLA_HDRLEN + sizeof(ksign.sign_hash);
-	ksign.sign_hash_head.nla_type = NCR_ATTR_SIGNATURE_HASH_ALGORITHM;
-	strcpy(ksign.sign_hash, SIGNATURE_HASH);
-	ksign.input_head.nla_len = NLA_HDRLEN + sizeof(ksign.input);
-	ksign.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
-	ksign.input.data = data;
-	ksign.input.data_size = SIGNATURE_HASH_SIZE;
-	ksign.signature_head.nla_len = NLA_HDRLEN + sizeof(ksign.signature);
-	ksign.signature_head.nla_type = NCR_ATTR_FINAL_OUTPUT_BUFFER;
-	ksign.signature.buffer = sig;
-	ksign.signature.buffer_size = sizeof(sig);
-	ksign.signature.result_size_ptr = &sig_size;
+	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_RSA_TRANSPARENT_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_KEY, privkey);
+	ncr_put_u32(&nla, NCR_ATTR_RSA_ENCODING_METHOD,
+		    (pss != 0) ? RSA_PKCS1_PSS : RSA_PKCS1_V1_5);
+	ncr_put_string(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
+	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
+				   SIGNATURE_HASH_SIZE);
+	ncr_put_session_output_buffer(&nla, NCR_ATTR_FINAL_OUTPUT_BUFFER, sig,
+				      sizeof(sig), &sig_size);
+	NCR_FINISH(ksign, nla);
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &ksign)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -1173,29 +937,18 @@ static int rsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 	/* verify signature */
 	memset(data, 0x3, sizeof(data));
 
-	memset(&kverify.f, 0, sizeof(kverify.f));
-	kverify.f.input_size = sizeof(kverify);
+	nla = NCR_INIT(kverify);
 	kverify.f.op = NCR_OP_VERIFY;
-	kverify.algo_head.nla_len = NLA_HDRLEN + sizeof(kverify.algo);
-	kverify.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(kverify.algo, NCR_ALG_RSA_TRANSPARENT_HASH);
-	kverify.key_head.nla_len = NLA_HDRLEN + sizeof(kverify.key);
-	kverify.key_head.nla_type = NCR_ATTR_KEY;
-	kverify.key = pubkey;
-	kverify.rsa_head.nla_len = NLA_HDRLEN + sizeof(kverify.rsa);
-	kverify.rsa_head.nla_type = NCR_ATTR_RSA_ENCODING_METHOD;
-	kverify.rsa = (pss != 0) ? RSA_PKCS1_PSS : RSA_PKCS1_V1_5;
-	kverify.sign_hash_head.nla_len = NLA_HDRLEN + sizeof(kverify.sign_hash);
-	kverify.sign_hash_head.nla_type = NCR_ATTR_SIGNATURE_HASH_ALGORITHM;
-	strcpy(kverify.sign_hash, SIGNATURE_HASH);
-	kverify.input_head.nla_len = NLA_HDRLEN + sizeof(kverify.input);
-	kverify.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
-	kverify.input.data = data;
-	kverify.input.data_size = SIGNATURE_HASH_SIZE;
-	kverify.signature_head.nla_len = NLA_HDRLEN + sizeof(kverify.signature);
-	kverify.signature_head.nla_type = NCR_ATTR_FINAL_INPUT_DATA;
-	kverify.signature.data = sig;
-	kverify.signature.data_size = sig_size;
+	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_RSA_TRANSPARENT_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_KEY, pubkey);
+	ncr_put_u32(&nla, NCR_ATTR_RSA_ENCODING_METHOD,
+		    (pss != 0) ? RSA_PKCS1_PSS : RSA_PKCS1_V1_5);
+	ncr_put_string(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
+	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
+				   SIGNATURE_HASH_SIZE);
+	ncr_put_session_input_data(&nla, NCR_ATTR_FINAL_INPUT_DATA, sig,
+				   sig_size);
+	NCR_FINISH(kverify, nla);
 
 	ret = ioctl(cfd, NCRIO_SESSION_ONCE, &kverify);
 	if (ret < 0) {
@@ -1216,32 +969,9 @@ static int rsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 
 static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 {
-	struct __attribute__ ((packed)) {
-		struct ncr_session_once f;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(ALG_DSA)] ALIGN_NL;
-		struct nlattr key_head ALIGN_NL;
-		uint32_t key ALIGN_NL;
-		struct nlattr sign_hash_head ALIGN_NL;
-		char sign_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
-		struct nlattr input_head ALIGN_NL;
-		struct ncr_session_input_data input ALIGN_NL;
-		struct nlattr signature_head ALIGN_NL;
-		struct ncr_session_output_buffer signature ALIGN_NL;
-	} ksign;
-	struct __attribute__ ((packed)) {
-		struct ncr_session_once f;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(ALG_DSA)] ALIGN_NL;
-		struct nlattr key_head ALIGN_NL;
-		uint32_t key ALIGN_NL;
-		struct nlattr sign_hash_head ALIGN_NL;
-		char sign_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
-		struct nlattr input_head ALIGN_NL;
-		struct ncr_session_input_data input ALIGN_NL;
-		struct nlattr signature_head ALIGN_NL;
-		struct ncr_session_input_data signature ALIGN_NL;
-	} kverify;
+	NCR_STRUCT(ncr_session_once) ksign;
+	NCR_STRUCT(ncr_session_once) kverify;
+	struct nlattr *nla;
 	uint8_t data[DATA_SIZE];
 	uint8_t sig[DATA_SIZE];
 	size_t sig_size;
@@ -1253,27 +983,16 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 	memset(data, 0x3, sizeof(data));
 
 	/* sign data */
-	memset(&ksign.f, 0, sizeof(ksign.f));
-	ksign.f.input_size = sizeof(ksign);
+	nla = NCR_INIT(ksign);
 	ksign.f.op = NCR_OP_SIGN;
-	ksign.algo_head.nla_len = NLA_HDRLEN + sizeof(ksign.algo);
-	ksign.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(ksign.algo, ALG_DSA);
-	ksign.key_head.nla_len = NLA_HDRLEN + sizeof(ksign.key);
-	ksign.key_head.nla_type = NCR_ATTR_KEY;
-	ksign.key = privkey;
-	ksign.sign_hash_head.nla_len = NLA_HDRLEN + sizeof(ksign.sign_hash);
-	ksign.sign_hash_head.nla_type = NCR_ATTR_SIGNATURE_HASH_ALGORITHM;
-	strcpy(ksign.sign_hash, SIGNATURE_HASH);
-	ksign.input_head.nla_len = NLA_HDRLEN + sizeof(ksign.input);
-	ksign.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
-	ksign.input.data = data;
-	ksign.input.data_size = DATA_TO_SIGN;
-	ksign.signature_head.nla_len = NLA_HDRLEN + sizeof(ksign.signature);
-	ksign.signature_head.nla_type = NCR_ATTR_FINAL_OUTPUT_BUFFER;
-	ksign.signature.buffer = sig;
-	ksign.signature.buffer_size = sizeof(sig);
-	ksign.signature.result_size_ptr = &sig_size;
+	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_DSA);
+	ncr_put_u32(&nla, NCR_ATTR_KEY, privkey);
+	ncr_put_string(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
+	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
+				   DATA_TO_SIGN);
+	ncr_put_session_output_buffer(&nla, NCR_ATTR_FINAL_OUTPUT_BUFFER, sig,
+				      sizeof(sig), &sig_size);
+	NCR_FINISH(ksign, nla);
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &ksign)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -1282,26 +1001,16 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 	}
 
 	/* verify signature */
-	memset(&kverify.f, 0, sizeof(kverify.f));
-	kverify.f.input_size = sizeof(kverify);
+	nla = NCR_INIT(kverify);
 	kverify.f.op = NCR_OP_VERIFY;
-	kverify.algo_head.nla_len = NLA_HDRLEN + sizeof(kverify.algo);
-	kverify.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(kverify.algo, ALG_DSA);
-	kverify.key_head.nla_len = NLA_HDRLEN + sizeof(kverify.key);
-	kverify.key_head.nla_type = NCR_ATTR_KEY;
-	kverify.key = pubkey;
-	kverify.sign_hash_head.nla_len = NLA_HDRLEN + sizeof(kverify.sign_hash);
-	kverify.sign_hash_head.nla_type = NCR_ATTR_SIGNATURE_HASH_ALGORITHM;
-	strcpy(kverify.sign_hash, SIGNATURE_HASH);
-	kverify.input_head.nla_len = NLA_HDRLEN + sizeof(kverify.input);
-	kverify.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
-	kverify.input.data = data;
-	kverify.input.data_size = DATA_TO_SIGN;
-	kverify.signature_head.nla_len = NLA_HDRLEN + sizeof(kverify.signature);
-	kverify.signature_head.nla_type = NCR_ATTR_FINAL_INPUT_DATA;
-	kverify.signature.data = sig;
-	kverify.signature.data_size = sizeof(sig);
+	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_DSA);
+	ncr_put_u32(&nla, NCR_ATTR_KEY, pubkey);
+	ncr_put_string(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
+	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
+				   DATA_TO_SIGN);
+	ncr_put_session_input_data(&nla, NCR_ATTR_FINAL_INPUT_DATA, sig,
+				   sizeof(sig));
+	NCR_FINISH(kverify, nla);
 
 	ret = ioctl(cfd, NCRIO_SESSION_ONCE, &kverify);
 	if (ret < 0) {
@@ -1324,32 +1033,9 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 static int dsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 					   ncr_key_t pubkey)
 {
-	struct __attribute__ ((packed)) {
-		struct ncr_session_once f;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(NCR_ALG_DSA_TRANSPARENT_HASH)] ALIGN_NL;
-		struct nlattr key_head ALIGN_NL;
-		uint32_t key ALIGN_NL;
-		struct nlattr sign_hash_head ALIGN_NL;
-		char sign_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
-		struct nlattr input_head ALIGN_NL;
-		struct ncr_session_input_data input ALIGN_NL;
-		struct nlattr signature_head ALIGN_NL;
-		struct ncr_session_output_buffer signature ALIGN_NL;
-	} ksign;
-	struct __attribute__ ((packed)) {
-		struct ncr_session_once f;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(NCR_ALG_DSA_TRANSPARENT_HASH)] ALIGN_NL;
-		struct nlattr key_head ALIGN_NL;
-		uint32_t key ALIGN_NL;
-		struct nlattr sign_hash_head ALIGN_NL;
-		char sign_hash[sizeof(SIGNATURE_HASH)] ALIGN_NL;
-		struct nlattr input_head ALIGN_NL;
-		struct ncr_session_input_data input ALIGN_NL;
-		struct nlattr signature_head ALIGN_NL;
-		struct ncr_session_input_data signature ALIGN_NL;
-	} kverify;
+	NCR_STRUCT(ncr_session_once) ksign;
+	NCR_STRUCT(ncr_session_once) kverify;
+	struct nlattr *nla;
 	uint8_t data[SIGNATURE_HASH_SIZE];
 	uint8_t sig[DATA_SIZE];
 	size_t sig_size;
@@ -1361,27 +1047,16 @@ static int dsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 	memset(data, 0x3, sizeof(data));
 
 	/* sign data */
-	memset(&ksign.f, 0, sizeof(ksign.f));
-	ksign.f.input_size = sizeof(ksign);
+	nla = NCR_INIT(ksign);
 	ksign.f.op = NCR_OP_SIGN;
-	ksign.algo_head.nla_len = NLA_HDRLEN + sizeof(ksign.algo);
-	ksign.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(ksign.algo, NCR_ALG_DSA_TRANSPARENT_HASH);
-	ksign.key_head.nla_len = NLA_HDRLEN + sizeof(ksign.key);
-	ksign.key_head.nla_type = NCR_ATTR_KEY;
-	ksign.key = privkey;
-	ksign.sign_hash_head.nla_len = NLA_HDRLEN + sizeof(ksign.sign_hash);
-	ksign.sign_hash_head.nla_type = NCR_ATTR_SIGNATURE_HASH_ALGORITHM;
-	strcpy(ksign.sign_hash, SIGNATURE_HASH);
-	ksign.input_head.nla_len = NLA_HDRLEN + sizeof(ksign.input);
-	ksign.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
-	ksign.input.data = data;
-	ksign.input.data_size = SIGNATURE_HASH_SIZE;
-	ksign.signature_head.nla_len = NLA_HDRLEN + sizeof(ksign.signature);
-	ksign.signature_head.nla_type = NCR_ATTR_FINAL_OUTPUT_BUFFER;
-	ksign.signature.buffer = sig;
-	ksign.signature.buffer_size = sizeof(sig);
-	ksign.signature.result_size_ptr = &sig_size;
+	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_DSA_TRANSPARENT_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_KEY, privkey);
+	ncr_put_string(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
+	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
+				   SIGNATURE_HASH_SIZE);
+	ncr_put_session_output_buffer(&nla, NCR_ATTR_FINAL_OUTPUT_BUFFER, sig,
+				      sizeof(sig), &sig_size);
+	NCR_FINISH(ksign, nla);
 
 	if (ioctl(cfd, NCRIO_SESSION_ONCE, &ksign)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -1390,26 +1065,16 @@ static int dsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 	}
 
 	/* verify signature */
-	memset(&kverify.f, 0, sizeof(kverify.f));
-	kverify.f.input_size = sizeof(kverify);
+	nla = NCR_INIT(kverify);
 	kverify.f.op = NCR_OP_VERIFY;
-	kverify.algo_head.nla_len = NLA_HDRLEN + sizeof(kverify.algo);
-	kverify.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(kverify.algo, NCR_ALG_DSA_TRANSPARENT_HASH);
-	kverify.key_head.nla_len = NLA_HDRLEN + sizeof(kverify.key);
-	kverify.key_head.nla_type = NCR_ATTR_KEY;
-	kverify.key = pubkey;
-	kverify.sign_hash_head.nla_len = NLA_HDRLEN + sizeof(kverify.sign_hash);
-	kverify.sign_hash_head.nla_type = NCR_ATTR_SIGNATURE_HASH_ALGORITHM;
-	strcpy(kverify.sign_hash, SIGNATURE_HASH);
-	kverify.input_head.nla_len = NLA_HDRLEN + sizeof(kverify.input);
-	kverify.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
-	kverify.input.data = data;
-	kverify.input.data_size = SIGNATURE_HASH_SIZE;
-	kverify.signature_head.nla_len = NLA_HDRLEN + sizeof(kverify.signature);
-	kverify.signature_head.nla_type = NCR_ATTR_FINAL_INPUT_DATA;
-	kverify.signature.data = sig;
-	kverify.signature.data_size = sizeof(sig);
+	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_DSA_TRANSPARENT_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_KEY, pubkey);
+	ncr_put_string(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
+	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
+				   SIGNATURE_HASH_SIZE);
+	ncr_put_session_input_data(&nla, NCR_ATTR_FINAL_INPUT_DATA, sig,
+				   sizeof(sig));
+	NCR_FINISH(kverify, nla);
 
 	ret = ioctl(cfd, NCRIO_SESSION_ONCE, &kverify);
 	if (ret < 0) {
@@ -1431,15 +1096,8 @@ static int dsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 static int test_ncr_rsa(int cfd)
 {
 	int ret;
-	struct __attribute__ ((packed)) {
-		struct ncr_key_generate_pair f;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(ALG_RSA)] ALIGN_NL;
-		struct nlattr flags_head ALIGN_NL;
-		uint32_t flags ALIGN_NL;
-		struct nlattr bits_head ALIGN_NL;
-		uint32_t bits ALIGN_NL;
-	} kgen;
+	NCR_STRUCT(ncr_key_generate_pair) kgen;
+	struct nlattr *nla;
 	ncr_key_t pubkey, privkey;
 	struct ncr_key_export kexport;
 	uint8_t data[DATA_SIZE];
@@ -1463,21 +1121,15 @@ static int test_ncr_rsa(int cfd)
 		return 1;
 	}
 
-	memset(&kgen, 0, sizeof(kgen));
-	kgen.f.input_size = sizeof(kgen);
+	nla = NCR_INIT(kgen);
 	kgen.f.private_key = privkey;
 	kgen.f.public_key = pubkey;
-	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
-	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(kgen.algo, ALG_RSA);
-	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
-	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kgen.flags =
-	    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE |
-	    NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH;
-	kgen.bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.bits);
-	kgen.bits_head.nla_type = NCR_ATTR_RSA_MODULUS_BITS;
-	kgen.bits = 1024;
+	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_RSA);
+	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
+		    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE
+		    | NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_RSA_MODULUS_BITS, 1024);
+	NCR_FINISH(kgen, nla);
 
 	if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -1571,17 +1223,8 @@ static int test_ncr_rsa(int cfd)
 static int test_ncr_dsa(int cfd)
 {
 	int ret;
-	struct __attribute__ ((packed)) {
-		struct ncr_key_generate_pair f;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(ALG_DSA)] ALIGN_NL;
-		struct nlattr flags_head ALIGN_NL;
-		uint32_t flags ALIGN_NL;
-		struct nlattr q_bits_head ALIGN_NL;
-		uint32_t q_bits ALIGN_NL;
-		struct nlattr p_bits_head ALIGN_NL;
-		uint32_t p_bits ALIGN_NL;
-	} kgen;
+	NCR_STRUCT(ncr_key_generate_pair) kgen;
+	struct nlattr *nla;
 	ncr_key_t pubkey, privkey;
 	struct ncr_key_export kexport;
 	uint8_t data[DATA_SIZE];
@@ -1605,24 +1248,16 @@ static int test_ncr_dsa(int cfd)
 		return 1;
 	}
 
-	memset(&kgen, 0, sizeof(kgen));
-	kgen.f.input_size = sizeof(kgen);
+	nla = NCR_INIT(kgen);
 	kgen.f.private_key = privkey;
 	kgen.f.public_key = pubkey;
-	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
-	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(kgen.algo, ALG_DSA);
-	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
-	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kgen.flags =
-	    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE |
-	    NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH;
-	kgen.q_bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.q_bits);
-	kgen.q_bits_head.nla_type = NCR_ATTR_DSA_Q_BITS;
-	kgen.q_bits = 160;
-	kgen.p_bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.p_bits);
-	kgen.p_bits_head.nla_type = NCR_ATTR_DSA_P_BITS;
-	kgen.p_bits = 1024;
+	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_DSA);
+	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
+		    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE
+		    | NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_DSA_Q_BITS, 160);
+	ncr_put_u32(&nla, NCR_ATTR_DSA_P_BITS, 1024);
+	NCR_FINISH(kgen, nla);
 
 	if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);

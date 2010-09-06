@@ -30,8 +30,8 @@
 #include <unistd.h>
 #include <linux/netlink.h>
 #include "../ncr.h"
+#include "utils.h"
 
-#define ALIGN_NL __attribute__((aligned(NLA_ALIGNTO)))
 #define ALG_AES_CBC "cbc(aes)"
 
 static double udifftimeval(struct timeval start, struct timeval end)
@@ -82,25 +82,9 @@ int encrypt_data_ncr_direct(int cfd, const char *algo, int chunksize)
 	double secs, ddata, dspeed;
 	char metric[16];
 	ncr_key_t key;
-	struct __attribute__ ((packed)) {
-		struct ncr_key_generate f;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[sizeof(ALG_AES_CBC)] ALIGN_NL;
-		struct nlattr bits_head ALIGN_NL;
-		uint32_t bits ALIGN_NL;
-	} kgen;
-	struct __attribute__ ((packed)) {
-		struct ncr_session_once f;
-		struct nlattr key_head ALIGN_NL;
-		uint32_t key ALIGN_NL;
-		struct nlattr input_head ALIGN_NL;
-		struct ncr_session_input_data input ALIGN_NL;
-		struct nlattr output_head ALIGN_NL;
-		struct ncr_session_output_buffer output ALIGN_NL;
-		struct nlattr iv_head ALIGN_NL;
-		struct nlattr algo_head ALIGN_NL;
-		char algo[128] ALIGN_NL;
-	} op;
+	NCR_STRUCT(ncr_key_generate) kgen;
+	NCR_STRUCT(ncr_session_once) op;
+	struct nlattr *nla;
 	size_t algo_size;
 
 	algo_size = strlen(algo) + 1;
@@ -111,15 +95,11 @@ int encrypt_data_ncr_direct(int cfd, const char *algo, int chunksize)
 		return 1;
 	}
 
-	memset(&kgen.f, 0, sizeof(kgen.f));
-	kgen.f.input_size = sizeof(kgen);
+	nla = NCR_INIT(kgen);
 	kgen.f.key = key;
-	kgen.algo_head.nla_len = NLA_HDRLEN + sizeof(kgen.algo);
-	kgen.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-	strcpy(kgen.algo, ALG_AES_CBC);
-	kgen.bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.bits);
-	kgen.bits_head.nla_type = NCR_ATTR_SECRET_KEY_BITS;
-	kgen.bits = 128;	/* 16 bytes */
+	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_AES_CBC);
+	ncr_put_u32(&nla, NCR_ATTR_SECRET_KEY_BITS, 128); /* 16 bytes */
+	NCR_FINISH(kgen, nla);
 
 	if (ioctl(cfd, NCRIO_KEY_GENERATE, &kgen)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -142,26 +122,17 @@ int encrypt_data_ncr_direct(int cfd, const char *algo, int chunksize)
 	do {
 		size_t output_size;
 
-		memset(&op.f, 0, sizeof(op.f));
+		nla = NCR_INIT(op);
 		op.f.op = NCR_OP_ENCRYPT;
-		op.key_head.nla_len = NLA_HDRLEN + sizeof(op.key);
-		op.key_head.nla_type = NCR_ATTR_KEY;
-		op.key = key;
-		op.input_head.nla_len = NLA_HDRLEN + sizeof(op.input);
-		op.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
-		op.input.data = buffer;
-		op.input.data_size = chunksize;
-		op.output_head.nla_len = NLA_HDRLEN + sizeof(op.output);
-		op.output_head.nla_type = NCR_ATTR_UPDATE_OUTPUT_BUFFER;
-		op.output.buffer = buffer;
-		op.output.buffer_size = chunksize;
-		op.output.result_size_ptr = &output_size;
-		op.iv_head.nla_len = NLA_HDRLEN + 0;
-		op.iv_head.nla_type = NCR_ATTR_IV;
-		op.algo_head.nla_len = NLA_HDRLEN + algo_size;
-		op.algo_head.nla_type = NCR_ATTR_ALGORITHM;
-		memcpy(op.algo, algo, algo_size);
-		op.f.input_size = op.algo + algo_size - (char *)&op;
+		ncr_put_u32(&nla, NCR_ATTR_KEY, key);
+		ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA,
+					   buffer, chunksize);
+		ncr_put_session_output_buffer(&nla,
+					      NCR_ATTR_UPDATE_OUTPUT_BUFFER,
+					      buffer, chunksize, &output_size);
+		ncr_put(&nla, NCR_ATTR_IV, NULL, 0);
+		ncr_put(&nla, NCR_ATTR_ALGORITHM, algo, algo_size);
+		NCR_FINISH(op, nla);
 
 		if (ioctl(cfd, NCRIO_SESSION_ONCE, &op)) {
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
