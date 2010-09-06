@@ -27,20 +27,19 @@
 
 static void randomize_data(uint8_t * data, size_t data_size)
 {
-int i;
-	
-	srand(time(0)*getpid());
-	for (i=0;i<data_size;i++) {
+	int i;
+
+	srand(time(0) * getpid());
+	for (i = 0; i < data_size; i++) {
 		data[i] = rand() & 0xff;
 	}
 }
 
 #define KEY_DATA_SIZE 16
 #define WRAPPED_KEY_DATA_SIZE 32
-static int
-test_ncr_key(int cfd)
+static int test_ncr_key(int cfd)
 {
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_generate f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(ALG_AES_CBC)] ALIGN_NL;
@@ -49,7 +48,7 @@ test_ncr_key(int cfd)
 		struct nlattr bits_head ALIGN_NL;
 		uint32_t bits ALIGN_NL;
 	} kgen;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_get_info f;
 		/* This union is only here to stop gcc from complaining about
 		   aliasing. */
@@ -60,7 +59,7 @@ test_ncr_key(int cfd)
 	} kinfo;
 	struct nlattr *nla;
 	ncr_key_t key;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_import f;
 		struct nlattr id_head ALIGN_NL;
 		uint8_t id[2] ALIGN_NL;
@@ -134,7 +133,7 @@ test_ncr_key(int cfd)
 		return 1;
 	}
 
-	if (memcmp(data, data_bak, sizeof(data))!=0) {
+	if (memcmp(data, data_bak, sizeof(data)) != 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		fprintf(stderr, "data returned but differ!\n");
 		return 1;
@@ -171,7 +170,7 @@ test_ncr_key(int cfd)
 	kgen.flags = NCR_KEY_FLAG_EXPORTABLE;
 	kgen.bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.bits);
 	kgen.bits_head.nla_type = NCR_ATTR_SECRET_KEY_BITS;
-	kgen.bits = 128; /* 16 bytes */
+	kgen.bits = 128;	/* 16 bytes */
 
 	if (ioctl(cfd, NCRIO_KEY_GENERATE, &kgen)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -194,11 +193,12 @@ test_ncr_key(int cfd)
 
 	if (data[0] == 0 && data[1] == 0 && data[2] == 0 && data[4] == 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-		fprintf(stderr, "Generated key: %.2x.%.2x.%.2x.%.2x.%.2x.%.2x.%.2x.%.2x."
-			"%.2x.%.2x.%.2x.%.2x.%.2x.%.2x.%.2x.%.2x\n", data[0], data[1],
-			data[2], data[3], data[4], data[5], data[6], data[7], data[8],
-			data[9], data[10], data[11], data[12], data[13], data[14],
-			data[15]);
+		fprintf(stderr,
+			"Generated key: %.2x.%.2x.%.2x.%.2x.%.2x.%.2x.%.2x.%.2x."
+			"%.2x.%.2x.%.2x.%.2x.%.2x.%.2x.%.2x.%.2x\n", data[0],
+			data[1], data[2], data[3], data[4], data[5], data[6],
+			data[7], data[8], data[9], data[10], data[11], data[12],
+			data[13], data[14], data[15]);
 		return 1;
 	}
 
@@ -207,7 +207,7 @@ test_ncr_key(int cfd)
 	kinfo.f.key = key;
 	nla = &kinfo.u.first_header;
 	nla->nla_type = NCR_ATTR_WANTED_ATTRS;
-	attr_p = (uint16_t *)((char *)nla + NLA_HDRLEN);
+	attr_p = (uint16_t *) ((char *)nla + NLA_HDRLEN);
 	*attr_p++ = NCR_ATTR_ALGORITHM;
 	*attr_p++ = NCR_ATTR_KEY_FLAGS;
 	*attr_p++ = NCR_ATTR_KEY_TYPE;
@@ -258,7 +258,7 @@ test_ncr_key(int cfd)
 				fprintf(stderr, "Attribute too small\n");
 				return 1;
 			}
-			if (*(uint32_t *)data != NCR_KEY_FLAG_EXPORTABLE) {
+			if (*(uint32_t *) data != NCR_KEY_FLAG_EXPORTABLE) {
 				fprintf(stderr, "Unexpected key flags\n");
 				return 1;
 			}
@@ -269,7 +269,7 @@ test_ncr_key(int cfd)
 				fprintf(stderr, "Attribute too small\n");
 				return 1;
 			}
-			if (*(uint32_t *)data != NCR_KEY_TYPE_SECRET) {
+			if (*(uint32_t *) data != NCR_KEY_TYPE_SECRET) {
 				fprintf(stderr, "Unexpected key type\n");
 				return 1;
 			}
@@ -293,7 +293,7 @@ test_ncr_key(int cfd)
 		perror("ioctl(NCRIO_KEY_DEINIT)");
 		return 1;
 	}
-	
+
 	/* test 3: generate an unexportable key in kernel space and
 	 * try to export it.
 	 */
@@ -316,7 +316,7 @@ test_ncr_key(int cfd)
 	kgen.flags = 0;
 	kgen.bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
 	kgen.bits_head.nla_type = NCR_ATTR_SECRET_KEY_BITS;
-	kgen.bits = 128; /* 16 bytes */
+	kgen.bits = 128;	/* 16 bytes */
 
 	if (ioctl(cfd, NCRIO_KEY_GENERATE, &kgen)) {
 		perror("ioctl(NCRIO_KEY_GENERATE)");
@@ -347,15 +347,12 @@ test_ncr_key(int cfd)
 	return 0;
 }
 
-
-
 /* Key wrapping */
-static int
-test_ncr_wrap_key(int cfd)
+static int test_ncr_wrap_key(int cfd)
 {
 	int i, ret;
 	ncr_key_t key, key2;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_import f;
 		struct nlattr id_head ALIGN_NL;
 		uint8_t id[2] ALIGN_NL;
@@ -366,12 +363,13 @@ test_ncr_wrap_key(int cfd)
 		struct nlattr flags_head ALIGN_NL;
 		uint32_t flags ALIGN_NL;
 	} kimport;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_wrap f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(NCR_WALG_AES_RFC3394)] ALIGN_NL;
-	} kwrap;
-	struct __attribute__((packed)) {
+	}
+	kwrap;
+	struct __attribute__ ((packed)) {
 		struct ncr_key_unwrap f;
 		struct nlattr wrap_algo_head ALIGN_NL;
 		char wrap_algo[sizeof(NCR_WALG_AES_RFC3394)] ALIGN_NL;
@@ -399,7 +397,8 @@ test_ncr_wrap_key(int cfd)
 	memset(&kimport.f, 0, sizeof(kimport.f));
 	kimport.f.input_size = sizeof(kimport);
 	kimport.f.key = key;
-	kimport.f.data = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
+	kimport.f.data =
+	    "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
 	kimport.f.data_size = 16;
 	kimport.id_head.nla_len = NLA_HDRLEN + sizeof(kimport.id);
 	kimport.id_head.nla_type = NCR_ATTR_KEY_ID;
@@ -413,7 +412,9 @@ test_ncr_wrap_key(int cfd)
 	strcpy(kimport.algo, ALG_AES_CBC);
 	kimport.flags_head.nla_len = NLA_HDRLEN + sizeof(kimport.flags);
 	kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kimport.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING|NCR_KEY_FLAG_UNWRAPPING;
+	kimport.flags =
+	    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPING |
+	    NCR_KEY_FLAG_UNWRAPPING;
 
 	ret = ioctl(cfd, NCRIO_KEY_IMPORT, &kimport);
 	if (geteuid() == 0 && ret) {
@@ -424,7 +425,8 @@ test_ncr_wrap_key(int cfd)
 
 	if (geteuid() != 0) {
 		/* cannot test further */
-		fprintf(stdout, "\t(Wrapping test not completed. Run as root)\n");
+		fprintf(stdout,
+			"\t(Wrapping test not completed. Run as root)\n");
 		return 0;
 	}
 
@@ -453,7 +455,7 @@ test_ncr_wrap_key(int cfd)
 	strcpy(kimport.algo, ALG_AES_CBC);
 	kimport.flags_head.nla_len = NLA_HDRLEN + sizeof(kimport.flags);
 	kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kimport.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
+	kimport.flags = NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE;
 
 	if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -480,11 +482,12 @@ test_ncr_wrap_key(int cfd)
 	}
 
 	if (data_size != 24 || memcmp(data,
-		"\x1F\xA6\x8B\x0A\x81\x12\xB4\x47\xAE\xF3\x4B\xD8\xFB\x5A\x7B\x82\x9D\x3E\x86\x23\x71\xD2\xCF\xE5", 24) != 0) {
+				      "\x1F\xA6\x8B\x0A\x81\x12\xB4\x47\xAE\xF3\x4B\xD8\xFB\x5A\x7B\x82\x9D\x3E\x86\x23\x71\xD2\xCF\xE5",
+				      24) != 0) {
 		fprintf(stderr, "Wrapped data do not match.\n");
 
-		fprintf(stderr, "Data[%d]: ",(int) data_size);
-		for(i=0;i<data_size;i++)
+		fprintf(stderr, "Data[%d]: ", (int)data_size);
+		for (i = 0; i < data_size; i++)
 			fprintf(stderr, "%.2x:", data[i]);
 		fprintf(stderr, "\n");
 		return 1;
@@ -516,7 +519,7 @@ test_ncr_wrap_key(int cfd)
 	strcpy(kunwrap.wrap_algo, NCR_WALG_AES_RFC3394);
 	kunwrap.flags_head.nla_len = NLA_HDRLEN + sizeof(kunwrap.flags);
 	kunwrap.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kunwrap.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
+	kunwrap.flags = NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE;
 
 	if (ioctl(cfd, NCRIO_KEY_UNWRAP, &kunwrap)) {
 		perror("ioctl(NCRIO_KEY_UNWRAP)");
@@ -547,8 +550,8 @@ test_ncr_wrap_key(int cfd)
 
 	if (kdata.data_size != 16 || memcmp(kdata.data, DKEY, 16) != 0) {
 		fprintf(stderr, "Unwrapped data do not match.\n");
-		fprintf(stderr, "Data[%d]: ", (int) kdata.data_size);
-		for(i=0;i<kdata.data_size;i++)
+		fprintf(stderr, "Data[%d]: ", (int)kdata.data_size);
+		for (i = 0; i < kdata.data_size; i++)
 			fprintf(stderr, "%.2x:", data[i]);
 		fprintf(stderr, "\n");
 		return 1;
@@ -560,12 +563,11 @@ test_ncr_wrap_key(int cfd)
 
 /* check whether wrapping of long keys is not allowed with
  * shorted wrapping keys */
-static int
-test_ncr_wrap_key2(int cfd)
+static int test_ncr_wrap_key2(int cfd)
 {
 	int ret;
 	ncr_key_t key, key2;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_import f;
 		struct nlattr id_head ALIGN_NL;
 		uint8_t id[2] ALIGN_NL;
@@ -576,11 +578,12 @@ test_ncr_wrap_key2(int cfd)
 		struct nlattr flags_head ALIGN_NL;
 		uint32_t flags ALIGN_NL;
 	} kimport;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_wrap f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(NCR_WALG_AES_RFC3394)] ALIGN_NL;
-	} kwrap;
+	}
+	kwrap;
 	uint8_t data[WRAPPED_KEY_DATA_SIZE];
 
 	/* test 1: generate a key in userspace import it
@@ -591,7 +594,8 @@ test_ncr_wrap_key2(int cfd)
 
 	if (geteuid() != 0) {
 		/* cannot test further */
-		fprintf(stdout, "\t(Wrapping test not completed. Run as root)\n");
+		fprintf(stdout,
+			"\t(Wrapping test not completed. Run as root)\n");
 		return 0;
 	}
 
@@ -605,7 +609,8 @@ test_ncr_wrap_key2(int cfd)
 	memset(&kimport.f, 0, sizeof(kimport.f));
 	kimport.f.input_size = sizeof(kimport);
 	kimport.f.key = key;
-	kimport.f.data = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
+	kimport.f.data =
+	    "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
 	kimport.f.data_size = 16;
 	kimport.id_head.nla_len = NLA_HDRLEN + sizeof(kimport.id);
 	kimport.id_head.nla_type = NCR_ATTR_KEY_ID;
@@ -619,14 +624,15 @@ test_ncr_wrap_key2(int cfd)
 	strcpy(kimport.algo, ALG_AES_CBC);
 	kimport.flags_head.nla_len = NLA_HDRLEN + sizeof(kimport.flags);
 	kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kimport.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING|NCR_KEY_FLAG_UNWRAPPING;
+	kimport.flags =
+	    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPING |
+	    NCR_KEY_FLAG_UNWRAPPING;
 
 	if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_IMPORT)");
 		return 1;
 	}
-
 
 	/* convert it to key */
 	key2 = ioctl(cfd, NCRIO_KEY_INIT);
@@ -638,7 +644,8 @@ test_ncr_wrap_key2(int cfd)
 	memset(&kimport.f, 0, sizeof(kimport.f));
 	kimport.f.input_size = sizeof(kimport);
 	kimport.f.key = key2;
-	kimport.f.data = "\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF";
+	kimport.f.data =
+	    "\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF\x00\x11\x22\x33\x44\x55\x66\x77\x88\x99\xAA\xBB\xCC\xDD\xEE\xFF";
 	kimport.f.data_size = 32;
 	kimport.id_head.nla_len = NLA_HDRLEN + sizeof(kimport.id);
 	kimport.id_head.nla_type = NCR_ATTR_KEY_ID;
@@ -652,7 +659,7 @@ test_ncr_wrap_key2(int cfd)
 	strcpy(kimport.algo, ALG_AES_CBC);
 	kimport.flags_head.nla_len = NLA_HDRLEN + sizeof(kimport.flags);
 	kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kimport.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
+	kimport.flags = NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE;
 
 	if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -677,16 +684,15 @@ test_ncr_wrap_key2(int cfd)
 		/* wrapping shouldn't have been allowed */
 		return 1;
 	}
-	
+
 	return 0;
 }
 
-static int
-test_ncr_store_wrap_key(int cfd)
+static int test_ncr_store_wrap_key(int cfd)
 {
 	int i;
 	ncr_key_t key2;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_import f;
 		struct nlattr id_head ALIGN_NL;
 		uint8_t id[2] ALIGN_NL;
@@ -736,7 +742,7 @@ test_ncr_store_wrap_key(int cfd)
 	strcpy(kimport.algo, ALG_AES_CBC);
 	kimport.flags_head.nla_len = NLA_HDRLEN + sizeof(kimport.flags);
 	kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kimport.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
+	kimport.flags = NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE;
 
 	if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -800,8 +806,8 @@ test_ncr_store_wrap_key(int cfd)
 
 	if (memcmp(data, DKEY, 16) != 0) {
 		fprintf(stderr, "Unwrapped data do not match.\n");
-		fprintf(stderr, "Data[%d]: ", (int) data_size);
-		for(i=0;i<data_size;i++)
+		fprintf(stderr, "Data[%d]: ", (int)data_size);
+		for (i = 0; i < data_size; i++)
 			fprintf(stderr, "%.2x:", data[i]);
 		fprintf(stderr, "\n");
 		return 1;
@@ -812,43 +818,66 @@ test_ncr_store_wrap_key(int cfd)
 }
 
 struct aes_vectors_st {
-	const uint8_t* key;
-	const uint8_t* plaintext;
-	const uint8_t* ciphertext;
+	const uint8_t *key;
+	const uint8_t *plaintext;
+	const uint8_t *ciphertext;
 } aes_vectors[] = {
 	{
-		.key = (uint8_t*)"\xc0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
-		.plaintext = (uint8_t*)"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
-		.ciphertext = (uint8_t*)"\x4b\xc3\xf8\x83\x45\x0c\x11\x3c\x64\xca\x42\xe1\x11\x2a\x9e\x87",
-	},
+	.key =
+		    (uint8_t *)
+		    "\xc0\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",.
+		    plaintext =
+		    (uint8_t *)
+		    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",.
+		    ciphertext =
+		    (uint8_t *)
+		    "\x4b\xc3\xf8\x83\x45\x0c\x11\x3c\x64\xca\x42\xe1\x11\x2a\x9e\x87",},
 	{
-		.key = (uint8_t*)"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
-		.plaintext = (uint8_t*)"\xf3\x44\x81\xec\x3c\xc6\x27\xba\xcd\x5d\xc3\xfb\x08\xf2\x73\xe6",
-		.ciphertext = (uint8_t*)"\x03\x36\x76\x3e\x96\x6d\x92\x59\x5a\x56\x7c\xc9\xce\x53\x7f\x5e",
-	},
+	.key =
+		    (uint8_t *)
+		    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",.
+		    plaintext =
+		    (uint8_t *)
+		    "\xf3\x44\x81\xec\x3c\xc6\x27\xba\xcd\x5d\xc3\xfb\x08\xf2\x73\xe6",.
+		    ciphertext =
+		    (uint8_t *)
+		    "\x03\x36\x76\x3e\x96\x6d\x92\x59\x5a\x56\x7c\xc9\xce\x53\x7f\x5e",},
 	{
-		.key = (uint8_t*)"\x10\xa5\x88\x69\xd7\x4b\xe5\xa3\x74\xcf\x86\x7c\xfb\x47\x38\x59",
-		.plaintext = (uint8_t*)"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
-		.ciphertext = (uint8_t*)"\x6d\x25\x1e\x69\x44\xb0\x51\xe0\x4e\xaa\x6f\xb4\xdb\xf7\x84\x65",
-	},
+	.key =
+		    (uint8_t *)
+		    "\x10\xa5\x88\x69\xd7\x4b\xe5\xa3\x74\xcf\x86\x7c\xfb\x47\x38\x59",.
+		    plaintext =
+		    (uint8_t *)
+		    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",.
+		    ciphertext =
+		    (uint8_t *)
+		    "\x6d\x25\x1e\x69\x44\xb0\x51\xe0\x4e\xaa\x6f\xb4\xdb\xf7\x84\x65",},
 	{
-		.key = (uint8_t*)"\xca\xea\x65\xcd\xbb\x75\xe9\x16\x9e\xcd\x22\xeb\xe6\xe5\x46\x75",
-		.plaintext = (uint8_t*)"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
-		.ciphertext = (uint8_t*)"\x6e\x29\x20\x11\x90\x15\x2d\xf4\xee\x05\x81\x39\xde\xf6\x10\xbb",
-	},
+	.key =
+		    (uint8_t *)
+		    "\xca\xea\x65\xcd\xbb\x75\xe9\x16\x9e\xcd\x22\xeb\xe6\xe5\x46\x75",.
+		    plaintext =
+		    (uint8_t *)
+		    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",.
+		    ciphertext =
+		    (uint8_t *)
+		    "\x6e\x29\x20\x11\x90\x15\x2d\xf4\xee\x05\x81\x39\xde\xf6\x10\xbb",},
 	{
-		.key = (uint8_t*)"\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xfe",
-		.plaintext = (uint8_t*)"\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",
-		.ciphertext = (uint8_t*)"\x9b\xa4\xa9\x14\x3f\x4e\x5d\x40\x48\x52\x1c\x4f\x88\x77\xd8\x8e",
-	},
-};
+.key =
+		    (uint8_t *)
+		    "\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xff\xfe",.
+		    plaintext =
+		    (uint8_t *)
+		    "\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00",.
+		    ciphertext =
+		    (uint8_t *)
+		    "\x9b\xa4\xa9\x14\x3f\x4e\x5d\x40\x48\x52\x1c\x4f\x88\x77\xd8\x8e",},};
 
 /* AES cipher */
-static int
-test_ncr_aes(int cfd)
+static int test_ncr_aes(int cfd)
 {
 	ncr_key_t key;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_import f;
 		struct nlattr id_head ALIGN_NL;
 		uint8_t id[2] ALIGN_NL;
@@ -861,7 +890,7 @@ test_ncr_aes(int cfd)
 	} kimport;
 	uint8_t data[KEY_DATA_SIZE];
 	int i, j;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_once f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(ALG_AES_ECB)] ALIGN_NL;
@@ -882,7 +911,7 @@ test_ncr_aes(int cfd)
 	}
 
 	fprintf(stdout, "Tests on AES Encryption\n");
-	for (i=0;i<sizeof(aes_vectors)/sizeof(aes_vectors[0]);i++) {
+	for (i = 0; i < sizeof(aes_vectors) / sizeof(aes_vectors[0]); i++) {
 
 		memset(&kimport.f, 0, sizeof(kimport.f));
 		kimport.f.input_size = sizeof(kimport);
@@ -935,24 +964,26 @@ test_ncr_aes(int cfd)
 		}
 		/* verify */
 
-		if (data_size != 16 || memcmp(data, aes_vectors[i].ciphertext, 16) != 0) {
+		if (data_size != 16
+		    || memcmp(data, aes_vectors[i].ciphertext, 16) != 0) {
 			fprintf(stderr, "AES test vector %d failed!\n", i);
 
 			fprintf(stderr, "Cipher[%d]: ", (int)data_size);
-			for(j=0;j<data_size;j++)
-			  fprintf(stderr, "%.2x:", (int)data[j]);
+			for (j = 0; j < data_size; j++)
+				fprintf(stderr, "%.2x:", (int)data[j]);
 			fprintf(stderr, "\n");
 
 			fprintf(stderr, "Expected[%d]: ", 16);
-			for(j=0;j<16;j++)
-			  fprintf(stderr, "%.2x:", (int)aes_vectors[i].ciphertext[j]);
+			for (j = 0; j < 16; j++)
+				fprintf(stderr, "%.2x:",
+					(int)aes_vectors[i].ciphertext[j]);
 			fprintf(stderr, "\n");
 			return 1;
 		}
 	}
 
 	fprintf(stdout, "Tests on AES Decryption\n");
-	for (i=0;i<sizeof(aes_vectors)/sizeof(aes_vectors[0]);i++) {
+	for (i = 0; i < sizeof(aes_vectors) / sizeof(aes_vectors[0]); i++) {
 
 		memset(&kimport.f, 0, sizeof(kimport.f));
 		kimport.f.input_size = sizeof(kimport);
@@ -1004,22 +1035,23 @@ test_ncr_aes(int cfd)
 			return 1;
 		}
 
-		if (data_size != 16 || memcmp(data, aes_vectors[i].plaintext, 16) != 0) {
+		if (data_size != 16
+		    || memcmp(data, aes_vectors[i].plaintext, 16) != 0) {
 			fprintf(stderr, "AES test vector %d failed!\n", i);
 
 			fprintf(stderr, "Plain[%d]: ", (int)data_size);
-			for(j=0;j<data_size;j++)
-			  fprintf(stderr, "%.2x:", (int)data[j]);
+			for (j = 0; j < data_size; j++)
+				fprintf(stderr, "%.2x:", (int)data[j]);
 			fprintf(stderr, "\n");
 
 			fprintf(stderr, "Expected[%d]: ", 16);
-			for(j=0;j<16;j++)
-			  fprintf(stderr, "%.2x:", (int)aes_vectors[i].plaintext[j]);
+			for (j = 0; j < 16; j++)
+				fprintf(stderr, "%.2x:",
+					(int)aes_vectors[i].plaintext[j]);
 			fprintf(stderr, "\n");
 			return 1;
 		}
 	}
-
 
 	fprintf(stdout, "\n");
 
@@ -1028,85 +1060,83 @@ test_ncr_aes(int cfd)
 }
 
 struct hash_vectors_st {
-	const char* algorithm;
-	const uint8_t* key; /* if hmac */
+	const char *algorithm;
+	const uint8_t *key;	/* if hmac */
 	int key_size;
-	const uint8_t* plaintext;
+	const uint8_t *plaintext;
 	int plaintext_size;
-	const uint8_t* output;
+	const uint8_t *output;
 	int output_size;
 	ncr_crypto_op_t op;
 } hash_vectors[] = {
 	{
-		.algorithm = "sha1",
-		.key = NULL,
-		.plaintext = (uint8_t*)"what do ya want for nothing?",
-		.plaintext_size = sizeof("what do ya want for nothing?")-1,
-		.output = (uint8_t*)"\x8f\x82\x03\x94\xf9\x53\x35\x18\x20\x45\xda\x24\xf3\x4d\xe5\x2b\xf8\xbc\x34\x32",
-		.output_size = 20,
-		.op = NCR_OP_SIGN,
-	},
+	.algorithm = "sha1",.key = NULL,.plaintext =
+		    (uint8_t *) "what do ya want for nothing?",.
+		    plaintext_size =
+		    sizeof("what do ya want for nothing?") - 1,.output =
+		    (uint8_t *)
+		    "\x8f\x82\x03\x94\xf9\x53\x35\x18\x20\x45\xda\x24\xf3\x4d\xe5\x2b\xf8\xbc\x34\x32",.
+		    output_size = 20,.op = NCR_OP_SIGN,}
+	, {
+	.algorithm = "hmac(md5)",.key = (uint8_t *) "Jefe",.key_size =
+		    4,.plaintext =
+		    (uint8_t *) "what do ya want for nothing?",.
+		    plaintext_size =
+		    sizeof("what do ya want for nothing?") - 1,.output =
+		    (uint8_t *)
+		    "\x75\x0c\x78\x3e\x6a\xb0\xb5\x03\xea\xa8\x6e\x31\x0a\x5d\xb7\x38",.
+		    output_size = 16,.op = NCR_OP_SIGN,}
+	,
+	    /* from rfc4231 */
 	{
-		.algorithm = "hmac(md5)",
-		.key = (uint8_t*)"Jefe",
-		.key_size = 4,
-		.plaintext = (uint8_t*)"what do ya want for nothing?",
-		.plaintext_size = sizeof("what do ya want for nothing?")-1,
-		.output = (uint8_t*)"\x75\x0c\x78\x3e\x6a\xb0\xb5\x03\xea\xa8\x6e\x31\x0a\x5d\xb7\x38",
-		.output_size = 16,
-		.op = NCR_OP_SIGN,
-	},
-	/* from rfc4231 */
-	{
-		.algorithm = "hmac(sha224)",
-		.key = (uint8_t*)"\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",
-		.key_size = 20,
-		.plaintext = (uint8_t*)"Hi There",
-		.plaintext_size = sizeof("Hi There")-1,
-		.output = (uint8_t*)"\x89\x6f\xb1\x12\x8a\xbb\xdf\x19\x68\x32\x10\x7c\xd4\x9d\xf3\x3f\x47\xb4\xb1\x16\x99\x12\xba\x4f\x53\x68\x4b\x22",
-		.output_size = 28,
-		.op = NCR_OP_SIGN,
-	},
-	{
-		.algorithm = "hmac(sha256)",
-		.key = (uint8_t*)"\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",
-		.key_size = 20,
-		.plaintext = (uint8_t*)"Hi There",
-		.plaintext_size = sizeof("Hi There")-1,
-		.output = (uint8_t*)"\xb0\x34\x4c\x61\xd8\xdb\x38\x53\x5c\xa8\xaf\xce\xaf\x0b\xf1\x2b\x88\x1d\xc2\x00\xc9\x83\x3d\xa7\x26\xe9\x37\x6c\x2e\x32\xcf\xf7",
-		.output_size = 32,
-		.op = NCR_OP_SIGN,
-	},
-	{
-		.algorithm = "hmac(sha384)",
-		.key = (uint8_t*)"\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",
-		.key_size = 20,
-		.plaintext = (uint8_t*)"Hi There",
-		.plaintext_size = sizeof("Hi There")-1,
-		.output = (uint8_t*)"\xaf\xd0\x39\x44\xd8\x48\x95\x62\x6b\x08\x25\xf4\xab\x46\x90\x7f\x15\xf9\xda\xdb\xe4\x10\x1e\xc6\x82\xaa\x03\x4c\x7c\xeb\xc5\x9c\xfa\xea\x9e\xa9\x07\x6e\xde\x7f\x4a\xf1\x52\xe8\xb2\xfa\x9c\xb6",
-		.output_size = 48,
-		.op = NCR_OP_SIGN,
-	},
-	{
-		.algorithm = "hmac(sha512)",
-		.key = (uint8_t*)"\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",
-		.key_size = 20,
-		.plaintext = (uint8_t*)"Hi There",
-		.plaintext_size = sizeof("Hi There")-1,
-		.output = (uint8_t*)"\x87\xaa\x7c\xde\xa5\xef\x61\x9d\x4f\xf0\xb4\x24\x1a\x1d\x6c\xb0\x23\x79\xf4\xe2\xce\x4e\xc2\x78\x7a\xd0\xb3\x05\x45\xe1\x7c\xde\xda\xa8\x33\xb7\xd6\xb8\xa7\x02\x03\x8b\x27\x4e\xae\xa3\xf4\xe4\xbe\x9d\x91\x4e\xeb\x61\xf1\x70\x2e\x69\x6c\x20\x3a\x12\x68\x54",
-		.output_size = 64,
-		.op = NCR_OP_SIGN,
-	},
-};
+	.algorithm = "hmac(sha224)",.key =
+		    (uint8_t *)
+		    "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",.
+		    key_size = 20,.plaintext =
+		    (uint8_t *) "Hi There",.plaintext_size =
+		    sizeof("Hi There") - 1,.output =
+		    (uint8_t *)
+		    "\x89\x6f\xb1\x12\x8a\xbb\xdf\x19\x68\x32\x10\x7c\xd4\x9d\xf3\x3f\x47\xb4\xb1\x16\x99\x12\xba\x4f\x53\x68\x4b\x22",.
+		    output_size = 28,.op = NCR_OP_SIGN,}
+	, {
+	.algorithm = "hmac(sha256)",.key =
+		    (uint8_t *)
+		    "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",.
+		    key_size = 20,.plaintext =
+		    (uint8_t *) "Hi There",.plaintext_size =
+		    sizeof("Hi There") - 1,.output =
+		    (uint8_t *)
+		    "\xb0\x34\x4c\x61\xd8\xdb\x38\x53\x5c\xa8\xaf\xce\xaf\x0b\xf1\x2b\x88\x1d\xc2\x00\xc9\x83\x3d\xa7\x26\xe9\x37\x6c\x2e\x32\xcf\xf7",.
+		    output_size = 32,.op = NCR_OP_SIGN,}
+	, {
+	.algorithm = "hmac(sha384)",.key =
+		    (uint8_t *)
+		    "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",.
+		    key_size = 20,.plaintext =
+		    (uint8_t *) "Hi There",.plaintext_size =
+		    sizeof("Hi There") - 1,.output =
+		    (uint8_t *)
+		    "\xaf\xd0\x39\x44\xd8\x48\x95\x62\x6b\x08\x25\xf4\xab\x46\x90\x7f\x15\xf9\xda\xdb\xe4\x10\x1e\xc6\x82\xaa\x03\x4c\x7c\xeb\xc5\x9c\xfa\xea\x9e\xa9\x07\x6e\xde\x7f\x4a\xf1\x52\xe8\xb2\xfa\x9c\xb6",.
+		    output_size = 48,.op = NCR_OP_SIGN,}
+	, {
+	.algorithm = "hmac(sha512)",.key =
+		    (uint8_t *)
+		    "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",.
+		    key_size = 20,.plaintext =
+		    (uint8_t *) "Hi There",.plaintext_size =
+		    sizeof("Hi There") - 1,.output =
+		    (uint8_t *)
+		    "\x87\xaa\x7c\xde\xa5\xef\x61\x9d\x4f\xf0\xb4\x24\x1a\x1d\x6c\xb0\x23\x79\xf4\xe2\xce\x4e\xc2\x78\x7a\xd0\xb3\x05\x45\xe1\x7c\xde\xda\xa8\x33\xb7\xd6\xb8\xa7\x02\x03\x8b\x27\x4e\xae\xa3\xf4\xe4\xbe\x9d\x91\x4e\xeb\x61\xf1\x70\x2e\x69\x6c\x20\x3a\x12\x68\x54",.
+		    output_size = 64,.op = NCR_OP_SIGN,}
+,};
 
 #define HASH_DATA_SIZE 64
 
 /* SHA1 and other hashes */
-static int
-test_ncr_hash(int cfd)
+static int test_ncr_hash(int cfd)
 {
 	ncr_key_t key;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_import f;
 		struct nlattr id_head ALIGN_NL;
 		uint8_t id[2] ALIGN_NL;
@@ -1120,7 +1150,7 @@ test_ncr_hash(int cfd)
 	uint8_t data[HASH_DATA_SIZE];
 	int i, j;
 	size_t data_size;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_once f;
 		struct nlattr key_head ALIGN_NL;
 		uint32_t key ALIGN_NL;
@@ -1140,7 +1170,7 @@ test_ncr_hash(int cfd)
 	}
 
 	fprintf(stdout, "Tests on Hashes\n");
-	for (i=0;i<sizeof(hash_vectors)/sizeof(hash_vectors[0]);i++) {
+	for (i = 0; i < sizeof(hash_vectors) / sizeof(hash_vectors[0]); i++) {
 		size_t algo_size;
 
 		algo_size = strlen(hash_vectors[i].algorithm) + 1;
@@ -1153,16 +1183,16 @@ test_ncr_hash(int cfd)
 			kimport.f.data = hash_vectors[i].key;
 			kimport.f.data_size = hash_vectors[i].key_size;
 			kimport.id_head.nla_len
-				= NLA_HDRLEN + sizeof(kimport.id);
+			    = NLA_HDRLEN + sizeof(kimport.id);
 			kimport.id_head.nla_type = NCR_ATTR_KEY_ID;
 			kimport.id[0] = 'a';
 			kimport.id[1] = 'b';
 			kimport.type_head.nla_len
-				= NLA_HDRLEN + sizeof(kimport.type);
+			    = NLA_HDRLEN + sizeof(kimport.type);
 			kimport.type_head.nla_type = NCR_ATTR_KEY_TYPE;
 			kimport.type = NCR_KEY_TYPE_SECRET;
 			kimport.flags_head.nla_len
-				= NLA_HDRLEN + sizeof(kimport.flags);
+			    = NLA_HDRLEN + sizeof(kimport.flags);
 			kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
 			kimport.flags = NCR_KEY_FLAG_EXPORTABLE;
 			kimport.algo_head.nla_len = NLA_HDRLEN + algo_size;
@@ -1170,9 +1200,10 @@ test_ncr_hash(int cfd)
 			memcpy(kimport.algo, hash_vectors[i].algorithm,
 			       algo_size);
 			kimport.f.input_size
-				= kimport.algo + algo_size - (char *)&kimport;
+			    = kimport.algo + algo_size - (char *)&kimport;
 			if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
-				fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+				fprintf(stderr, "Error: %s:%d\n", __func__,
+					__LINE__);
 				perror("ioctl(NCRIO_KEY_IMPORT)");
 				return 1;
 			}
@@ -1204,17 +1235,20 @@ test_ncr_hash(int cfd)
 		}
 
 		if (data_size != hash_vectors[i].output_size ||
-			memcmp(data, hash_vectors[i].output, hash_vectors[i].output_size) != 0) {
+		    memcmp(data, hash_vectors[i].output,
+			   hash_vectors[i].output_size) != 0) {
 			fprintf(stderr, "HASH test vector %d failed!\n", i);
 
 			fprintf(stderr, "Output[%d]: ", (int)data_size);
-			for(j=0;j<data_size;j++)
-			  fprintf(stderr, "%.2x:", (int)data[j]);
+			for (j = 0; j < data_size; j++)
+				fprintf(stderr, "%.2x:", (int)data[j]);
 			fprintf(stderr, "\n");
 
-			fprintf(stderr, "Expected[%d]: ", hash_vectors[i].output_size);
-			for(j=0;j<hash_vectors[i].output_size;j++)
-			  fprintf(stderr, "%.2x:", (int)hash_vectors[i].output[j]);
+			fprintf(stderr, "Expected[%d]: ",
+				hash_vectors[i].output_size);
+			for (j = 0; j < hash_vectors[i].output_size; j++)
+				fprintf(stderr, "%.2x:",
+					(int)hash_vectors[i].output[j]);
 			fprintf(stderr, "\n");
 			return 1;
 		}
@@ -1226,11 +1260,10 @@ test_ncr_hash(int cfd)
 
 }
 
-static int
-test_ncr_hash_clone(int cfd)
+static int test_ncr_hash_clone(int cfd)
 {
 	ncr_key_t key;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_import f;
 		struct nlattr id_head ALIGN_NL;
 		uint8_t id[2] ALIGN_NL;
@@ -1245,26 +1278,26 @@ test_ncr_hash_clone(int cfd)
 	const struct hash_vectors_st *hv;
 	int j;
 	size_t data_size;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_init f;
 		struct nlattr key_head ALIGN_NL;
 		uint32_t key ALIGN_NL;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[128] ALIGN_NL;
 	} kinit;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_update f;
 		struct nlattr input_head ALIGN_NL;
 		struct ncr_session_input_data input ALIGN_NL;
 	} kupdate;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_final f;
 		struct nlattr input_head ALIGN_NL;
 		struct ncr_session_input_data input ALIGN_NL;
 		struct nlattr output_head ALIGN_NL;
 		struct ncr_session_output_buffer output ALIGN_NL;
 	} kfinal;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_once f;
 		struct nlattr clone_head ALIGN_NL;
 		uint32_t clone ALIGN_NL;
@@ -1298,25 +1331,26 @@ test_ncr_hash_clone(int cfd)
 			kimport.f.data = hv->key;
 			kimport.f.data_size = hv->key_size;
 			kimport.id_head.nla_len
-				= NLA_HDRLEN + sizeof(kimport.id);
+			    = NLA_HDRLEN + sizeof(kimport.id);
 			kimport.id_head.nla_type = NCR_ATTR_KEY_ID;
 			kimport.id[0] = 'a';
 			kimport.id[1] = 'b';
 			kimport.type_head.nla_len
-				= NLA_HDRLEN + sizeof(kimport.type);
+			    = NLA_HDRLEN + sizeof(kimport.type);
 			kimport.type_head.nla_type = NCR_ATTR_KEY_TYPE;
 			kimport.type = NCR_KEY_TYPE_SECRET;
 			kimport.flags_head.nla_len
-				= NLA_HDRLEN + sizeof(kimport.flags);
+			    = NLA_HDRLEN + sizeof(kimport.flags);
 			kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
 			kimport.flags = NCR_KEY_FLAG_EXPORTABLE;
 			kimport.algo_head.nla_len = NLA_HDRLEN + algo_size;
 			kimport.algo_head.nla_type = NCR_ATTR_ALGORITHM;
 			memcpy(kimport.algo, hv->algorithm, algo_size);
 			kimport.f.input_size
-				= kimport.algo + algo_size - (char *)&kimport;
+			    = kimport.algo + algo_size - (char *)&kimport;
 			if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
-				fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+				fprintf(stderr, "Error: %s:%d\n", __func__,
+					__LINE__);
 				perror("ioctl(NCRIO_KEY_IMPORT)");
 				return 1;
 			}
@@ -1366,7 +1400,7 @@ test_ncr_hash_clone(int cfd)
 		kclone.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
 		kclone.input.data = hv->plaintext + hv->plaintext_size / 2;
 		kclone.input.data_size
-			= hv->plaintext_size - hv->plaintext_size / 2;
+		    = hv->plaintext_size - hv->plaintext_size / 2;
 		kclone.output_head.nla_len = NLA_HDRLEN + sizeof(kclone.output);
 		kclone.output_head.nla_type = NCR_ATTR_FINAL_OUTPUT_BUFFER;
 		kclone.output.buffer = data;
@@ -1385,7 +1419,7 @@ test_ncr_hash_clone(int cfd)
 				hv - hash_vectors);
 
 			fprintf(stderr, "Output[%zu]: ", data_size);
-			for(j = 0; j < data_size; j++)
+			for (j = 0; j < data_size; j++)
 				fprintf(stderr, "%.2x:", (int)data[j]);
 			fprintf(stderr, "\n");
 
@@ -1404,7 +1438,7 @@ test_ncr_hash_clone(int cfd)
 		kfinal.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
 		kfinal.input.data = hv->plaintext + hv->plaintext_size / 2;
 		kfinal.input.data_size
-			= hv->plaintext_size - hv->plaintext_size / 2;
+		    = hv->plaintext_size - hv->plaintext_size / 2;
 		kfinal.output_head.nla_len = NLA_HDRLEN + sizeof(kfinal.output);
 		kfinal.output_head.nla_type = NCR_ATTR_FINAL_OUTPUT_BUFFER;
 		kfinal.output.buffer = data;
@@ -1423,7 +1457,7 @@ test_ncr_hash_clone(int cfd)
 				hv - hash_vectors);
 
 			fprintf(stderr, "Output[%zu]: ", data_size);
-			for(j = 0; j < data_size; j++)
+			for (j = 0; j < data_size; j++)
 				fprintf(stderr, "%.2x:", (int)data[j]);
 			fprintf(stderr, "\n");
 
@@ -1441,12 +1475,11 @@ test_ncr_hash_clone(int cfd)
 
 }
 
-static int
-test_ncr_hash_key(int cfd)
+static int test_ncr_hash_key(int cfd)
 {
 	ncr_key_t key;
 	ncr_session_t ses;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_import f;
 		struct nlattr id_head ALIGN_NL;
 		uint8_t id[2] ALIGN_NL;
@@ -1460,27 +1493,29 @@ test_ncr_hash_key(int cfd)
 	uint8_t data[HASH_DATA_SIZE];
 	int j;
 	size_t data_size, algo_size;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_init f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[128] ALIGN_NL;
 	} op_init;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_update f;
 		struct nlattr data_head ALIGN_NL;
 		struct ncr_session_input_data data ALIGN_NL;
 	} op_up_data;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_update f;
 		struct nlattr key_head ALIGN_NL;
 		uint32_t key;
 	} op_up_key;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_final f;
 		struct nlattr output_head ALIGN_NL;
 		struct ncr_session_output_buffer output ALIGN_NL;
 	} op_final;
-	const uint8_t *output = (void*)"\xe2\xd7\x2c\x2e\x14\xad\x97\xc8\xd2\xdb\xce\xd8\xb3\x52\x9f\x1c\xb3\x2c\x5c\xec";
+	const uint8_t *output =
+	    (void *)
+	    "\xe2\xd7\x2c\x2e\x14\xad\x97\xc8\xd2\xdb\xce\xd8\xb3\x52\x9f\x1c\xb3\x2c\x5c\xec";
 
 	/* convert it to key */
 	key = ioctl(cfd, NCRIO_KEY_INIT);
@@ -1507,7 +1542,7 @@ test_ncr_hash_key(int cfd)
 	kimport.type = NCR_KEY_TYPE_SECRET;
 	kimport.flags_head.nla_len = NLA_HDRLEN + sizeof(kimport.flags);
 	kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kimport.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_HASHABLE;
+	kimport.flags = NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_HASHABLE;
 	kimport.algo_head.nla_len = NLA_HDRLEN + algo_size;
 	kimport.algo_head.nla_type = NCR_ATTR_ALGORITHM;
 	memcpy(kimport.algo, hash_vectors[0].algorithm, algo_size);
@@ -1572,25 +1607,23 @@ test_ncr_hash_key(int cfd)
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_SESSION_FINAL)");
 		return 1;
-	}		
-
-
-	if (data_size != hash_vectors[0].output_size ||
-			memcmp(data, output, hash_vectors[0].output_size) != 0) {
-			fprintf(stderr, "HASH test vector %d failed!\n", 0);
-
-			fprintf(stderr, "Output[%d]: ", (int)data_size);
-			for(j=0;j<data_size;j++)
-			  fprintf(stderr, "%.2x:", (int)data[j]);
-			fprintf(stderr, "\n");
-
-			fprintf(stderr, "Expected[%d]: ", hash_vectors[0].output_size);
-			for(j=0;j<hash_vectors[0].output_size;j++)
-			  fprintf(stderr, "%.2x:", (int)output[j]);
-			fprintf(stderr, "\n");
-			return 1;
 	}
 
+	if (data_size != hash_vectors[0].output_size ||
+	    memcmp(data, output, hash_vectors[0].output_size) != 0) {
+		fprintf(stderr, "HASH test vector %d failed!\n", 0);
+
+		fprintf(stderr, "Output[%d]: ", (int)data_size);
+		for (j = 0; j < data_size; j++)
+			fprintf(stderr, "%.2x:", (int)data[j]);
+		fprintf(stderr, "\n");
+
+		fprintf(stderr, "Expected[%d]: ", hash_vectors[0].output_size);
+		for (j = 0; j < hash_vectors[0].output_size; j++)
+			fprintf(stderr, "%.2x:", (int)output[j]);
+		fprintf(stderr, "\n");
+		return 1;
+	}
 
 	fprintf(stdout, "\n");
 
@@ -1598,9 +1631,7 @@ test_ncr_hash_key(int cfd)
 
 }
 
-
-int
-main()
+int main()
 {
 	int fd = -1;
 

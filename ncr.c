@@ -30,7 +30,7 @@
 #include <linux/random.h>
 #include <linux/uaccess.h>
 #include <linux/scatterlist.h>
-#include <linux/cred.h>  
+#include <linux/cred.h>
 #include <linux/capability.h>
 #include <net/netlink.h>
 #include "ncr.h"
@@ -42,12 +42,12 @@
  */
 struct key_item_st master_key;
 
-void* ncr_init_lists(void)
+void *ncr_init_lists(void)
 {
 	struct ncr_lists *lst;
 
 	lst = kmalloc(sizeof(*lst), GFP_KERNEL);
-	if(!lst) {
+	if (!lst) {
 		err();
 		return NULL;
 	}
@@ -65,7 +65,7 @@ void* ncr_init_lists(void)
 
 void ncr_deinit_lists(struct ncr_lists *lst)
 {
-	if(lst) {
+	if (lst) {
 		ncr_key_list_deinit(lst);
 		ncr_sessions_list_deinit(lst);
 		kfree(lst);
@@ -91,12 +91,14 @@ static int ncr_master_key_set(const struct ncr_master_key_set *st,
 	}
 
 	if (st->key_size != 16 && st->key_size != 24 && st->key_size != 32) {
-		dprintk(0, KERN_DEBUG, "Master key size must be 16,24 or 32.\n");
+		dprintk(0, KERN_DEBUG,
+			"Master key size must be 16,24 or 32.\n");
 		return -EINVAL;
 	}
 
 	if (master_key.type != NCR_KEY_TYPE_INVALID) {
-		dprintk(0, KERN_DEBUG, "Master key was previously initialized.\n");
+		dprintk(0, KERN_DEBUG,
+			"Master key was previously initialized.\n");
 	}
 
 	if (unlikely(copy_from_user(master_key.key.secret.data, st->key,
@@ -113,8 +115,7 @@ static int ncr_master_key_set(const struct ncr_master_key_set *st,
 	return 0;
 }
 
-long
-ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
+long ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 {
 	void __user *arg = (void __user *)arg_;
 	struct nlattr *tb[NCR_ATTR_MAX + 1];
@@ -144,55 +145,61 @@ ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 
 	case NCRIO_KEY_INIT:
 		return ncr_key_init(lst);
-	CASE_NO_OUTPUT(NCRIO_KEY_GENERATE, ncr_key_generate, ncr_key_generate);
-	CASE_NO_OUTPUT(NCRIO_KEY_GENERATE_PAIR, ncr_key_generate_pair,
-		       ncr_key_generate_pair);
-	CASE_NO_OUTPUT(NCRIO_KEY_DERIVE, ncr_key_derive, ncr_key_derive);
-	case NCRIO_KEY_GET_INFO: {
-		struct ncr_key_get_info data;
-		struct ncr_out out;
+		CASE_NO_OUTPUT(NCRIO_KEY_GENERATE, ncr_key_generate,
+			       ncr_key_generate);
+		CASE_NO_OUTPUT(NCRIO_KEY_GENERATE_PAIR, ncr_key_generate_pair,
+			       ncr_key_generate_pair);
+		CASE_NO_OUTPUT(NCRIO_KEY_DERIVE, ncr_key_derive,
+			       ncr_key_derive);
+	case NCRIO_KEY_GET_INFO:{
+			struct ncr_key_get_info data;
+			struct ncr_out out;
 
-		attr_buf = NCR_GET_INPUT_ARGS(&data, tb, arg);
-		if (IS_ERR(attr_buf)) {
-			err();
-			return PTR_ERR(attr_buf);
-		}
-		ret = NCR_OUT_INIT(&out, &data, arg);
-		if (ret != 0) {
-			err();
+			attr_buf = NCR_GET_INPUT_ARGS(&data, tb, arg);
+			if (IS_ERR(attr_buf)) {
+				err();
+				return PTR_ERR(attr_buf);
+			}
+			ret = NCR_OUT_INIT(&out, &data, arg);
+			if (ret != 0) {
+				err();
+				break;
+			}
+			ret = ncr_key_get_info(lst, &out, &data, tb);
+			ncr_out_free(&out);
 			break;
 		}
-		ret = ncr_key_get_info(lst, &out, &data, tb);
-		ncr_out_free(&out);
-		break;
-	}
-	CASE_NO_OUTPUT(NCRIO_KEY_EXPORT, ncr_key_export, ncr_key_export);
-	CASE_NO_OUTPUT(NCRIO_KEY_IMPORT, ncr_key_import, ncr_key_import);
-	case NCRIO_KEY_DEINIT: {
-		ncr_key_t key;
+		CASE_NO_OUTPUT(NCRIO_KEY_EXPORT, ncr_key_export,
+			       ncr_key_export);
+		CASE_NO_OUTPUT(NCRIO_KEY_IMPORT, ncr_key_import,
+			       ncr_key_import);
+	case NCRIO_KEY_DEINIT:{
+			ncr_key_t key;
 
-		ret = get_user(key, (const ncr_key_t __user *)arg);
-		if (unlikely(ret)) {
-			err();
-			return ret;
+			ret = get_user(key, (const ncr_key_t __user *)arg);
+			if (unlikely(ret)) {
+				err();
+				return ret;
+			}
+			return ncr_key_deinit(lst, key);
 		}
-		return ncr_key_deinit(lst, key);
-	}
-	CASE_NO_OUTPUT(NCRIO_KEY_WRAP, ncr_key_wrap, ncr_key_wrap);
-	CASE_NO_OUTPUT(NCRIO_KEY_UNWRAP, ncr_key_unwrap, ncr_key_unwrap);
-	CASE_NO_OUTPUT(NCRIO_KEY_STORAGE_WRAP, ncr_key_storage_wrap,
-		       ncr_key_storage_wrap);
-	CASE_NO_OUTPUT(NCRIO_KEY_STORAGE_UNWRAP, ncr_key_storage_unwrap,
-		       ncr_key_storage_unwrap);
-	CASE_NO_OUTPUT(NCRIO_SESSION_INIT, ncr_session_init, ncr_session_init);
-	CASE_NO_OUTPUT_COMPAT(NCRIO_SESSION_UPDATE, ncr_session_update,
-			      ncr_session_update);
-	CASE_NO_OUTPUT_COMPAT(NCRIO_SESSION_FINAL, ncr_session_final,
-			      ncr_session_final);
-	CASE_NO_OUTPUT_COMPAT(NCRIO_SESSION_ONCE, ncr_session_once,
-			      ncr_session_once);
-	CASE_(NCRIO_MASTER_KEY_SET, ncr_master_key_set, ncr_master_key_set,
-	      (&data, tb));
+		CASE_NO_OUTPUT(NCRIO_KEY_WRAP, ncr_key_wrap, ncr_key_wrap);
+		CASE_NO_OUTPUT(NCRIO_KEY_UNWRAP, ncr_key_unwrap,
+			       ncr_key_unwrap);
+		CASE_NO_OUTPUT(NCRIO_KEY_STORAGE_WRAP, ncr_key_storage_wrap,
+			       ncr_key_storage_wrap);
+		CASE_NO_OUTPUT(NCRIO_KEY_STORAGE_UNWRAP, ncr_key_storage_unwrap,
+			       ncr_key_storage_unwrap);
+		CASE_NO_OUTPUT(NCRIO_SESSION_INIT, ncr_session_init,
+			       ncr_session_init);
+		CASE_NO_OUTPUT_COMPAT(NCRIO_SESSION_UPDATE, ncr_session_update,
+				      ncr_session_update);
+		CASE_NO_OUTPUT_COMPAT(NCRIO_SESSION_FINAL, ncr_session_final,
+				      ncr_session_final);
+		CASE_NO_OUTPUT_COMPAT(NCRIO_SESSION_ONCE, ncr_session_once,
+				      ncr_session_once);
+		CASE_(NCRIO_MASTER_KEY_SET, ncr_master_key_set,
+		      ncr_master_key_set, (&data, tb));
 	default:
 		return -EINVAL;
 #undef CASE_
@@ -209,7 +216,7 @@ struct compat_ncr_key_export {
 	ncr_key_t key;
 	compat_uptr_t buffer;
 	compat_int_t buffer_size;
-	__NL_ATTRIBUTES;
+	 __NL_ATTRIBUTES;
 };
 #define COMPAT_NCRIO_KEY_EXPORT _IOWR('c', 209, struct compat_ncr_key_export)
 
@@ -226,7 +233,7 @@ struct compat_ncr_key_import {
 	ncr_key_t key;
 	compat_uptr_t data;
 	__u32 data_size;
-	__NL_ATTRIBUTES;
+	 __NL_ATTRIBUTES;
 };
 #define COMPAT_NCRIO_KEY_IMPORT _IOWR('c', 210, struct compat_ncr_key_import)
 
@@ -244,7 +251,7 @@ struct compat_ncr_key_wrap {
 	ncr_key_t source_key;
 	compat_uptr_t buffer;
 	compat_int_t buffer_size;
-	__NL_ATTRIBUTES;
+	 __NL_ATTRIBUTES;
 };
 #define COMPAT_NCRIO_KEY_WRAP _IOWR('c', 250, struct compat_ncr_key_wrap)
 
@@ -263,7 +270,7 @@ struct compat_ncr_key_unwrap {
 	ncr_key_t dest_key;
 	compat_uptr_t data;
 	__u32 data_size;
-	__NL_ATTRIBUTES;
+	 __NL_ATTRIBUTES;
 };
 #define COMPAT_NCRIO_KEY_UNWRAP _IOWR('c', 251, struct compat_ncr_key_unwrap)
 
@@ -281,13 +288,14 @@ struct compat_ncr_key_storage_wrap {
 	ncr_key_t key;
 	compat_uptr_t buffer;
 	compat_int_t buffer_size;
-	__NL_ATTRIBUTES;
+	 __NL_ATTRIBUTES;
 };
 #define COMPAT_NCRIO_KEY_STORAGE_WRAP				\
 	_IOWR('c', 261, struct compat_ncr_key_storage_wrap)
 
 static void convert_ncr_key_storage_wrap(struct ncr_key_storage_wrap *new,
-					 const struct compat_ncr_key_storage_wrap *old)
+					 const struct
+					 compat_ncr_key_storage_wrap *old)
 {
 	new->key = old->key;
 	new->buffer = compat_ptr(old->buffer);
@@ -299,13 +307,14 @@ struct compat_ncr_key_storage_unwrap {
 	ncr_key_t key;
 	compat_uptr_t data;
 	__u32 data_size;
-	__NL_ATTRIBUTES;
+	 __NL_ATTRIBUTES;
 };
 #define COMPAT_NCRIO_KEY_STORAGE_UNWRAP				\
 	_IOWR('c', 262, struct compat_ncr_key_storage_wrap)
 
 static void convert_ncr_key_storage_unwrap(struct ncr_key_storage_unwrap *new,
-					   const struct compat_ncr_key_storage_unwrap *old)
+					   const struct
+					   compat_ncr_key_storage_unwrap *old)
 {
 	new->key = old->key;
 	new->data = compat_ptr(old->data);
@@ -316,13 +325,14 @@ struct compat_ncr_master_key_set {
 	__u32 input_size, output_size;
 	compat_uptr_t key;
 	__u32 key_size;
-	__NL_ATTRIBUTES;
+	 __NL_ATTRIBUTES;
 };
 #define COMPAT_NCRIO_MASTER_KEY_SET				\
 	_IOWR('c', 260, struct compat_ncr_master_key_set)
 
 static void convert_ncr_master_key_set(struct ncr_master_key_set *new,
-				       const struct compat_ncr_master_key_set *old)
+				       const struct compat_ncr_master_key_set
+				       *old)
 {
 	new->key = compat_ptr(old->key);
 	new->key_size = old->key_size;
@@ -379,22 +389,26 @@ ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 		break;							\
 	}
 
-	CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_EXPORT, ncr_key_export, ncr_key_export);
-	CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_IMPORT, ncr_key_import, ncr_key_import);
-	CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_WRAP, ncr_key_wrap, ncr_key_wrap);
-	CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_UNWRAP, ncr_key_unwrap, ncr_key_unwrap);
-	CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_STORAGE_WRAP, ncr_key_storage_wrap,
-		       ncr_key_storage_wrap);
-	CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_STORAGE_UNWRAP, ncr_key_storage_unwrap,
-		       ncr_key_storage_unwrap);
-	CASE_COMPAT_ONLY(NCRIO_SESSION_UPDATE, ncr_session_update,
-			 ncr_session_update);
-	CASE_COMPAT_ONLY(NCRIO_SESSION_FINAL, ncr_session_final,
-			 ncr_session_final);
-	CASE_COMPAT_ONLY(NCRIO_SESSION_ONCE, ncr_session_once,
-			 ncr_session_once);
-	CASE_(COMPAT_NCRIO_MASTER_KEY_SET, ncr_master_key_set,
-	      ncr_master_key_set, (&new, tb));
+		CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_EXPORT, ncr_key_export,
+			       ncr_key_export);
+		CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_IMPORT, ncr_key_import,
+			       ncr_key_import);
+		CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_WRAP, ncr_key_wrap,
+			       ncr_key_wrap);
+		CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_UNWRAP, ncr_key_unwrap,
+			       ncr_key_unwrap);
+		CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_STORAGE_WRAP,
+			       ncr_key_storage_wrap, ncr_key_storage_wrap);
+		CASE_NO_OUTPUT(COMPAT_NCRIO_KEY_STORAGE_UNWRAP,
+			       ncr_key_storage_unwrap, ncr_key_storage_unwrap);
+		CASE_COMPAT_ONLY(NCRIO_SESSION_UPDATE, ncr_session_update,
+				 ncr_session_update);
+		CASE_COMPAT_ONLY(NCRIO_SESSION_FINAL, ncr_session_final,
+				 ncr_session_final);
+		CASE_COMPAT_ONLY(NCRIO_SESSION_ONCE, ncr_session_once,
+				 ncr_session_once);
+		CASE_(COMPAT_NCRIO_MASTER_KEY_SET, ncr_master_key_set,
+		      ncr_master_key_set, (&new, tb));
 	default:
 		return -EINVAL;
 #undef CASE_
@@ -415,7 +429,7 @@ int ncr_session_input_data_from_nla(struct ncr_session_input_data *dest,
 	if (!compat) {
 #endif
 		if (unlikely(nla_len(nla) < sizeof(dest)))
-			return -ERANGE; /* nla_validate would return -ERANGE. */
+			return -ERANGE;	/* nla_validate would return -ERANGE. */
 		memcpy(dest, nla_data(nla), sizeof(*dest));
 #ifdef CONFIG_COMPAT
 	} else {
@@ -440,7 +454,7 @@ int ncr_session_output_buffer_from_nla(struct ncr_session_output_buffer *dest,
 	if (!compat) {
 #endif
 		if (unlikely(nla_len(nla) < sizeof(dest)))
-			return -ERANGE; /* nla_validate would return -ERANGE. */
+			return -ERANGE;	/* nla_validate would return -ERANGE. */
 		memcpy(dest, nla_data(nla), sizeof(*dest));
 #ifdef CONFIG_COMPAT
 	} else {
@@ -457,9 +471,8 @@ int ncr_session_output_buffer_from_nla(struct ncr_session_output_buffer *dest,
 	return 0;
 }
 
-
-int ncr_session_output_buffer_set_size(const struct ncr_session_output_buffer *dest,
-				       size_t size, int compat)
+int ncr_session_output_buffer_set_size(const struct ncr_session_output_buffer
+				       *dest, size_t size, int compat)
 {
 #ifdef CONFIG_COMPAT
 	if (!compat)
@@ -471,7 +484,7 @@ int ncr_session_output_buffer_set_size(const struct ncr_session_output_buffer *d
 
 		old = size;
 		return put_user(old,
-				(compat_size_t __user *)dest->result_size_ptr);
+				(compat_size_t __user *) dest->result_size_ptr);
 	}
 #endif
 }

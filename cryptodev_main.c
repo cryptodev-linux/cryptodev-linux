@@ -70,27 +70,28 @@ void release_user_pages(struct page **pg, int pagecount)
 #define PAGEOFFSET(buf) ((unsigned long)buf & ~PAGE_MASK)
 
 /* fetch the pages addr resides in into pg and initialise sg with them */
-int __get_userbuf(uint8_t __user *addr, uint32_t len, int write,
-		int pgcount, struct page **pg, struct scatterlist *sg)
+int __get_userbuf(uint8_t __user * addr, uint32_t len, int write,
+		  int pgcount, struct page **pg, struct scatterlist *sg)
 {
 	int ret, pglen, i = 0;
 	struct scatterlist *sgp;
 
 	down_write(&current->mm->mmap_sem);
 	ret = get_user_pages(current, current->mm,
-			(unsigned long)addr, pgcount, write, 0, pg, NULL);
+			     (unsigned long)addr, pgcount, write, 0, pg, NULL);
 	up_write(&current->mm->mmap_sem);
 	if (ret != pgcount)
 		return -EINVAL;
 
 	sg_init_table(sg, pgcount);
 
-	pglen = min((ptrdiff_t)(PAGE_SIZE - PAGEOFFSET(addr)), (ptrdiff_t)len);
+	pglen =
+	    min((ptrdiff_t) (PAGE_SIZE - PAGEOFFSET(addr)), (ptrdiff_t) len);
 	sg_set_page(sg, pg[i++], pglen, PAGEOFFSET(addr));
 
 	len -= pglen;
 	for (sgp = sg_next(sg); len; sgp = sg_next(sgp)) {
-		pglen = min((uint32_t)PAGE_SIZE, len);
+		pglen = min((uint32_t) PAGE_SIZE, len);
 		sg_set_page(sgp, pg[i++], pglen, 0);
 		len -= pglen;
 	}
@@ -100,8 +101,7 @@ int __get_userbuf(uint8_t __user *addr, uint32_t len, int write,
 
 /* ====== /dev/crypto ====== */
 
-static int
-cryptodev_open(struct inode *inode, struct file *filp)
+static int cryptodev_open(struct inode *inode, struct file *filp)
 {
 	void *ncr;
 
@@ -114,8 +114,7 @@ cryptodev_open(struct inode *inode, struct file *filp)
 	return 0;
 }
 
-static int
-cryptodev_release(struct inode *inode, struct file *filp)
+static int cryptodev_release(struct inode *inode, struct file *filp)
 {
 	void *ncr = filp->private_data;
 
@@ -170,15 +169,14 @@ static struct miscdevice cryptodev = {
 	.fops = &cryptodev_fops,
 };
 
-static int __init
-cryptodev_register(void)
+static int __init cryptodev_register(void)
 {
 	int rc;
 
 	ncr_limits_init();
 	ncr_master_key_reset();
-	
-	rc = misc_register (&cryptodev);
+
+	rc = misc_register(&cryptodev);
 	if (unlikely(rc)) {
 		ncr_limits_deinit();
 		printk(KERN_ERR PFX "registration of /dev/crypto failed\n");
@@ -188,8 +186,7 @@ cryptodev_register(void)
 	return 0;
 }
 
-static void __exit
-cryptodev_deregister(void)
+static void __exit cryptodev_deregister(void)
 {
 	misc_deregister(&cryptodev);
 	ncr_limits_deinit();

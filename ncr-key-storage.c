@@ -41,13 +41,14 @@ struct packed_key {
 
 	uint8_t raw[KEY_DATA_MAX_SIZE];
 	uint32_t raw_size;
-} __attribute__((__packed__));
+} __attribute__ ((__packed__));
 
 #define THIS_VERSION 2
 
-int key_to_storage_data( uint8_t** sdata, size_t * sdata_size, const struct key_item_st *key)
+int key_to_storage_data(uint8_t ** sdata, size_t * sdata_size,
+			const struct key_item_st *key)
 {
-	struct packed_key * pkey;
+	struct packed_key *pkey;
 	int ret;
 
 	pkey = kmalloc(sizeof(*pkey), GFP_KERNEL);
@@ -69,9 +70,10 @@ int key_to_storage_data( uint8_t** sdata, size_t * sdata_size, const struct key_
 		pkey->raw_size = key->key.secret.size;
 		memcpy(pkey->raw, key->key.secret.data, pkey->raw_size);
 #ifdef CONFIG_ASSYMETRIC
-	} else if (key->type == NCR_KEY_TYPE_PRIVATE || key->type == NCR_KEY_TYPE_PUBLIC) {
+	} else if (key->type == NCR_KEY_TYPE_PRIVATE
+		   || key->type == NCR_KEY_TYPE_PUBLIC) {
 		pkey->raw_size = sizeof(pkey->raw);
-		ret = ncr_pk_pack( key, pkey->raw, &pkey->raw_size);
+		ret = ncr_pk_pack(key, pkey->raw, &pkey->raw_size);
 		if (ret < 0) {
 			err();
 			goto fail;
@@ -83,7 +85,7 @@ int key_to_storage_data( uint8_t** sdata, size_t * sdata_size, const struct key_
 		goto fail;
 	}
 
-	*sdata = (void*)pkey;
+	*sdata = (void *)pkey;
 	*sdata_size = sizeof(*pkey);
 
 	return 0;
@@ -93,9 +95,10 @@ fail:
 	return ret;
 }
 
-int key_from_storage_data(struct key_item_st* key, const void* data, size_t data_size)
+int key_from_storage_data(struct key_item_st *key, const void *data,
+			  size_t data_size)
 {
-	const struct packed_key * pkey = data;
+	const struct packed_key *pkey = data;
 
 	if (data_size != sizeof(*pkey) || pkey->version != THIS_VERSION
 	    || pkey->key_id_size > MAX_KEY_ID_SIZE) {
@@ -122,11 +125,11 @@ int key_from_storage_data(struct key_item_st* key, const void* data, size_t data
 		key->key.secret.size = pkey->raw_size;
 		memcpy(key->key.secret.data, pkey->raw, pkey->raw_size);
 #ifdef CONFIG_ASSYMETRIC
-	} else if (key->type == NCR_KEY_TYPE_PUBLIC 
-		|| key->type == NCR_KEY_TYPE_PRIVATE) {
+	} else if (key->type == NCR_KEY_TYPE_PUBLIC
+		   || key->type == NCR_KEY_TYPE_PRIVATE) {
 		int ret;
 
-		ret = ncr_pk_unpack( key, pkey->raw, pkey->raw_size);
+		ret = ncr_pk_unpack(key, pkey->raw, pkey->raw_size);
 		if (ret < 0) {
 			err();
 			return ret;

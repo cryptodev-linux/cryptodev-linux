@@ -52,7 +52,7 @@ int dh_import_params(dh_key * key, uint8_t * p, size_t p_size, uint8_t * g,
 	}
 
 	if ((err =
-	     mp_read_unsigned_bin(&key->p, (unsigned char *) p,
+	     mp_read_unsigned_bin(&key->p, (unsigned char *)p,
 				  p_size)) != CRYPT_OK) {
 		err();
 		ret = _ncr_tomerr(err);
@@ -60,7 +60,7 @@ int dh_import_params(dh_key * key, uint8_t * p, size_t p_size, uint8_t * g,
 	}
 
 	if ((err =
-	     mp_read_unsigned_bin(&key->g, (unsigned char *) g,
+	     mp_read_unsigned_bin(&key->g, (unsigned char *)g,
 				  g_size)) != CRYPT_OK) {
 		err();
 		ret = _ncr_tomerr(err);
@@ -68,7 +68,7 @@ int dh_import_params(dh_key * key, uint8_t * p, size_t p_size, uint8_t * g,
 	}
 
 	return 0;
-      fail:
+fail:
 	mp_clear_multi(&key->p, &key->g, &key->x, &key->y, NULL);
 
 	return ret;
@@ -95,7 +95,8 @@ int dh_generate_key(dh_key * key)
 	do {
 		get_random_bytes(buf, size);
 
-		if ((err = mp_read_unsigned_bin(&key->x, buf, size)) != CRYPT_OK) {
+		if ((err =
+		     mp_read_unsigned_bin(&key->x, buf, size)) != CRYPT_OK) {
 			err();
 			ret = _ncr_tomerr(err);
 			goto fail;
@@ -107,12 +108,13 @@ int dh_generate_key(dh_key * key)
 			ret = _ncr_tomerr(err);
 			goto fail;
 		}
-	} while(mp_cmp_d(&key->x, 0) == MP_EQ || mp_cmp_d(&key->x, 1) == MP_EQ);
+	} while (mp_cmp_d(&key->x, 0) == MP_EQ
+		 || mp_cmp_d(&key->x, 1) == MP_EQ);
 
 	key->type = PK_PRIVATE;
 
 	ret = 0;
-      fail:
+fail:
 	kfree(buf);
 
 	return ret;
@@ -123,8 +125,7 @@ int dh_generate_public(dh_key * public, dh_key * private)
 {
 	int err, ret;
 
-	err =
-	    mp_exptmod(&private->g, &private->x, &private->p, &public->y);
+	err = mp_exptmod(&private->g, &private->x, &private->p, &public->y);
 	if (err != CRYPT_OK) {
 		err();
 		ret = _ncr_tomerr(err);
@@ -134,12 +135,12 @@ int dh_generate_public(dh_key * public, dh_key * private)
 	public->type = PK_PUBLIC;
 
 	ret = 0;
-      fail:
+fail:
 
 	return ret;
 }
 
-int dh_export(uint8_t * out, unsigned long * outlen, int type, dh_key * key)
+int dh_export(uint8_t * out, unsigned long *outlen, int type, dh_key * key)
 {
 	unsigned long zero = 0;
 	int err;
@@ -164,28 +165,29 @@ int dh_export(uint8_t * out, unsigned long * outlen, int type, dh_key * key)
 	 */
 	if (type == PK_PRIVATE) {
 		err = der_encode_sequence_multi(out, outlen,
-					LTC_ASN1_SHORT_INTEGER, 1UL, &zero, 
-					LTC_ASN1_INTEGER, 1UL, &key->p, 
-					LTC_ASN1_INTEGER, 1UL, &key->g,
-					LTC_ASN1_INTEGER, 1UL, &key->x, 
-					LTC_ASN1_EOL, 0UL, NULL);
+						LTC_ASN1_SHORT_INTEGER, 1UL,
+						&zero, LTC_ASN1_INTEGER, 1UL,
+						&key->p, LTC_ASN1_INTEGER, 1UL,
+						&key->g, LTC_ASN1_INTEGER, 1UL,
+						&key->x, LTC_ASN1_EOL, 0UL,
+						NULL);
 	} else {
 		err = mp_unsigned_bin_size(&key->y);
 		if (err > *outlen) {
 			err();
 			return -EOVERFLOW;
 		}
-		
+
 		*outlen = err;
 
 		err = mp_to_unsigned_bin(&key->y, out);
 	}
-	
+
 	if (err != CRYPT_OK) {
 		err();
 		return _ncr_tomerr(err);
 	}
-	
+
 	return 0;
 }
 
@@ -200,18 +202,18 @@ int dh_import(const uint8_t * in, size_t inlen, dh_key * key)
 	}
 
 	/* init key */
-	if (mp_init_multi
-	    (&key->p, &key->g, &key->x, &key->y, NULL) != CRYPT_OK) {
+	if (mp_init_multi(&key->p, &key->g, &key->x, &key->y, NULL) != CRYPT_OK) {
 		return -ENOMEM;
 	}
 
 	/* get key type */
 	if ((err = der_decode_sequence_multi(in, inlen,
-				LTC_ASN1_SHORT_INTEGER, 1UL, &zero, 
-				LTC_ASN1_INTEGER, 1UL, &key->p, 
-				LTC_ASN1_INTEGER, 1UL, &key->g,
-				LTC_ASN1_INTEGER, 1UL, &key->x,
-				LTC_ASN1_EOL, 0UL, NULL)) == CRYPT_OK) {
+					     LTC_ASN1_SHORT_INTEGER, 1UL, &zero,
+					     LTC_ASN1_INTEGER, 1UL, &key->p,
+					     LTC_ASN1_INTEGER, 1UL, &key->g,
+					     LTC_ASN1_INTEGER, 1UL, &key->x,
+					     LTC_ASN1_EOL, 0UL,
+					     NULL)) == CRYPT_OK) {
 		key->type = PK_PRIVATE;
 	} else {		/* public */
 		err = mp_read_unsigned_bin(&key->y, in, inlen);
@@ -224,41 +226,41 @@ int dh_import(const uint8_t * in, size_t inlen, dh_key * key)
 
 	return 0;
 
-      LBL_ERR:
+LBL_ERR:
 	mp_clear_multi(&key->p, &key->g, &key->x, &key->y, NULL);
 	return _ncr_tomerr(err);
 }
 
-int dh_derive_gxy(struct key_item_st* newkey, dh_key * key,
-	void* pk, size_t pk_size)
+int dh_derive_gxy(struct key_item_st *newkey, dh_key * key,
+		  void *pk, size_t pk_size)
 {
-int ret, err;
-mp_int y, gxy;
+	int ret, err;
+	mp_int y, gxy;
 	/* newkey will be a secret key with value of g^{xy}
 	 */
-	
+
 	if (mp_init_multi(&y, &gxy, NULL) != CRYPT_OK) {
 		err();
 		return -ENOMEM;
 	}
-	
+
 	if (key->type != PK_PRIVATE) {
 		err();
 		return -EINVAL;
 	}
 
-	if ((err=mp_read_unsigned_bin(&y, pk, pk_size)) != CRYPT_OK) {
+	if ((err = mp_read_unsigned_bin(&y, pk, pk_size)) != CRYPT_OK) {
 		err();
 		ret = _ncr_tomerr(err);
 		goto fail;
 	}
-	
-	if ((err=mp_exptmod(&y, &key->x, &key->p, &gxy))!= CRYPT_OK) {
+
+	if ((err = mp_exptmod(&y, &key->x, &key->p, &gxy)) != CRYPT_OK) {
 		err();
 		ret = _ncr_tomerr(err);
 		goto fail;
 	}
-	
+
 	err = mp_unsigned_bin_size(&gxy);
 	if (err > NCR_CIPHER_MAX_KEY_LEN) {
 		err();
@@ -279,18 +281,18 @@ mp_int y, gxy;
 	ret = 0;
 fail:
 	mp_clear_multi(&y, &gxy, NULL);
-	
-	return ret;
-}	
 
-int ncr_pk_get_dh_size( dh_key* key)
+	return ret;
+}
+
+int ncr_pk_get_dh_size(dh_key * key)
 {
-int ret;
+	int ret;
 	ret = mp_count_bits(&key->p);
 	if (ret <= 0) {
 		err();
 		return -EINVAL;
 	}
-	
+
 	return ret;
 }

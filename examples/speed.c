@@ -37,41 +37,41 @@
 static double udifftimeval(struct timeval start, struct timeval end)
 {
 	return (double)(end.tv_usec - start.tv_usec) +
-	       (double)(end.tv_sec - start.tv_sec) * 1000 * 1000;
+	    (double)(end.tv_sec - start.tv_sec) * 1000 * 1000;
 }
 
 static int must_finish = 0;
 
 static void alarm_handler(int signo)
 {
-        must_finish = 1;
+	must_finish = 1;
 }
 
-static void value2human(double bytes, double time, double* data, double* speed,char* metric)
+static void value2human(double bytes, double time, double *data, double *speed,
+			char *metric)
 {
-        if (bytes > 1000 && bytes < 1000*1000) {
-                *data = ((double)bytes)/1000;
-                *speed = *data/time;
-                strcpy(metric, "Kb");
-                return;
-        } else if (bytes >= 1000*1000 && bytes < 1000*1000*1000) {
-                *data = ((double)bytes)/(1000*1000);
-                *speed = *data/time;
-                strcpy(metric, "Mb");
-                return;
-        } else if (bytes >= 1000*1000*1000) {
-                *data = ((double)bytes)/(1000*1000*1000);
-                *speed = *data/time;
-                strcpy(metric, "Gb");
-                return;
-        } else {
-                *data = (double)bytes;
-                *speed = *data/time;
-                strcpy(metric, "bytes");
-                return;
-        }
+	if (bytes > 1000 && bytes < 1000 * 1000) {
+		*data = ((double)bytes) / 1000;
+		*speed = *data / time;
+		strcpy(metric, "Kb");
+		return;
+	} else if (bytes >= 1000 * 1000 && bytes < 1000 * 1000 * 1000) {
+		*data = ((double)bytes) / (1000 * 1000);
+		*speed = *data / time;
+		strcpy(metric, "Mb");
+		return;
+	} else if (bytes >= 1000 * 1000 * 1000) {
+		*data = ((double)bytes) / (1000 * 1000 * 1000);
+		*speed = *data / time;
+		strcpy(metric, "Gb");
+		return;
+	} else {
+		*data = (double)bytes;
+		*speed = *data / time;
+		strcpy(metric, "bytes");
+		return;
+	}
 }
-
 
 int encrypt_data_ncr_direct(int cfd, const char *algo, int chunksize)
 {
@@ -82,14 +82,14 @@ int encrypt_data_ncr_direct(int cfd, const char *algo, int chunksize)
 	double secs, ddata, dspeed;
 	char metric[16];
 	ncr_key_t key;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_generate f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(ALG_AES_CBC)] ALIGN_NL;
 		struct nlattr bits_head ALIGN_NL;
 		uint32_t bits ALIGN_NL;
 	} kgen;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_once f;
 		struct nlattr key_head ALIGN_NL;
 		uint32_t key ALIGN_NL;
@@ -119,14 +119,13 @@ int encrypt_data_ncr_direct(int cfd, const char *algo, int chunksize)
 	strcpy(kgen.algo, ALG_AES_CBC);
 	kgen.bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.bits);
 	kgen.bits_head.nla_type = NCR_ATTR_SECRET_KEY_BITS;
-	kgen.bits = 128; /* 16 bytes */
+	kgen.bits = 128;	/* 16 bytes */
 
 	if (ioctl(cfd, NCRIO_KEY_GENERATE, &kgen)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_GENERATE)");
 		return 1;
 	}
-
 
 	buffer = malloc(chunksize);
 	memset(iv, 0x23, 32);
@@ -170,15 +169,15 @@ int encrypt_data_ncr_direct(int cfd, const char *algo, int chunksize)
 			return 1;
 		}
 
-		total+=chunksize;
-	} while(must_finish==0);
+		total += chunksize;
+	} while (must_finish == 0);
 	gettimeofday(&end, NULL);
 
-	secs = udifftimeval(start, end)/ 1000000.0;
-	
+	secs = udifftimeval(start, end) / 1000000.0;
+
 	value2human(total, secs, &ddata, &dspeed, metric);
-	printf ("done. %.2f %s in %.2f secs: ", ddata, metric, secs);
-	printf ("%.2f %s/sec\n", dspeed, metric);
+	printf("done. %.2f %s in %.2f secs: ", ddata, metric, secs);
+	printf("%.2f %s/sec\n", dspeed, metric);
 
 	return 0;
 }
@@ -199,7 +198,6 @@ int main(void)
 		if (encrypt_data_ncr_direct(fd, "ecb(cipher_null)", i))
 			break;
 	}
-
 
 	fprintf(stderr, "\nTesting NCR-DIRECT with AES-128-CBC cipher: \n");
 	for (i = 256; i <= (64 * 1024); i *= 2) {

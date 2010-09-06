@@ -26,7 +26,7 @@ typedef enum {
 
 	NCR_ALG_3DES_CBC,
 	NCR_ALG_3DES_ECB,
-	
+
 	NCR_ALG_AES_ECB,
 	NCR_ALG_AES_CBC,
 	NCR_ALG_AES_CTR,
@@ -34,15 +34,15 @@ typedef enum {
 	NCR_ALG_CAMELIA_ECB,
 	NCR_ALG_CAMELIA_CBC,
 	NCR_ALG_CAMELIA_CTR,
-	
-	NCR_ALG_MD5=200,
+
+	NCR_ALG_MD5 = 200,
 	NCR_ALG_SHA1,
 	NCR_ALG_SHA2_224,
 	NCR_ALG_SHA2_256,
 	NCR_ALG_SHA2_384,
 	NCR_ALG_SHA2_512,
 
-	NCR_ALG_RSA=600,
+	NCR_ALG_RSA = 600,
 	NCR_ALG_DSA,
 	NCR_ALG_DH,
 } ncr_algorithm_t;
@@ -61,7 +61,7 @@ struct algo_properties_st {
 	unsigned can_sign:1;
 	unsigned can_digest:1;
 	unsigned can_encrypt:1;
-	unsigned can_kx:1; /* key exchange */
+	unsigned can_kx:1;	/* key exchange */
 	unsigned is_symmetric:1;
 	unsigned is_pk:1;
 	unsigned has_transparent_hash:1;
@@ -78,7 +78,7 @@ struct key_item_st {
 	 */
 	ncr_key_type_t type;
 	unsigned int flags;
-	const struct algo_properties_st *algorithm; /* non-NULL for public/private keys */
+	const struct algo_properties_st *algorithm;	/* non-NULL for public/private keys */
 	uint8_t key_id[MAX_KEY_ID_SIZE];
 	size_t key_id_size;
 
@@ -116,7 +116,7 @@ struct ncr_lists {
 	struct idr session_idr;
 };
 
-void* ncr_init_lists(void);
+void *ncr_init_lists(void);
 void ncr_deinit_lists(struct ncr_lists *lst);
 
 long ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg);
@@ -127,7 +127,7 @@ long ncr_compat_ioctl(struct ncr_lists *lst, unsigned int cmd,
 int ncr_key_derive(struct ncr_lists *lst, const struct ncr_key_derive *data,
 		   struct nlattr *tb[]);
 
-void ncr_key_clear(struct key_item_st* item);
+void ncr_key_clear(struct key_item_st *item);
 int ncr_key_update_flags(struct key_item_st *item, const struct nlattr *nla);
 
 /* key handling */
@@ -146,14 +146,14 @@ int ncr_key_get_info(struct ncr_lists *lst, struct ncr_out *out,
 int ncr_key_generate_pair(struct ncr_lists *lst,
 			  const struct ncr_key_generate_pair *gen,
 			  struct nlattr *tb[]);
-int ncr_key_get_public(struct ncr_lists *lst, void __user* arg);
+int ncr_key_get_public(struct ncr_lists *lst, void __user * arg);
 
-int ncr_key_item_get_read(struct key_item_st**st, struct ncr_lists *lst,
-	ncr_key_t desc);
+int ncr_key_item_get_read(struct key_item_st **st, struct ncr_lists *lst,
+			  ncr_key_t desc);
 /* get key item for writing */
-int ncr_key_item_get_write( struct key_item_st** st,
-	struct ncr_lists *lst, ncr_key_t desc);
-void _ncr_key_item_put( struct key_item_st* item);
+int ncr_key_item_get_write(struct key_item_st **st,
+			   struct ncr_lists *lst, ncr_key_t desc);
+void _ncr_key_item_put(struct key_item_st *item);
 
 typedef enum {
 	LIMIT_TYPE_KEY,
@@ -181,7 +181,7 @@ void ncr_sessions_list_deinit(struct ncr_lists *lst);
 
 int ncr_session_init(struct ncr_lists *lists,
 		     const struct ncr_session_init *session,
-		    struct nlattr *tb[]);
+		     struct nlattr *tb[]);
 int ncr_session_update(struct ncr_lists *lists,
 		       const struct ncr_session_update *op, struct nlattr *tb[],
 		       int compat);
@@ -198,17 +198,20 @@ extern struct key_item_st master_key;
 void ncr_master_key_reset(void);
 
 /* storage */
-int key_from_storage_data(struct key_item_st* key, const void* data, size_t data_size);
-int key_to_storage_data( uint8_t** data, size_t * data_size, const struct key_item_st *key);
-
+int key_from_storage_data(struct key_item_st *key, const void *data,
+			  size_t data_size);
+int key_to_storage_data(uint8_t ** data, size_t * data_size,
+			const struct key_item_st *key);
 
 /* misc helper macros */
 
 const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo);
-const struct algo_properties_st *_ncr_nla_to_properties(const struct nlattr *nla);
-int _ncr_key_get_sec_level(struct key_item_st* item);
-const struct algo_properties_st *_ncr_oid_to_properties(oid_st* oid);
-const oid_st* _ncr_properties_to_oid(const struct algo_properties_st * prop, int key_size);
+const struct algo_properties_st *_ncr_nla_to_properties(const struct nlattr
+							*nla);
+int _ncr_key_get_sec_level(struct key_item_st *item);
+const struct algo_properties_st *_ncr_oid_to_properties(oid_st * oid);
+const oid_st *_ncr_properties_to_oid(const struct algo_properties_st *prop,
+				     int key_size);
 
 /* CONFIG_COMPAT handling */
 
@@ -231,7 +234,7 @@ int ncr_session_input_data_from_nla(struct ncr_session_input_data *dest,
 int ncr_session_output_buffer_from_nla(struct ncr_session_output_buffer *dest,
 				       const struct nlattr *nla, int compat);
 
-int ncr_session_output_buffer_set_size(const struct ncr_session_output_buffer *dest,
-				       size_t size, int compat);
+int ncr_session_output_buffer_set_size(const struct ncr_session_output_buffer
+				       *dest, size_t size, int compat);
 
 #endif

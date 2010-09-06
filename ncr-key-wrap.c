@@ -46,12 +46,12 @@ typedef uint8_t val64_t[8];
 
 static const val64_t initA = "\xA6\xA6\xA6\xA6\xA6\xA6\xA6\xA6";
 
-static int key_to_packed_data( uint8_t** sdata, size_t * sdata_size, const struct key_item_st *key);
-static int key_from_packed_data(struct nlattr *tb[], struct key_item_st* key,
-				const void* data, size_t data_size);
+static int key_to_packed_data(uint8_t ** sdata, size_t * sdata_size,
+			      const struct key_item_st *key);
+static int key_from_packed_data(struct nlattr *tb[], struct key_item_st *key,
+				const void *data, size_t data_size);
 
-
-static void val64_xor( val64_t val, uint32_t x)
+static void val64_xor(val64_t val, uint32_t x)
 {
 	val[7] ^= x & 0xff;
 	val[6] ^= (x >> 8) & 0xff;
@@ -59,65 +59,67 @@ static void val64_xor( val64_t val, uint32_t x)
 	val[4] ^= (x >> 24) & 0xff;
 }
 
-static int rfc3394_wrap(val64_t *R, unsigned int n, struct cipher_data* ctx,
-	uint8_t* output, size_t *output_size, const uint8_t iv[8])
+static int rfc3394_wrap(val64_t * R, unsigned int n, struct cipher_data *ctx,
+			uint8_t * output, size_t * output_size,
+			const uint8_t iv[8])
 {
-val64_t A;
-uint8_t aes_block[16];
-int i,j;
+	val64_t A;
+	uint8_t aes_block[16];
+	int i, j;
 
-	if (*output_size < (n+1)*8) {
+	if (*output_size < (n + 1) * 8) {
 		err();
 		return -ERANGE;
 	}
 
 	memcpy(A, iv, 8);
 
-	for (i=0;i<6*n;i++) {
+	for (i = 0; i < 6 * n; i++) {
 		memcpy(aes_block, A, 8);
 		memcpy(&aes_block[8], R[0], 8);
 
 		_cryptodev_cipher_encrypt(ctx, aes_block, sizeof(aes_block),
-			aes_block, sizeof(aes_block));
+					  aes_block, sizeof(aes_block));
 
-		memcpy(A, aes_block, 8); /* A = MSB64(AES(A^{t-1}|R_{1}^{t-1})) */
-		val64_xor(A, i+1); /* A ^= t */
+		memcpy(A, aes_block, 8);	/* A = MSB64(AES(A^{t-1}|R_{1}^{t-1})) */
+		val64_xor(A, i + 1);	/* A ^= t */
 
-		for (j=0;j<n-1;j++)
-			memcpy(R[j], R[j+1], sizeof(R[j]));
-		memcpy(R[n-1], &aes_block[8], 8); /* R[n-1] = LSB64(AES(A^{t-1}|R_{1}^{t-1})) */
+		for (j = 0; j < n - 1; j++)
+			memcpy(R[j], R[j + 1], sizeof(R[j]));
+		memcpy(R[n - 1], &aes_block[8], 8);	/* R[n-1] = LSB64(AES(A^{t-1}|R_{1}^{t-1})) */
 	}
 
 	memcpy(output, A, sizeof(A));
-	for (j=0;j<n;j++)
-		memcpy(&output[(j+1)*8], R[j], 8);
-	*output_size = (n+1)*8;
+	for (j = 0; j < n; j++)
+		memcpy(&output[(j + 1) * 8], R[j], 8);
+	*output_size = (n + 1) * 8;
 
 	return 0;
 }
 
-static int rfc3394_unwrap(const uint8_t *wrapped_key, val64_t R[], unsigned int n, val64_t A, struct cipher_data *ctx)
+static int rfc3394_unwrap(const uint8_t * wrapped_key, val64_t R[],
+			  unsigned int n, val64_t A, struct cipher_data *ctx)
 {
 	int i, j;
 	uint8_t aes_block[16];
 
-	memcpy(A, wrapped_key, 8); /* A = C[0] */
-	for (i=0;i<n;i++)
-		memcpy(R[i], &wrapped_key[(i+1)*8], 8);
+	memcpy(A, wrapped_key, 8);	/* A = C[0] */
+	for (i = 0; i < n; i++)
+		memcpy(R[i], &wrapped_key[(i + 1) * 8], 8);
 
-	for (i=(6*n)-1;i>=0;i--) {
-		val64_xor(A, i+1);
+	for (i = (6 * n) - 1; i >= 0; i--) {
+		val64_xor(A, i + 1);
 
 		memcpy(aes_block, A, 8);
-		memcpy(&aes_block[8], R[n-1], 8);
+		memcpy(&aes_block[8], R[n - 1], 8);
 
 		_cryptodev_cipher_decrypt(ctx, aes_block, sizeof(aes_block),
-			aes_block, sizeof(aes_block));
+					  aes_block, sizeof(aes_block));
 
 		memcpy(A, aes_block, 8);
 
-		for (j=n-1;j>=1;j--)
-			memcpy(R[j], R[j-1], sizeof(R[j]));
+		for (j = n - 1; j >= 1; j--)
+			memcpy(R[j], R[j - 1], sizeof(R[j]));
 
 		memcpy(R[0], &aes_block[8], 8);
 	}
@@ -126,14 +128,16 @@ static int rfc3394_unwrap(const uint8_t *wrapped_key, val64_t R[], unsigned int 
 }
 
 #define RFC5649_IV "\xA6\x59\x59\xA6"
-static int _wrap_aes_rfc5649(void* kdata, size_t kdata_size, struct key_item_st* kek,
-	void* output, size_t* output_size, const void* _iv, size_t iv_size)
+static int _wrap_aes_rfc5649(void *kdata, size_t kdata_size,
+			     struct key_item_st *kek, void *output,
+			     size_t * output_size, const void *_iv,
+			     size_t iv_size)
 {
-size_t n;
-int i, ret;
-struct cipher_data ctx;
-uint8_t iv[8];
-val64_t *R = NULL;
+	size_t n;
+	int i, ret;
+	struct cipher_data ctx;
+	uint8_t iv[8];
+	val64_t *R = NULL;
 
 	if (iv_size != 4) {
 		memcpy(iv, RFC5649_IV, 4);
@@ -146,19 +150,21 @@ val64_t *R = NULL;
 	iv[6] = (kdata_size >> 8) & 0xff;
 	iv[7] = (kdata_size) & 0xff;
 
-	n = (kdata_size+7)/8;
-	if (n==1) { /* unimplemented */
+	n = (kdata_size + 7) / 8;
+	if (n == 1) {		/* unimplemented */
 		err();
 		return -EINVAL;
 	}
 
-	ret = cryptodev_cipher_init(&ctx, "ecb(aes)", kek->key.secret.data, kek->key.secret.size);
+	ret =
+	    cryptodev_cipher_init(&ctx, "ecb(aes)", kek->key.secret.data,
+				  kek->key.secret.size);
 	if (ret < 0) {
 		err();
 		return ret;
 	}
 
-	R = kmalloc(n * sizeof (*R), GFP_KERNEL);
+	R = kmalloc(n * sizeof(*R), GFP_KERNEL);
 	if (R == NULL) {
 		err();
 		ret = -ENOMEM;
@@ -166,15 +172,15 @@ val64_t *R = NULL;
 	}
 
 	/* R = P */
-	for (i=0;i<kdata_size;i++) {
-		R[i/8][i%8] = ((uint8_t*)kdata)[i];
+	for (i = 0; i < kdata_size; i++) {
+		R[i / 8][i % 8] = ((uint8_t *) kdata)[i];
 	}
 
-	for (;i<n*8;i++) {
-		R[i/8][i%8] = 0;
+	for (; i < n * 8; i++) {
+		R[i / 8][i % 8] = 0;
 	}
 
-	ret = rfc3394_wrap( R, n, &ctx, output, output_size, iv);
+	ret = rfc3394_wrap(R, n, &ctx, output, output_size, iv);
 	if (ret < 0) {
 		err();
 		goto cleanup;
@@ -189,15 +195,17 @@ cleanup:
 	return ret;
 }
 
-static int _unwrap_aes_rfc5649(void* kdata, size_t *kdata_size, struct key_item_st* kek,
-	const void *wrapped_key, size_t wrapped_key_size, const void* _iv, size_t iv_size)
+static int _unwrap_aes_rfc5649(void *kdata, size_t * kdata_size,
+			       struct key_item_st *kek, const void *wrapped_key,
+			       size_t wrapped_key_size, const void *_iv,
+			       size_t iv_size)
 {
-size_t n;
-int i, ret;
-struct cipher_data ctx;
-uint8_t iv[4];
-size_t size;
-val64_t *R = NULL, A;
+	size_t n;
+	int i, ret;
+	struct cipher_data ctx;
+	uint8_t iv[4];
+	size_t size;
+	val64_t *R = NULL, A;
 
 	if (iv_size != 4) {
 		memcpy(iv, RFC5649_IV, 4);
@@ -206,7 +214,9 @@ val64_t *R = NULL, A;
 	}
 	iv_size = 4;
 
-	ret = cryptodev_cipher_init(&ctx, "ecb(aes)", kek->key.secret.data, kek->key.secret.size);
+	ret =
+	    cryptodev_cipher_init(&ctx, "ecb(aes)", kek->key.secret.data,
+				  kek->key.secret.size);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -218,15 +228,15 @@ val64_t *R = NULL, A;
 		goto cleanup;
 	}
 
-	n = wrapped_key_size/8 - 1;
+	n = wrapped_key_size / 8 - 1;
 
-	if (*kdata_size < (n-1)*8) {
+	if (*kdata_size < (n - 1) * 8) {
 		err();
 		ret = -EINVAL;
 		goto cleanup;
 	}
 
-	R = kmalloc(n * sizeof (*R), GFP_KERNEL);
+	R = kmalloc(n * sizeof(*R), GFP_KERNEL);
 	if (R == NULL) {
 		err();
 		ret = -ENOMEM;
@@ -239,14 +249,14 @@ val64_t *R = NULL, A;
 		goto cleanup;
 	}
 
-	if (memcmp(A, iv, 4)!= 0) {
+	if (memcmp(A, iv, 4) != 0) {
 		err();
 		ret = -EINVAL;
 		goto cleanup;
 	}
 
 	size = (A[4] << 24) | (A[5] << 16) | (A[6] << 8) | A[7];
-	if (size > n*8 || size < (n-1)*8 || *kdata_size < size) {
+	if (size > n * 8 || size < (n - 1) * 8 || *kdata_size < size) {
 		err();
 		ret = -EINVAL;
 		goto cleanup;
@@ -254,8 +264,8 @@ val64_t *R = NULL, A;
 
 	memset(kdata, 0, size);
 	*kdata_size = size;
-	for (i=0;i<size;i++) {
-		((uint8_t*)kdata)[i] = R[i/8][i%8];
+	for (i = 0; i < size; i++) {
+		((uint8_t *) kdata)[i] = R[i / 8][i % 8];
 	}
 
 	ret = 0;
@@ -267,13 +277,14 @@ cleanup:
 	return ret;
 }
 
-
-static int wrap_aes_rfc5649(struct key_item_st* tobewrapped, struct key_item_st *kek,
-	void* output, size_t* output_size, const void* iv, size_t iv_size)
+static int wrap_aes_rfc5649(struct key_item_st *tobewrapped,
+			    struct key_item_st *kek, void *output,
+			    size_t * output_size, const void *iv,
+			    size_t iv_size)
 {
-int ret;
-uint8_t* sdata = NULL;
-size_t sdata_size = 0;
+	int ret;
+	uint8_t *sdata = NULL;
+	size_t sdata_size = 0;
 
 	ret = key_to_packed_data(&sdata, &sdata_size, tobewrapped);
 	if (ret < 0) {
@@ -282,24 +293,25 @@ size_t sdata_size = 0;
 	}
 
 	ret = _wrap_aes_rfc5649(sdata, sdata_size,
-		kek, output, output_size, iv, iv_size);
+				kek, output, output_size, iv, iv_size);
 
 	kfree(sdata);
-	
+
 	return ret;
 }
 
-static int unwrap_aes_rfc5649(struct key_item_st* output, struct key_item_st *kek,
-	void *wrapped, size_t wrapped_size, struct nlattr *tb[])
+static int unwrap_aes_rfc5649(struct key_item_st *output,
+			      struct key_item_st *kek, void *wrapped,
+			      size_t wrapped_size, struct nlattr *tb[])
 {
-const struct nlattr *nla;
-int ret, iv_size;
-void * sdata;
-size_t sdata_size = KEY_DATA_MAX_SIZE;
-const uint8_t *iv;
+	const struct nlattr *nla;
+	int ret, iv_size;
+	void *sdata;
+	size_t sdata_size = KEY_DATA_MAX_SIZE;
+	const uint8_t *iv;
 
 	sdata = kmalloc(sdata_size, GFP_KERNEL);
-	if (sdata == NULL) { 
+	if (sdata == NULL) {
 		err();
 		return -ENOMEM;
 	}
@@ -313,7 +325,7 @@ const uint8_t *iv;
 		iv_size = 0;
 	}
 
-	ret = _unwrap_aes_rfc5649(sdata, &sdata_size, kek, 
+	ret = _unwrap_aes_rfc5649(sdata, &sdata_size, kek,
 				  wrapped, wrapped_size, iv, iv_size);
 	if (ret < 0) {
 		err();
@@ -325,38 +337,41 @@ const uint8_t *iv;
 		err();
 		goto fail;
 	}
-	
+
 	ret = 0;
-	
+
 fail:
 	kfree(sdata);
 	return ret;
 
 }
-		
 
 /* Wraps using the RFC3394 way.
  */
-static int wrap_aes_rfc3394(struct key_item_st* tobewrapped, struct key_item_st *kek,
-	void* output, size_t *output_size, const void* iv, size_t iv_size)
+static int wrap_aes_rfc3394(struct key_item_st *tobewrapped,
+			    struct key_item_st *kek, void *output,
+			    size_t * output_size, const void *iv,
+			    size_t iv_size)
 {
-size_t key_size, n;
-uint8_t *raw_key;
-int i, ret;
-struct cipher_data ctx;
-val64_t *R = NULL;
+	size_t key_size, n;
+	uint8_t *raw_key;
+	int i, ret;
+	struct cipher_data ctx;
+	val64_t *R = NULL;
 
 	if (tobewrapped->type != NCR_KEY_TYPE_SECRET) {
 		err();
 		return -EINVAL;
 	}
-	
+
 	if (iv_size < sizeof(initA)) {
 		iv_size = sizeof(initA);
 		iv = initA;
 	}
 
-	ret = cryptodev_cipher_init(&ctx, "ecb(aes)", kek->key.secret.data, kek->key.secret.size);
+	ret =
+	    cryptodev_cipher_init(&ctx, "ecb(aes)", kek->key.secret.data,
+				  kek->key.secret.size);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -371,10 +386,9 @@ val64_t *R = NULL;
 		goto cleanup;
 	}
 
-	n = key_size/8;
+	n = key_size / 8;
 
-
-	R = kmalloc(sizeof(*R)*n, GFP_KERNEL);
+	R = kmalloc(sizeof(*R) * n, GFP_KERNEL);
 	if (R == NULL) {
 		err();
 		ret = -ENOMEM;
@@ -382,11 +396,11 @@ val64_t *R = NULL;
 	}
 
 	/* R = P */
-	for (i=0;i<n;i++) {
-		memcpy(R[i], &raw_key[i*8], 8);
+	for (i = 0; i < n; i++) {
+		memcpy(R[i], &raw_key[i * 8], 8);
 	}
 
-	ret = rfc3394_wrap( R, n, &ctx, output, output_size, iv);
+	ret = rfc3394_wrap(R, n, &ctx, output, output_size, iv);
 	if (ret < 0) {
 		err();
 		goto cleanup;
@@ -403,29 +417,29 @@ cleanup:
 
 #if 0
 /* for debugging */
-void print_val64(char* str, val64_t val)
+void print_val64(char *str, val64_t val)
 {
 	int i;
-	printk("%s: ",str);
-	for (i=0;i<8;i++)
-	  printk("%.2x", val[i]);
+	printk("%s: ", str);
+	for (i = 0; i < 8; i++)
+		printk("%.2x", val[i]);
 	printk("\n");
-	
+
 }
 #endif
 
-static int unwrap_aes_rfc3394(struct key_item_st* output, struct key_item_st *kek,
-			      void* wrapped_key, size_t wrapped_key_size,
-			      struct nlattr *tb[])
+static int unwrap_aes_rfc3394(struct key_item_st *output,
+			      struct key_item_st *kek, void *wrapped_key,
+			      size_t wrapped_key_size, struct nlattr *tb[])
 {
-const struct nlattr *nla;
-size_t n;
-val64_t A;
-int i, ret;
-struct cipher_data ctx;
-val64_t * R = NULL;
-int iv_size;
-const uint8_t *iv;
+	const struct nlattr *nla;
+	size_t n;
+	val64_t A;
+	int i, ret;
+	struct cipher_data ctx;
+	val64_t *R = NULL;
+	int iv_size;
+	const uint8_t *iv;
 
 	nla = tb[NCR_ATTR_IV];
 	if (nla != NULL) {
@@ -438,7 +452,9 @@ const uint8_t *iv;
 		iv = initA;
 	}
 
-	ret = cryptodev_cipher_init(&ctx, "ecb(aes)", kek->key.secret.data, kek->key.secret.size);
+	ret =
+	    cryptodev_cipher_init(&ctx, "ecb(aes)", kek->key.secret.data,
+				  kek->key.secret.size);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -452,15 +468,15 @@ const uint8_t *iv;
 		goto cleanup;
 	}
 
-	n = wrapped_key_size/8 - 1;
+	n = wrapped_key_size / 8 - 1;
 
-	if (NCR_CIPHER_MAX_KEY_LEN < (n-1)*8) {
+	if (NCR_CIPHER_MAX_KEY_LEN < (n - 1) * 8) {
 		err();
 		ret = -EINVAL;
 		goto cleanup;
 	}
 
-	R = kmalloc(sizeof(*R)*n, GFP_KERNEL);
+	R = kmalloc(sizeof(*R) * n, GFP_KERNEL);
 	if (R == NULL) {
 		err();
 		ret = -ENOMEM;
@@ -473,7 +489,7 @@ const uint8_t *iv;
 		goto cleanup;
 	}
 
-	if (memcmp(A, iv, 8)!= 0) {
+	if (memcmp(A, iv, 8) != 0) {
 		err();
 		ret = -EINVAL;
 		goto cleanup;
@@ -486,10 +502,10 @@ const uint8_t *iv;
 	}
 
 	memset(&output->key, 0, sizeof(output->key));
-	for (i=0;i<n;i++) {
-		memcpy(&output->key.secret.data[i*8], R[i], sizeof(R[i]));
+	for (i = 0; i < n; i++) {
+		memcpy(&output->key.secret.data[i * 8], R[i], sizeof(R[i]));
 	}
-	output->key.secret.size = n*8;
+	output->key.secret.size = n * 8;
 	output->type = NCR_KEY_TYPE_SECRET;
 
 	ret = 0;
@@ -504,9 +520,9 @@ cleanup:
 /* will check if the kek is of equal or higher security level than
  * wkey. To prevent encrypting a 256 bit key with an 128 bit one.
  */
-static int check_key_level(struct key_item_st* kek, struct key_item_st* wkey)
+static int check_key_level(struct key_item_st *kek, struct key_item_st *wkey)
 {
-int kek_level, wkey_level;
+	int kek_level, wkey_level;
 
 	/* allow wrapping of public keys with any key */
 	if (wkey->type == NCR_KEY_TYPE_PUBLIC)
@@ -523,12 +539,12 @@ int kek_level, wkey_level;
 		err();
 		return wkey_level;
 	}
-	
+
 	if (wkey_level > kek_level) {
 		err();
 		return -EPERM;
 	}
-	
+
 	return 0;
 }
 
@@ -536,13 +552,13 @@ int ncr_key_wrap(struct ncr_lists *lst, const struct ncr_key_wrap *wrap,
 		 struct nlattr *tb[])
 {
 #ifdef CONFIG_ASSYMETRIC
-const struct nlattr *nla;
-struct key_item_st* wkey = NULL;
-struct key_item_st* key = NULL;
-void* data = NULL;
-const void *iv;
-size_t data_size, iv_size;
-int ret;
+	const struct nlattr *nla;
+	struct key_item_st *wkey = NULL;
+	struct key_item_st *key = NULL;
+	void *data = NULL;
+	const void *iv;
+	size_t data_size, iv_size;
+	int ret;
 
 #ifdef KEY_WRAP_IS_PRIVILEGED
 	if (current_euid() != 0) {
@@ -579,7 +595,7 @@ int ret;
 		ret = -EPERM;
 		goto fail;
 	}
-	
+
 	ret = check_key_level(key, wkey);
 	if (ret < 0) {
 		err();
@@ -593,7 +609,7 @@ int ret;
 		ret = -ENOMEM;
 		goto fail;
 	}
-	
+
 	nla = tb[NCR_ATTR_IV];
 	if (nla != NULL) {
 		iv = nla_data(nla);
@@ -619,7 +635,7 @@ int ret;
 		err();
 		ret = -EINVAL;
 	}
-	
+
 	if (ret < 0) {
 		err();
 		goto fail;
@@ -634,8 +650,10 @@ int ret;
 	ret = data_size;
 
 fail:
-	if (wkey != NULL) _ncr_key_item_put(wkey);
-	if (key != NULL) _ncr_key_item_put(key);
+	if (wkey != NULL)
+		_ncr_key_item_put(wkey);
+	if (key != NULL)
+		_ncr_key_item_put(key);
 	kfree(data);
 
 	return ret;
@@ -651,12 +669,12 @@ int ncr_key_unwrap(struct ncr_lists *lst, const struct ncr_key_unwrap *wrap,
 		   struct nlattr *tb[])
 {
 #ifdef CONFIG_ASSYMETRIC
-const struct nlattr *nla;
-struct key_item_st* wkey = NULL;
-struct key_item_st* key = NULL;
-void* data = NULL;
-size_t data_size;
-int ret;
+	const struct nlattr *nla;
+	struct key_item_st *wkey = NULL;
+	struct key_item_st *key = NULL;
+	void *data = NULL;
+	size_t data_size;
+	int ret;
 
 #ifdef KEY_WRAP_IS_PRIVILEGED
 	if (current_euid() != 0) {
@@ -696,7 +714,7 @@ int ret;
 		ret = -EFAULT;
 		goto fail;
 	}
-	
+
 	ncr_key_clear(wkey);
 
 	nla = tb[NCR_ATTR_WRAPPING_ALGORITHM];
@@ -713,11 +731,14 @@ int ret;
 		err();
 		ret = -EINVAL;
 	}
-	
+
 fail:
-	if (wkey != NULL) _ncr_key_item_put(wkey);
-	if (key != NULL) _ncr_key_item_put(key);
-	if (data != NULL) kfree(data);
+	if (wkey != NULL)
+		_ncr_key_item_put(wkey);
+	if (key != NULL)
+		_ncr_key_item_put(key);
+	if (data != NULL)
+		kfree(data);
 
 	return ret;
 #else
@@ -729,12 +750,12 @@ int ncr_key_storage_wrap(struct ncr_lists *lst,
 			 const struct ncr_key_storage_wrap *wrap,
 			 struct nlattr *tb[])
 {
-struct key_item_st* wkey = NULL;
-void* data = NULL;
-size_t data_size;
-uint8_t * sdata = NULL;
-size_t sdata_size = 0;
-int ret;
+	struct key_item_st *wkey = NULL;
+	void *data = NULL;
+	size_t data_size;
+	uint8_t *sdata = NULL;
+	size_t sdata_size = 0;
+	int ret;
 
 	if (master_key.type != NCR_KEY_TYPE_SECRET) {
 		err();
@@ -759,14 +780,16 @@ int ret;
 		ret = -ENOMEM;
 		goto fail;
 	}
-	
+
 	ret = key_to_storage_data(&sdata, &sdata_size, wkey);
 	if (ret < 0) {
 		err();
 		goto fail;
 	}
 
-	ret = _wrap_aes_rfc5649(sdata, sdata_size, &master_key, data, &data_size, NULL, 0);
+	ret =
+	    _wrap_aes_rfc5649(sdata, sdata_size, &master_key, data, &data_size,
+			      NULL, 0);
 	if (ret < 0) {
 		err();
 		goto fail;
@@ -781,9 +804,12 @@ int ret;
 	ret = data_size;
 
 fail:
-	if (wkey != NULL) _ncr_key_item_put(wkey);
-	if (data != NULL) kfree(data);
-	if (sdata != NULL) kfree(sdata);
+	if (wkey != NULL)
+		_ncr_key_item_put(wkey);
+	if (data != NULL)
+		kfree(data);
+	if (sdata != NULL)
+		kfree(sdata);
 
 	return ret;
 }
@@ -792,11 +818,11 @@ int ncr_key_storage_unwrap(struct ncr_lists *lst,
 			   const struct ncr_key_storage_unwrap *wrap,
 			   struct nlattr *tb[])
 {
-struct key_item_st* wkey = NULL;
-void* data = NULL;
-uint8_t * sdata = NULL;
-size_t sdata_size = 0, data_size;
-int ret;
+	struct key_item_st *wkey = NULL;
+	void *data = NULL;
+	uint8_t *sdata = NULL;
+	size_t sdata_size = 0, data_size;
+	int ret;
 
 	if (master_key.type != NCR_KEY_TYPE_SECRET) {
 		err();
@@ -831,7 +857,9 @@ int ret;
 		goto fail;
 	}
 
-	ret = _unwrap_aes_rfc5649(sdata, &sdata_size, &master_key, data, data_size, NULL, 0);
+	ret =
+	    _unwrap_aes_rfc5649(sdata, &sdata_size, &master_key, data,
+				data_size, NULL, 0);
 	if (ret < 0) {
 		err();
 		goto fail;
@@ -844,12 +872,14 @@ int ret;
 		err();
 		goto fail;
 	}
-	
 
 fail:
-	if (wkey != NULL) _ncr_key_item_put(wkey);
-	if (data != NULL) kfree(data);
-	if (sdata != NULL) kfree(sdata);
+	if (wkey != NULL)
+		_ncr_key_item_put(wkey);
+	if (data != NULL)
+		kfree(data);
+	if (sdata != NULL)
+		kfree(sdata);
 
 	return ret;
 }
@@ -866,17 +896,18 @@ fail:
  * 
  * This allows distinguishing types of wrapped keys.
  */
-static int key_to_packed_data( uint8_t** sdata, size_t * sdata_size, const struct key_item_st *key)
+static int key_to_packed_data(uint8_t ** sdata, size_t * sdata_size,
+			      const struct key_item_st *key)
 {
-	uint8_t * pkey = NULL;
-	uint8_t * derkey = NULL;
+	uint8_t *pkey = NULL;
+	uint8_t *derkey = NULL;
 	uint32_t pkey_size;
 	int ret, err;
 	unsigned long version = KEY_WRAP_VERSION;
 	unsigned long type;
 	unsigned long derlen;
-	const oid_st* oid;
-	
+	const oid_st *oid;
+
 	*sdata_size = KEY_DATA_MAX_SIZE;
 	pkey = kmalloc(*sdata_size, GFP_KERNEL);
 	if (pkey == NULL) {
@@ -894,25 +925,27 @@ static int key_to_packed_data( uint8_t** sdata, size_t * sdata_size, const struc
 	if (key->type == NCR_KEY_TYPE_SECRET) {
 		memcpy(pkey, key->key.secret.data, key->key.secret.size);
 		pkey_size = key->key.secret.size;
-		
+
 		type = 0;
-	} else if (key->type == NCR_KEY_TYPE_PRIVATE || key->type == NCR_KEY_TYPE_PUBLIC) {
+	} else if (key->type == NCR_KEY_TYPE_PRIVATE
+		   || key->type == NCR_KEY_TYPE_PUBLIC) {
 		pkey_size = *sdata_size;
-		ret = ncr_pk_pack( key, pkey, &pkey_size);
+		ret = ncr_pk_pack(key, pkey, &pkey_size);
 		if (ret < 0) {
 			err();
 			goto fail;
 		}
-		
+
 		if (key->type == NCR_KEY_TYPE_PUBLIC)
 			type = 1;
-		else type = 2;
+		else
+			type = 2;
 	} else {
 		err();
 		ret = -EINVAL;
 		goto fail;
 	}
-	
+
 	oid = _ncr_properties_to_oid(key->algorithm, pkey_size);
 	if (oid == NULL) {
 		err();
@@ -921,21 +954,22 @@ static int key_to_packed_data( uint8_t** sdata, size_t * sdata_size, const struc
 	}
 
 	err = der_encode_sequence_multi(derkey, &derlen,
-				LTC_ASN1_SHORT_INTEGER, 1UL, &version, 
-				LTC_ASN1_OBJECT_IDENTIFIER, oid->OIDlen, oid->OID,
-				LTC_ASN1_SHORT_INTEGER, 1UL, &type, 
-				LTC_ASN1_OCTET_STRING, (unsigned long)pkey_size, pkey, 
-				LTC_ASN1_EOL, 0UL, NULL);
-				
+					LTC_ASN1_SHORT_INTEGER, 1UL, &version,
+					LTC_ASN1_OBJECT_IDENTIFIER, oid->OIDlen,
+					oid->OID, LTC_ASN1_SHORT_INTEGER, 1UL,
+					&type, LTC_ASN1_OCTET_STRING,
+					(unsigned long)pkey_size, pkey,
+					LTC_ASN1_EOL, 0UL, NULL);
+
 	kfree(pkey);
-	
+
 	if (err != CRYPT_OK) {
 		err();
 		ret = _ncr_tomerr(err);
 		goto fail;
 	}
-	
-	*sdata = (void*)derkey;
+
+	*sdata = (void *)derkey;
 	*sdata_size = derlen;
 
 	return 0;
@@ -946,26 +980,25 @@ fail:
 	return ret;
 }
 
-inline static int packed_type_to_key_type(unsigned long type, struct key_item_st* key)
+inline static int packed_type_to_key_type(unsigned long type,
+					  struct key_item_st *key)
 {
-	switch(type) {
-		case 0:
-			key->type = NCR_KEY_TYPE_SECRET;
-			break;
-		case 1:
-			key->type = NCR_KEY_TYPE_PUBLIC;
-			break;
-		case 2:
-			key->type = NCR_KEY_TYPE_PRIVATE;
-			break;
-		default:
-			err();
-			return -EINVAL;
+	switch (type) {
+	case 0:
+		key->type = NCR_KEY_TYPE_SECRET;
+		break;
+	case 1:
+		key->type = NCR_KEY_TYPE_PUBLIC;
+		break;
+	case 2:
+		key->type = NCR_KEY_TYPE_PRIVATE;
+		break;
+	default:
+		err();
+		return -EINVAL;
 	}
 	return 0;
 }
-
-
 
 /* Unpack, or better decode the DER data
  */
@@ -975,7 +1008,7 @@ static int key_from_packed_data(struct nlattr *tb[], struct key_item_st *key,
 	ltc_asn1_list list[6];
 	int ret, i, pkey_size, err;
 	unsigned long version, type;
-	uint8_t * pkey = NULL;
+	uint8_t *pkey = NULL;
 	oid_st oid;
 
 	if (data_size > DER_KEY_MAX_SIZE) {
@@ -992,20 +1025,20 @@ static int key_from_packed_data(struct nlattr *tb[], struct key_item_st *key,
 
 	i = 0;
 
-	list[i].type   = LTC_ASN1_SHORT_INTEGER;
-	list[i].size   = 1;
+	list[i].type = LTC_ASN1_SHORT_INTEGER;
+	list[i].size = 1;
 	list[i++].data = &version;
 
-	list[i].type   = LTC_ASN1_OBJECT_IDENTIFIER;
-	list[i].size   = sizeof(oid.OID)/sizeof(oid.OID[0]);
+	list[i].type = LTC_ASN1_OBJECT_IDENTIFIER;
+	list[i].size = sizeof(oid.OID) / sizeof(oid.OID[0]);
 	list[i++].data = oid.OID;
 
-	list[i].type   = LTC_ASN1_SHORT_INTEGER;
-	list[i].size   = 1;
+	list[i].type = LTC_ASN1_SHORT_INTEGER;
+	list[i].size = 1;
 	list[i++].data = &type;
 
-	list[i].type   = LTC_ASN1_OCTET_STRING;
-	list[i].size   = pkey_size;
+	list[i].type = LTC_ASN1_OCTET_STRING;
+	list[i].size = pkey_size;
 	list[i++].data = pkey;
 
 	err = der_decode_sequence(data, data_size, list, i);
@@ -1042,7 +1075,6 @@ static int key_from_packed_data(struct nlattr *tb[], struct key_item_st *key,
 		err();
 		return ret;
 	}
-	
 
 #ifndef KEY_WRAP_IS_PRIVILEGED
 	/* Do not allow key unwrapping to result to exportable keys
@@ -1059,10 +1091,10 @@ static int key_from_packed_data(struct nlattr *tb[], struct key_item_st *key,
 		key->key.secret.size = pkey_size;
 		memcpy(key->key.secret.data, pkey, pkey_size);
 #ifdef CONFIG_ASSYMETRIC
-	} else if (key->type == NCR_KEY_TYPE_PUBLIC 
-		|| key->type == NCR_KEY_TYPE_PRIVATE) {
+	} else if (key->type == NCR_KEY_TYPE_PUBLIC
+		   || key->type == NCR_KEY_TYPE_PRIVATE) {
 
-		ret = ncr_pk_unpack( key, pkey, pkey_size);
+		ret = ncr_pk_unpack(key, pkey, pkey_size);
 		if (ret < 0) {
 			err();
 			return ret;
@@ -1077,6 +1109,6 @@ static int key_from_packed_data(struct nlattr *tb[], struct key_item_st *key,
 
 fail:
 	kfree(pkey);
-	
+
 	return ret;
 }

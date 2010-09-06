@@ -36,99 +36,93 @@
 #define ALG_DSA "dsa"
 #define ALG_RSA "rsa"
 
-static void
-print_hex_datum (gnutls_datum_t * dat)
+static void print_hex_datum(gnutls_datum_t * dat)
 {
-  unsigned int j;
+	unsigned int j;
 #define SPACE "\t"
-  fprintf (stdout, "\n" SPACE);
-  for (j = 0; j < dat->size; j++)
-    {
-      fprintf (stdout, "%.2x:", (unsigned char) dat->data[j]);
-      if ((j + 1) % 15 == 0)
-	fprintf (stdout, "\n" SPACE);
-    }
-  fprintf (stdout, "\n");
+	fprintf(stdout, "\n" SPACE);
+	for (j = 0; j < dat->size; j++) {
+		fprintf(stdout, "%.2x:", (unsigned char)dat->data[j]);
+		if ((j + 1) % 15 == 0)
+			fprintf(stdout, "\n" SPACE);
+	}
+	fprintf(stdout, "\n");
 }
 
 static void
-print_dsa_pkey (gnutls_datum_t * x, gnutls_datum_t * y, gnutls_datum_t * p,
-		gnutls_datum_t * q, gnutls_datum_t * g)
+print_dsa_pkey(gnutls_datum_t * x, gnutls_datum_t * y, gnutls_datum_t * p,
+	       gnutls_datum_t * q, gnutls_datum_t * g)
 {
-  if (x) 
-    {
-      fprintf (stdout, "private key:");
-      print_hex_datum (x);
-    }
-  fprintf (stdout, "public key:");
-  print_hex_datum (y);
-  fprintf (stdout, "p:");
-  print_hex_datum (p);
-  fprintf (stdout, "q:");
-  print_hex_datum (q);
-  fprintf (stdout, "g:");
-  print_hex_datum (g);
+	if (x) {
+		fprintf(stdout, "private key:");
+		print_hex_datum(x);
+	}
+	fprintf(stdout, "public key:");
+	print_hex_datum(y);
+	fprintf(stdout, "p:");
+	print_hex_datum(p);
+	fprintf(stdout, "q:");
+	print_hex_datum(q);
+	fprintf(stdout, "g:");
+	print_hex_datum(g);
 }
 
 static void
-print_rsa_pkey (gnutls_datum_t * m, gnutls_datum_t * e, gnutls_datum_t * d,
-		gnutls_datum_t * p, gnutls_datum_t * q, gnutls_datum_t * u,
-		gnutls_datum_t * exp1, gnutls_datum_t *exp2)
+print_rsa_pkey(gnutls_datum_t * m, gnutls_datum_t * e, gnutls_datum_t * d,
+	       gnutls_datum_t * p, gnutls_datum_t * q, gnutls_datum_t * u,
+	       gnutls_datum_t * exp1, gnutls_datum_t * exp2)
 {
-  fprintf (stdout, "modulus:");
-  print_hex_datum (m);
-  fprintf (stdout, "public exponent:");
-  print_hex_datum (e);
-  if (d) 
-    {
-      fprintf (stdout, "private exponent:");
-      print_hex_datum (d);
-      fprintf (stdout, "prime1:");
-      print_hex_datum (p);
-      fprintf (stdout, "prime2:");
-      print_hex_datum (q);
-      fprintf (stdout, "coefficient:");
-      print_hex_datum (u);
-      if (exp1 && exp2)
-        {
-          fprintf (stdout, "exp1:");
-          print_hex_datum (exp1);
-          fprintf (stdout, "exp2:");
-          print_hex_datum (exp2);
-        }
-    }
+	fprintf(stdout, "modulus:");
+	print_hex_datum(m);
+	fprintf(stdout, "public exponent:");
+	print_hex_datum(e);
+	if (d) {
+		fprintf(stdout, "private exponent:");
+		print_hex_datum(d);
+		fprintf(stdout, "prime1:");
+		print_hex_datum(p);
+		fprintf(stdout, "prime2:");
+		print_hex_datum(q);
+		fprintf(stdout, "coefficient:");
+		print_hex_datum(u);
+		if (exp1 && exp2) {
+			fprintf(stdout, "exp1:");
+			print_hex_datum(exp1);
+			fprintf(stdout, "exp2:");
+			print_hex_datum(exp2);
+		}
+	}
 }
 
-static const char *
-raw_to_string (const unsigned char *raw, size_t raw_size)
+static const char *raw_to_string(const unsigned char *raw, size_t raw_size)
 {
 	static char buf[1024];
 	size_t i;
 	if (raw_size == 0)
 		return NULL;
 
-	if (raw_size * 3 + 1 >= sizeof (buf))
+	if (raw_size * 3 + 1 >= sizeof(buf))
 		return NULL;
 
 	for (i = 0; i < raw_size; i++) {
-		sprintf (&(buf[i * 3]), "%02X%s", raw[i],
+		sprintf(&(buf[i * 3]), "%02X%s", raw[i],
 			(i == raw_size - 1) ? "" : ":");
 	}
-	buf[sizeof (buf) - 1] = '\0';
+	buf[sizeof(buf) - 1] = '\0';
 
 	return buf;
 }
 
-int privkey_info (void* data, int data_size, int verbose)
+int privkey_info(void *data, int data_size, int verbose)
 {
 	gnutls_x509_privkey_t key;
 	size_t size;
 	int ret;
 	gnutls_datum_t der;
-	unsigned char buffer[5*1024];
+	unsigned char buffer[5 * 1024];
 	const char *cprint;
 
-	ret = gnutls_x509_privkey_init (&key);
+	ret = gnutls_x509_privkey_init(&key);
 	if (ret < 0) {
 		fprintf(stderr, "error in privkey_init\n");
 		return 1;
@@ -137,7 +131,7 @@ int privkey_info (void* data, int data_size, int verbose)
 	der.data = data;
 	der.size = data_size;
 
-	ret = gnutls_x509_privkey_import (key, &der, GNUTLS_X509_FMT_DER);
+	ret = gnutls_x509_privkey_import(key, &der, GNUTLS_X509_FMT_DER);
 	if (ret < 0) {
 		fprintf(stderr, "unable to import privkey\n");
 		return 1;
@@ -145,93 +139,108 @@ int privkey_info (void* data, int data_size, int verbose)
 
 	if (verbose > 0) {
 		/* Public key algorithm
-		*/
-		fprintf (stdout, "Public Key Info:\n");
-		ret = gnutls_x509_privkey_get_pk_algorithm (key);
+		 */
+		fprintf(stdout, "Public Key Info:\n");
+		ret = gnutls_x509_privkey_get_pk_algorithm(key);
 
-		fprintf (stdout, "\tPublic Key Algorithm: ");
-		cprint = gnutls_pk_algorithm_get_name (ret);
-		fprintf (stdout, "%s\n", cprint ? cprint : "Unknown");
+		fprintf(stdout, "\tPublic Key Algorithm: ");
+		cprint = gnutls_pk_algorithm_get_name(ret);
+		fprintf(stdout, "%s\n", cprint ? cprint : "Unknown");
 
 		/* Print the raw public and private keys
-		*/
+		 */
 		if (ret == GNUTLS_PK_RSA) {
-			gnutls_datum_t m, e, d, p, q, u, exp1={NULL,0}, exp2={NULL,0};
+			gnutls_datum_t m, e, d, p, q, u, exp1 = { NULL, 0 }
+			, exp2 = {
+			NULL, 0};
 
 #if GNUTLS_VERSION_NUMBER >= 0x020b00
-			ret = gnutls_x509_privkey_export_rsa_raw2 (key, &m, &e, &d, &p, &q, &u, &exp1, &exp2);
+			ret =
+			    gnutls_x509_privkey_export_rsa_raw2(key, &m, &e, &d,
+								&p, &q, &u,
+								&exp1, &exp2);
 #else
-			ret = gnutls_x509_privkey_export_rsa_raw (key, &m, &e, &d, &p, &q, &u);
+			ret =
+			    gnutls_x509_privkey_export_rsa_raw(key, &m, &e, &d,
+							       &p, &q, &u);
 #endif
 			if (ret < 0)
-				fprintf (stderr, "Error in key RSA data export: %s\n",
-					gnutls_strerror (ret));
+				fprintf(stderr,
+					"Error in key RSA data export: %s\n",
+					gnutls_strerror(ret));
 			else {
-				print_rsa_pkey (&m, &e, &d, &p, &q, &u, &exp1, &exp2);
-				gnutls_free (m.data);
-				gnutls_free (e.data);
-				gnutls_free (d.data);
-				gnutls_free (p.data);
-				gnutls_free (q.data);
-				gnutls_free (u.data);
-				gnutls_free (exp1.data);
-				gnutls_free (exp2.data);
+				print_rsa_pkey(&m, &e, &d, &p, &q, &u, &exp1,
+					       &exp2);
+				gnutls_free(m.data);
+				gnutls_free(e.data);
+				gnutls_free(d.data);
+				gnutls_free(p.data);
+				gnutls_free(q.data);
+				gnutls_free(u.data);
+				gnutls_free(exp1.data);
+				gnutls_free(exp2.data);
 			}
 		} else if (ret == GNUTLS_PK_DSA) {
 			gnutls_datum_t p, q, g, y, x;
 
-			ret = gnutls_x509_privkey_export_dsa_raw (key, &p, &q, &g, &y, &x);
+			ret =
+			    gnutls_x509_privkey_export_dsa_raw(key, &p, &q, &g,
+							       &y, &x);
 			if (ret < 0)
-				fprintf (stderr, "Error in key DSA data export: %s\n",
-					gnutls_strerror (ret));
+				fprintf(stderr,
+					"Error in key DSA data export: %s\n",
+					gnutls_strerror(ret));
 			else {
-				print_dsa_pkey (&x, &y, &p, &q, &g);
-				gnutls_free (x.data);
-				gnutls_free (y.data);
-				gnutls_free (p.data);
-				gnutls_free (q.data);
-				gnutls_free (g.data);
+				print_dsa_pkey(&x, &y, &p, &q, &g);
+				gnutls_free(x.data);
+				gnutls_free(y.data);
+				gnutls_free(p.data);
+				gnutls_free(q.data);
+				gnutls_free(g.data);
 			}
 		}
 
-		fprintf (stdout, "\n");
+		fprintf(stdout, "\n");
 
-		size = sizeof (buffer);
-		if ((ret = gnutls_x509_privkey_get_key_id (key, 0, buffer, &size)) < 0) {
-			fprintf (stderr, "Error in key id calculation: %s\n",
-			       gnutls_strerror (ret));
+		size = sizeof(buffer);
+		if ((ret =
+		     gnutls_x509_privkey_get_key_id(key, 0, buffer,
+						    &size)) < 0) {
+			fprintf(stderr, "Error in key id calculation: %s\n",
+				gnutls_strerror(ret));
 		} else {
-			fprintf (stdout, "Public Key ID: %s\n", raw_to_string (buffer, size));
+			fprintf(stdout, "Public Key ID: %s\n",
+				raw_to_string(buffer, size));
 		}
 
-		size = sizeof (buffer);
-		ret = gnutls_x509_privkey_export (key, GNUTLS_X509_FMT_PEM, buffer, &size);
+		size = sizeof(buffer);
+		ret =
+		    gnutls_x509_privkey_export(key, GNUTLS_X509_FMT_PEM, buffer,
+					       &size);
 		if (ret < 0) {
 			fprintf(stderr, "Error in privkey_export\n");
 			return 1;
 		}
 
-		fprintf (stdout, "\n%s\n", buffer);
+		fprintf(stdout, "\n%s\n", buffer);
 	}
 
-	gnutls_x509_privkey_deinit (key);
-	
+	gnutls_x509_privkey_deinit(key);
+
 	return 0;
 }
 
-
-
-int pubkey_info(void* data, int data_size, int verbose)
+int pubkey_info(void *data, int data_size, int verbose)
 {
 #if GNUTLS_VERSION_NUMBER >= 0x020b00
 	gnutls_pubkey_t key;
 	size_t size;
 	int ret;
 	gnutls_datum_t der;
-	unsigned char buffer[5*1024];
+	unsigned char buffer[5 * 1024];
 	const char *cprint;
 
-	ret = gnutls_pubkey_init (&key);
+	ret = gnutls_pubkey_init(&key);
 	if (ret < 0) {
 		fprintf(stderr, "error in pubkey_init\n");
 		return 1;
@@ -240,7 +249,7 @@ int pubkey_info(void* data, int data_size, int verbose)
 	der.data = data;
 	der.size = data_size;
 
-	ret = gnutls_pubkey_import (key, &der, GNUTLS_X509_FMT_DER);
+	ret = gnutls_pubkey_import(key, &der, GNUTLS_X509_FMT_DER);
 	if (ret < 0) {
 		fprintf(stderr, "unable to import pubkey\n");
 		return 1;
@@ -248,110 +257,116 @@ int pubkey_info(void* data, int data_size, int verbose)
 
 	if (verbose > 0) {
 		/* Public key algorithm
-		*/
-		fprintf (stdout, "Public Key Info:\n");
-		ret = gnutls_pubkey_get_pk_algorithm (key, NULL);
+		 */
+		fprintf(stdout, "Public Key Info:\n");
+		ret = gnutls_pubkey_get_pk_algorithm(key, NULL);
 
-		fprintf (stdout, "\tPublic Key Algorithm: ");
-		cprint = gnutls_pk_algorithm_get_name (ret);
-		fprintf (stdout, "%s\n", cprint ? cprint : "Unknown");
+		fprintf(stdout, "\tPublic Key Algorithm: ");
+		cprint = gnutls_pk_algorithm_get_name(ret);
+		fprintf(stdout, "%s\n", cprint ? cprint : "Unknown");
 
 		/* Print the raw public and private keys
-		*/
+		 */
 		if (ret == GNUTLS_PK_RSA) {
 			gnutls_datum_t m, e;
 
-			ret = gnutls_pubkey_get_pk_rsa_raw (key, &m, &e);
+			ret = gnutls_pubkey_get_pk_rsa_raw(key, &m, &e);
 			if (ret < 0)
-				fprintf (stderr, "Error in key RSA data export: %s\n",
-					gnutls_strerror (ret));
+				fprintf(stderr,
+					"Error in key RSA data export: %s\n",
+					gnutls_strerror(ret));
 			else {
-				print_rsa_pkey (&m, &e, NULL, NULL, NULL, NULL, NULL, NULL);
-				gnutls_free (m.data);
-				gnutls_free (e.data);
+				print_rsa_pkey(&m, &e, NULL, NULL, NULL, NULL,
+					       NULL, NULL);
+				gnutls_free(m.data);
+				gnutls_free(e.data);
 			}
 		} else if (ret == GNUTLS_PK_DSA) {
 			gnutls_datum_t p, q, g, y;
 
-			ret = gnutls_pubkey_get_pk_dsa_raw (key, &p, &q, &g, &y);
+			ret = gnutls_pubkey_get_pk_dsa_raw(key, &p, &q, &g, &y);
 			if (ret < 0)
-				fprintf (stderr, "Error in key DSA data export: %s\n",
-					gnutls_strerror (ret));
+				fprintf(stderr,
+					"Error in key DSA data export: %s\n",
+					gnutls_strerror(ret));
 			else {
-				print_dsa_pkey (NULL, &y, &p, &q, &g);
-				gnutls_free (y.data);
-				gnutls_free (p.data);
-				gnutls_free (q.data);
-				gnutls_free (g.data);
+				print_dsa_pkey(NULL, &y, &p, &q, &g);
+				gnutls_free(y.data);
+				gnutls_free(p.data);
+				gnutls_free(q.data);
+				gnutls_free(g.data);
 			}
 		}
 
-		fprintf (stdout, "\n");
+		fprintf(stdout, "\n");
 
-		size = sizeof (buffer);
-		if ((ret = gnutls_pubkey_get_key_id (key, 0, buffer, &size)) < 0) {
-			fprintf (stderr, "Error in key id calculation: %s\n",
-			       gnutls_strerror (ret));
+		size = sizeof(buffer);
+		if ((ret = gnutls_pubkey_get_key_id(key, 0, buffer, &size)) < 0) {
+			fprintf(stderr, "Error in key id calculation: %s\n",
+				gnutls_strerror(ret));
 		} else {
-			fprintf (stdout, "Public Key ID: %s\n", raw_to_string (buffer, size));
+			fprintf(stdout, "Public Key ID: %s\n",
+				raw_to_string(buffer, size));
 		}
 
-		size = sizeof (buffer);
-		ret = gnutls_pubkey_export (key, GNUTLS_X509_FMT_PEM, buffer, &size);
+		size = sizeof(buffer);
+		ret =
+		    gnutls_pubkey_export(key, GNUTLS_X509_FMT_PEM, buffer,
+					 &size);
 		if (ret < 0) {
 			fprintf(stderr, "Error in privkey_export\n");
 			return 1;
 		}
 
-		fprintf (stdout, "\n%s\n", buffer);
+		fprintf(stdout, "\n%s\n", buffer);
 	}
 
-	gnutls_pubkey_deinit (key);
+	gnutls_pubkey_deinit(key);
 #endif
 	return 0;
 }
 
 /* Diffie Hellman */
-const char dh_params_txt[] = "-----BEGIN DH PARAMETERS-----\n"\
-"MIGHAoGBAKMox0/IjuGqSaGMJESYMhdmXiTe1pY8gkSzWZ/ktWaUdaYAzgAZp7r3\n"\
-"OCh68YslS9Oi7/UQjmBbgGuOucMKgq3tYeYzY8G2epIuIzM4TAogaEqwkdSrXlth\n"\
-"MMsP2FhLhHg8m6V6iItitnMOz9r8t3BEf04GRlfzgZraM0gUUwTjAgEF\n"\
-"-----END DH PARAMETERS-----\n";
+const char dh_params_txt[] = "-----BEGIN DH PARAMETERS-----\n"
+    "MIGHAoGBAKMox0/IjuGqSaGMJESYMhdmXiTe1pY8gkSzWZ/ktWaUdaYAzgAZp7r3\n"
+    "OCh68YslS9Oi7/UQjmBbgGuOucMKgq3tYeYzY8G2epIuIzM4TAogaEqwkdSrXlth\n"
+    "MMsP2FhLhHg8m6V6iItitnMOz9r8t3BEf04GRlfzgZraM0gUUwTjAgEF\n"
+    "-----END DH PARAMETERS-----\n";
 
 static int test_ncr_dh(int cfd)
 {
-struct __attribute__((packed)) {
-	struct ncr_key_generate_pair f;
-	struct nlattr algo_head ALIGN_NL;
-	char algo[sizeof(ALG_DH)] ALIGN_NL;
-	struct nlattr flags_head ALIGN_NL;
-	uint32_t flags ALIGN_NL;
-	unsigned char buffer[DATA_SIZE] ALIGN_NL;
-} kgen;
-struct nlattr *nla;
-ncr_key_t private1, public1, public2, private2;
-ncr_key_t z1, z2;
-int ret, j;
-gnutls_datum g, p, params;
-gnutls_dh_params_t dhp;
-unsigned char y1[1024], y2[1024];
-ssize_t y1_size, y2_size;
-struct ncr_key_export kexport;
-struct __attribute__((packed)) {
-	struct ncr_key_derive f;
-	struct nlattr algo_head ALIGN_NL;
-	char algo[sizeof(NCR_DERIVE_DH)] ALIGN_NL;
-	struct nlattr flags_head ALIGN_NL;
-	uint32_t flags ALIGN_NL;
-	struct nlattr public_head ALIGN_NL;
-	unsigned char public[DATA_SIZE] ALIGN_NL;
-} kderive;
+	struct __attribute__ ((packed)) {
+		struct ncr_key_generate_pair f;
+		struct nlattr algo_head ALIGN_NL;
+		char algo[sizeof(ALG_DH)] ALIGN_NL;
+		struct nlattr flags_head ALIGN_NL;
+		uint32_t flags ALIGN_NL;
+		unsigned char buffer[DATA_SIZE] ALIGN_NL;
+	} kgen;
+	struct nlattr *nla;
+	ncr_key_t private1, public1, public2, private2;
+	ncr_key_t z1, z2;
+	int ret, j;
+	gnutls_datum g, p, params;
+	gnutls_dh_params_t dhp;
+	unsigned char y1[1024], y2[1024];
+	ssize_t y1_size, y2_size;
+	struct ncr_key_export kexport;
+	struct __attribute__ ((packed)) {
+		struct ncr_key_derive f;
+		struct nlattr algo_head ALIGN_NL;
+		char algo[sizeof(NCR_DERIVE_DH)] ALIGN_NL;
+		struct nlattr flags_head ALIGN_NL;
+		uint32_t flags ALIGN_NL;
+		struct nlattr public_head ALIGN_NL;
+		unsigned char public[DATA_SIZE] ALIGN_NL;
+	} kderive;
 
 	fprintf(stdout, "Tests on DH key exchange:");
 	fflush(stdout);
 
-	params.data = (void*)dh_params_txt;
-	params.size = sizeof(dh_params_txt)-1;
+	params.data = (void *)dh_params_txt;
+	params.size = sizeof(dh_params_txt) - 1;
 
 	ret = gnutls_dh_params_init(&dhp);
 	if (ret < 0) {
@@ -359,14 +374,14 @@ struct __attribute__((packed)) {
 		fprintf(stderr, "gnutls: %s\n", gnutls_strerror(ret));
 		return 1;
 	}
-	
+
 	ret = gnutls_dh_params_import_pkcs3(dhp, &params, GNUTLS_X509_FMT_PEM);
 	if (ret < 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		fprintf(stderr, "gnutls: %s\n", gnutls_strerror(ret));
 		return 1;
 	}
-	
+
 	ret = gnutls_dh_params_export_raw(dhp, &p, &g, NULL);
 	if (ret < 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -374,7 +389,7 @@ struct __attribute__((packed)) {
 		return 1;
 	}
 
-	for (j=0;j<100;j++) {
+	for (j = 0; j < 100; j++) {
 		/* generate a DH key */
 		private1 = ioctl(cfd, NCRIO_KEY_INIT);
 		if (private1 == -1) {
@@ -416,7 +431,7 @@ struct __attribute__((packed)) {
 			perror("ioctl(NCRIO_KEY_GENERATE_PAIR)");
 			return 1;
 		}
-		
+
 		/* generate another DH key */
 		private2 = ioctl(cfd, NCRIO_KEY_INIT);
 		if (private2 == -1) {
@@ -431,7 +446,7 @@ struct __attribute__((packed)) {
 			perror("ioctl(NCRIO_KEY_INIT)");
 			return 1;
 		}
-		
+
 		memset(&kgen.f, 0, sizeof(kgen.f));
 		kgen.f.private_key = private2;
 		kgen.f.public_key = public2;
@@ -484,7 +499,7 @@ struct __attribute__((packed)) {
 			perror("ioctl(NCRIO_KEY_EXPORT)");
 			return 1;
 		}
-		
+
 		/* z1=y1^x2 */
 		z1 = ioctl(cfd, NCRIO_KEY_INIT);
 		if (z1 == -1) {
@@ -506,7 +521,8 @@ struct __attribute__((packed)) {
 		kderive.public_head.nla_type = NCR_ATTR_DH_PUBLIC;
 		memcpy(kderive.public, y2, y2_size);
 		nla = (struct nlattr *)((char *)&kderive.public_head
-					+ NLA_ALIGN(kderive.public_head.nla_len));
+					+
+					NLA_ALIGN(kderive.public_head.nla_len));
 		kderive.f.input_size = (char *)nla - (char *)&kderive;
 		assert(kderive.f.input_size <= sizeof(kderive));
 
@@ -515,7 +531,7 @@ struct __attribute__((packed)) {
 			perror("ioctl(NCRIO_KEY_DERIVE)");
 			return 1;
 		}
-		
+
 		/* z2=y2^x1 */
 		z2 = ioctl(cfd, NCRIO_KEY_INIT);
 		if (z2 == -1) {
@@ -537,7 +553,8 @@ struct __attribute__((packed)) {
 		kderive.public_head.nla_type = NCR_ATTR_DH_PUBLIC;
 		memcpy(kderive.public, y1, y1_size);
 		nla = (struct nlattr *)((char *)&kderive.public_head
-					+ NLA_ALIGN(kderive.public_head.nla_len));
+					+
+					NLA_ALIGN(kderive.public_head.nla_len));
 		kderive.f.input_size = (char *)nla - (char *)&kderive;
 		assert(kderive.f.input_size <= sizeof(kderive));
 
@@ -546,7 +563,7 @@ struct __attribute__((packed)) {
 			perror("ioctl(NCRIO_KEY_DERIVE)");
 			return 1;
 		}
-		
+
 		/* z1==z2 */
 		memset(&kexport, 0, sizeof(kexport));
 		kexport.key = z1;
@@ -571,21 +588,23 @@ struct __attribute__((packed)) {
 			perror("ioctl(NCRIO_KEY_EXPORT)");
 			return 1;
 		}
-		
-		if (y1_size == 0 || y1_size != y2_size || memcmp(y1, y2, y1_size) != 0) {
+
+		if (y1_size == 0 || y1_size != y2_size
+		    || memcmp(y1, y2, y1_size) != 0) {
 			int i;
 
 			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
-			fprintf(stderr, "Output in DH does not match (%d, %d)!\n", 
+			fprintf(stderr,
+				"Output in DH does not match (%d, %d)!\n",
 				(int)y1_size, (int)y2_size);
 
-			fprintf(stderr, "Key1[%d]: ", (int) y1_size);
-			for(i=0;i<y1_size;i++)
+			fprintf(stderr, "Key1[%d]: ", (int)y1_size);
+			for (i = 0; i < y1_size; i++)
 				fprintf(stderr, "%.2x:", y1[i]);
 			fprintf(stderr, "\n");
 
-			fprintf(stderr, "Key2[%d]: ", (int) y2_size);
-			for(i=0;i<y2_size;i++)
+			fprintf(stderr, "Key2[%d]: ", (int)y2_size);
+			for (i = 0; i < y2_size; i++)
 				fprintf(stderr, "%.2x:", y2[i]);
 			fprintf(stderr, "\n");
 
@@ -625,13 +644,12 @@ struct __attribute__((packed)) {
 
 /* check whether wrapping of long keys is not allowed with
  * shorted wrapping keys */
-static int
-test_ncr_wrap_key3(int cfd)
+static int test_ncr_wrap_key3(int cfd)
 {
 	int ret, i;
 	ncr_key_t key;
 	size_t data_size;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_import f;
 		struct nlattr id_head ALIGN_NL;
 		uint8_t id[2] ALIGN_NL;
@@ -642,19 +660,20 @@ test_ncr_wrap_key3(int cfd)
 		struct nlattr flags_head ALIGN_NL;
 		uint32_t flags ALIGN_NL;
 	} kimport;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_wrap f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(NCR_WALG_AES_RFC5649)] ALIGN_NL;
-	} kwrap;
-	struct __attribute__((packed)) {
+	}
+	kwrap;
+	struct __attribute__ ((packed)) {
 		struct ncr_key_unwrap f;
 		struct nlattr wrap_algo_head ALIGN_NL;
 		char wrap_algo[sizeof(NCR_WALG_AES_RFC5649)] ALIGN_NL;
 		struct nlattr flags_head ALIGN_NL;
 		uint32_t flags ALIGN_NL;
 	} kunwrap;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_generate_pair f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(ALG_RSA)] ALIGN_NL;
@@ -669,7 +688,7 @@ test_ncr_wrap_key3(int cfd)
 	 * the latter shouldn't because it has security level larger
 	 * then 128 bits (the size of the wrapping key).
 	 */
-	const int sizes[] = {1024, 3248, 5200};
+	const int sizes[] = { 1024, 3248, 5200 };
 
 	fprintf(stdout, "Tests on key wrapping (might take long): ");
 	fflush(stdout);
@@ -691,7 +710,8 @@ test_ncr_wrap_key3(int cfd)
 
 	if (geteuid() != 0) {
 		/* cannot test further */
-		fprintf(stdout, "\t(Wrapping test not completed. Run as root)\n");
+		fprintf(stdout,
+			"\t(Wrapping test not completed. Run as root)\n");
 		return 0;
 	}
 
@@ -705,7 +725,8 @@ test_ncr_wrap_key3(int cfd)
 	memset(&kimport.f, 0, sizeof(kimport.f));
 	kimport.f.input_size = sizeof(kimport);
 	kimport.f.key = key;
-	kimport.f.data = "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
+	kimport.f.data =
+	    "\x00\x01\x02\x03\x04\x05\x06\x07\x08\x09\x0A\x0B\x0C\x0D\x0E\x0F";
 	kimport.f.data_size = 16;
 	kimport.id_head.nla_len = NLA_HDRLEN + sizeof(kimport.id);
 	kimport.id_head.nla_type = NCR_ATTR_KEY_ID;
@@ -719,19 +740,21 @@ test_ncr_wrap_key3(int cfd)
 	strcpy(kimport.algo, ALG_AES_CBC);
 	kimport.flags_head.nla_len = NLA_HDRLEN + sizeof(kimport.flags);
 	kimport.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kimport.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPING|NCR_KEY_FLAG_UNWRAPPING;
+	kimport.flags =
+	    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPING |
+	    NCR_KEY_FLAG_UNWRAPPING;
 
 	if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		perror("ioctl(NCRIO_KEY_IMPORT)");
 		return 1;
 	}
-	
-	for (i=0;i<sizeof(sizes)/sizeof(sizes[0]);i++) {
-	
+
+	for (i = 0; i < sizeof(sizes) / sizeof(sizes[0]); i++) {
+
 		fprintf(stdout, ".");
 		fflush(stdout);
-		
+
 		memset(&kgen.f, 0, sizeof(kgen.f));
 		kgen.f.input_size = sizeof(kgen);
 		kgen.f.private_key = privkey;
@@ -741,13 +764,14 @@ test_ncr_wrap_key3(int cfd)
 		strcpy(kgen.algo, ALG_RSA);
 		kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
 		kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-		kgen.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE;
+		kgen.flags = NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE;
 		kgen.bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.bits);
 		kgen.bits_head.nla_type = NCR_ATTR_RSA_MODULUS_BITS;
 		kgen.bits = sizes[i];
 
 		if (ioctl(cfd, NCRIO_KEY_GENERATE_PAIR, &kgen)) {
-			fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i], __func__, __LINE__);
+			fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i],
+				__func__, __LINE__);
 			perror("ioctl(NCRIO_KEY_GENERATE_PAIR)");
 			return 1;
 		}
@@ -765,7 +789,8 @@ test_ncr_wrap_key3(int cfd)
 
 		ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
 		if (ret < 0) {
-			fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i], __func__, __LINE__);
+			fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i],
+				__func__, __LINE__);
 			/* wrapping of public key should have been allowed! */
 			return 1;
 		}
@@ -783,14 +808,16 @@ test_ncr_wrap_key3(int cfd)
 
 		ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
 		if (ret < 0 && i != 2) {
-			fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i], __func__, __LINE__);
+			fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i],
+				__func__, __LINE__);
 			/* wrapping should have been allowed */
 			return 1;
 		} else if (ret >= 0 && i == 2) {
-			fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i], __func__, __LINE__);
+			fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i],
+				__func__, __LINE__);
 			/* wrapping shouldn't have been allowed */
 			return 1;
-		}			
+		}
 
 		if (ret >= 0) {
 			data_size = ret;
@@ -803,35 +830,37 @@ test_ncr_wrap_key3(int cfd)
 			kunwrap.f.data = data;
 			kunwrap.f.data_size = data_size;
 			kunwrap.wrap_algo_head.nla_len
-				= NLA_HDRLEN + sizeof(kunwrap.wrap_algo);
+			    = NLA_HDRLEN + sizeof(kunwrap.wrap_algo);
 			kunwrap.wrap_algo_head.nla_type
-				= NCR_ATTR_WRAPPING_ALGORITHM;
+			    = NCR_ATTR_WRAPPING_ALGORITHM;
 			strcpy(kunwrap.wrap_algo, NCR_WALG_AES_RFC5649);
 			kunwrap.flags_head.nla_len
-			  = NLA_HDRLEN + sizeof(kunwrap.flags);
+			    = NLA_HDRLEN + sizeof(kunwrap.flags);
 			kunwrap.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
 			kunwrap.flags = 0;
 
 			ret = ioctl(cfd, NCRIO_KEY_UNWRAP, &kunwrap);
 			if (ret) {
-				fprintf(stderr, "Error[%d-%d]: %s:%d\n", i, sizes[i], __func__, __LINE__);
+				fprintf(stderr, "Error[%d-%d]: %s:%d\n", i,
+					sizes[i], __func__, __LINE__);
 				return 1;
-			}			
+			}
 		}
 		fprintf(stdout, "*");
 		fflush(stdout);
 
 	}
-	
+
 	fprintf(stdout, " Success\n");
 	return 0;
 }
 
 #define RSA_ENCRYPT_SIZE 32
 
-static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oaep)
+static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey,
+			   int oaep)
 {
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_once f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(ALG_RSA)] ALIGN_NL;
@@ -850,7 +879,8 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 	uint8_t vdata[RSA_ENCRYPT_SIZE];
 	size_t enc_size, dec_size;
 
-	fprintf(stdout, "Tests on RSA (%s) key encryption:", (oaep!=0)?"OAEP":"PKCS V1.5");
+	fprintf(stdout, "Tests on RSA (%s) key encryption:",
+		(oaep != 0) ? "OAEP" : "PKCS V1.5");
 	fflush(stdout);
 
 	memset(data, 0x3, sizeof(data));
@@ -875,7 +905,7 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 	}
 	op.oaep_hash_head.nla_len = NLA_HDRLEN + sizeof(op.oaep_hash);
 	op.oaep_hash_head.nla_type = NCR_ATTR_RSA_OAEP_HASH_ALGORITHM;
-	strcpy(op.oaep_hash, SIGNATURE_HASH); /* Ignored if not using OAEP */
+	strcpy(op.oaep_hash, SIGNATURE_HASH);	/* Ignored if not using OAEP */
 	op.input_head.nla_len = NLA_HDRLEN + sizeof(op.input);
 	op.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
 	op.input.data = data;
@@ -911,7 +941,7 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 	}
 	op.oaep_hash_head.nla_len = NLA_HDRLEN + sizeof(op.oaep_hash);
 	op.oaep_hash_head.nla_type = NCR_ATTR_RSA_OAEP_HASH_ALGORITHM;
-	strcpy(op.oaep_hash, SIGNATURE_HASH); /* Ignored if not using OAEP */
+	strcpy(op.oaep_hash, SIGNATURE_HASH);	/* Ignored if not using OAEP */
 	op.input_head.nla_len = NLA_HDRLEN + sizeof(op.input);
 	op.input_head.nla_type = NCR_ATTR_UPDATE_INPUT_DATA;
 	op.input.data = data;
@@ -927,7 +957,7 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 		perror("ioctl(NCRIO_SESSION_ONCE)");
 		return 1;
 	}
-	
+
 	if (dec_size != sizeof(vdata)
 	    || memcmp(vdata, data, sizeof(vdata)) != 0) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -943,9 +973,10 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int oae
 
 #define DATA_TO_SIGN 52
 
-static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int pss)
+static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey,
+			       int pss)
 {
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_once f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(ALG_RSA)] ALIGN_NL;
@@ -960,7 +991,7 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 		struct nlattr signature_head ALIGN_NL;
 		struct ncr_session_output_buffer signature ALIGN_NL;
 	} ksign;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_once f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(ALG_RSA)] ALIGN_NL;
@@ -980,7 +1011,8 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 	size_t sig_size;
 	int ret;
 
-	fprintf(stdout, "Tests on RSA (%s) key signature:", (pss!=0)?"PSS":"PKCS V1.5");
+	fprintf(stdout, "Tests on RSA (%s) key signature:",
+		(pss != 0) ? "PSS" : "PKCS V1.5");
 	fflush(stdout);
 
 	memset(data, 0x3, sizeof(data));
@@ -1065,7 +1097,7 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey, int
 static int rsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 					   ncr_key_t pubkey, int pss)
 {
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_once f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(NCR_ALG_RSA_TRANSPARENT_HASH)] ALIGN_NL;
@@ -1080,7 +1112,7 @@ static int rsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 		struct nlattr signature_head ALIGN_NL;
 		struct ncr_session_output_buffer signature ALIGN_NL;
 	} ksign;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_once f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(NCR_ALG_RSA_TRANSPARENT_HASH)] ALIGN_NL;
@@ -1184,7 +1216,7 @@ static int rsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 
 static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 {
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_once f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(ALG_DSA)] ALIGN_NL;
@@ -1197,7 +1229,7 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 		struct nlattr signature_head ALIGN_NL;
 		struct ncr_session_output_buffer signature ALIGN_NL;
 	} ksign;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_once f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(ALG_DSA)] ALIGN_NL;
@@ -1292,7 +1324,7 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 static int dsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 					   ncr_key_t pubkey)
 {
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_once f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(NCR_ALG_DSA_TRANSPARENT_HASH)] ALIGN_NL;
@@ -1305,7 +1337,7 @@ static int dsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 		struct nlattr signature_head ALIGN_NL;
 		struct ncr_session_output_buffer signature ALIGN_NL;
 	} ksign;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_session_once f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(NCR_ALG_DSA_TRANSPARENT_HASH)] ALIGN_NL;
@@ -1399,7 +1431,7 @@ static int dsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 static int test_ncr_rsa(int cfd)
 {
 	int ret;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_generate_pair f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(ALG_RSA)] ALIGN_NL;
@@ -1440,7 +1472,9 @@ static int test_ncr_rsa(int cfd)
 	strcpy(kgen.algo, ALG_RSA);
 	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
 	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kgen.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE|NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH;
+	kgen.flags =
+	    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE |
+	    NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH;
 	kgen.bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.bits);
 	kgen.bits_head.nla_type = NCR_ATTR_RSA_MODULUS_BITS;
 	kgen.bits = 1024;
@@ -1470,7 +1504,7 @@ static int test_ncr_rsa(int cfd)
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		return 1;
 	}
-	
+
 	/* export the public key */
 
 	memset(data, 0, sizeof(data));
@@ -1537,7 +1571,7 @@ static int test_ncr_rsa(int cfd)
 static int test_ncr_dsa(int cfd)
 {
 	int ret;
-	struct __attribute__((packed)) {
+	struct __attribute__ ((packed)) {
 		struct ncr_key_generate_pair f;
 		struct nlattr algo_head ALIGN_NL;
 		char algo[sizeof(ALG_DSA)] ALIGN_NL;
@@ -1580,7 +1614,9 @@ static int test_ncr_dsa(int cfd)
 	strcpy(kgen.algo, ALG_DSA);
 	kgen.flags_head.nla_len = NLA_HDRLEN + sizeof(kgen.flags);
 	kgen.flags_head.nla_type = NCR_ATTR_KEY_FLAGS;
-	kgen.flags = NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE|NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH;
+	kgen.flags =
+	    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE |
+	    NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH;
 	kgen.q_bits_head.nla_len = NLA_HDRLEN + sizeof(kgen.q_bits);
 	kgen.q_bits_head.nla_type = NCR_ATTR_DSA_Q_BITS;
 	kgen.q_bits = 160;
@@ -1612,7 +1648,7 @@ static int test_ncr_dsa(int cfd)
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
 		return 1;
 	}
-	
+
 	/* export the public key */
 
 	memset(data, 0, sizeof(data));
@@ -1652,9 +1688,7 @@ static int test_ncr_dsa(int cfd)
 
 }
 
-
-int
-main()
+int main()
 {
 	int fd = -1;
 
@@ -1677,7 +1711,7 @@ main()
 
 	if (test_ncr_dsa(fd))
 		return 1;
-		
+
 	if (test_ncr_wrap_key3(fd))
 		return 1;
 

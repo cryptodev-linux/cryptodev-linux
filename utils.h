@@ -25,7 +25,6 @@ extern u32 __ncr_u32_type_check;
 	((void)(&(fixed)->output_size == &__ncr_u32_type_check),	\
 	 (char *)&(fixed)->output_size - (char *)(fixed))
 
-
 /**
  * Load *@fixed and a sequence of netlink-like attributes from @arg.  @fixed
  * contains "input_size", which is an u32 filled with total input size,
@@ -37,7 +36,7 @@ extern u32 __ncr_u32_type_check;
 	 __ncr_get_input_args(fixed, tb, sizeof(*(fixed)),	\
 			      &(fixed)->input_size, arg))
 void *__ncr_get_input_args(void *fixed, struct nlattr *tb[], size_t fixed_size,
-			   u32 *input_size_ptr, const void __user *arg);
+			   u32 * input_size_ptr, const void __user * arg);
 
 /**
  * Load *@fixed and a sequence of netlink-like attributes from @arg.  @fixed
@@ -53,9 +52,9 @@ void *__ncr_get_input_args(void *fixed, struct nlattr *tb[], size_t fixed_size,
 					&(fixed)->input_size,		\
 					__OUT_SIZE_OFF(fixed), arg))
 void *__ncr_get_input_args_no_output(void *fixed, struct nlattr *tb[],
-				     size_t fixed_size, u32 *input_size_ptr,
+				     size_t fixed_size, u32 * input_size_ptr,
 				     size_t output_size_offset,
-				     void __user *arg);
+				     void __user * arg);
 
 /**
  * Return a new output attribute context for attributes of *@fixed.  @fixed
@@ -67,7 +66,7 @@ void *__ncr_get_input_args_no_output(void *fixed, struct nlattr *tb[],
 	 __ncr_out_init((out), (fixed), sizeof(*(fixed)),	\
 			__OUT_SIZE_OFF(fixed), (arg)))
 int __ncr_out_init(struct ncr_out *out, const void *fixed, size_t fixed_size,
-		   size_t output_size_offset, void __user *arg);
+		   size_t output_size_offset, void __user * arg);
 
 /**
  * Write attributes from @out to user space and update user-space output_size.

@@ -92,10 +92,10 @@ void ncr_limits_init(void)
 
 void ncr_limits_deinit(void)
 {
-struct limit_process_item_st* pitem;
-struct limit_user_item_st* uitem;
-struct hlist_node *pos, *tmp;
-size_t i;
+	struct limit_process_item_st *pitem;
+	struct limit_user_item_st *uitem;
+	struct hlist_node *pos, *tmp;
+	size_t i;
 
 	mutex_lock(&user_limit_mutex);
 	for (i = 0; i < USER_LIMIT_TABLE_SIZE; i++) {
@@ -106,7 +106,7 @@ size_t i;
 		}
 	}
 	mutex_unlock(&user_limit_mutex);
-	
+
 	mutex_lock(&process_limit_mutex);
 	for (i = 0; i < PROCESS_LIMIT_TABLE_SIZE; i++) {
 		hlist_for_each_entry_safe(pitem, pos, tmp,
@@ -121,12 +121,12 @@ size_t i;
 
 int ncr_limits_add_and_check(uid_t uid, pid_t pid, limits_type_t type)
 {
-struct limit_process_item_st* pitem;
-struct limit_user_item_st* uitem;
-struct hlist_head *user_head, *process_head;
-struct hlist_node *pos;
-int add = 1;
-int ret;
+	struct limit_process_item_st *pitem;
+	struct limit_user_item_st *uitem;
+	struct hlist_head *user_head, *process_head;
+	struct hlist_node *pos;
+	int add = 1;
+	int ret;
 	BUG_ON(type >= NUM_LIMIT_TYPES);
 
 	user_head = user_limit_hash(uid);
@@ -135,7 +135,8 @@ int ret;
 		if (uitem->uid == uid) {
 			add = 0;
 
-			if (atomic_add_unless(&uitem->cnt[type], 1, max_per_user[type])==0) {
+			if (atomic_add_unless
+			    (&uitem->cnt[type], 1, max_per_user[type]) == 0) {
 				err();
 				mutex_unlock(&user_limit_mutex);
 				return -EPERM;
@@ -147,7 +148,7 @@ int ret;
 	if (add) {
 		size_t i;
 
-		uitem = kmalloc( sizeof(*uitem), GFP_KERNEL);
+		uitem = kmalloc(sizeof(*uitem), GFP_KERNEL);
 		if (uitem == NULL) {
 			err();
 			mutex_unlock(&user_limit_mutex);
@@ -169,7 +170,9 @@ int ret;
 	hlist_for_each_entry(pitem, pos, process_head, hlist) {
 		if (pitem->pid == pid) {
 			add = 0;
-			if (atomic_add_unless(&pitem->cnt[type], 1, max_per_process[type])==0) {
+			if (atomic_add_unless
+			    (&pitem->cnt[type], 1,
+			     max_per_process[type]) == 0) {
 				err();
 				mutex_unlock(&process_limit_mutex);
 
@@ -179,7 +182,6 @@ int ret;
 			break;
 		}
 	}
-	
 
 	if (add) {
 		size_t i;
@@ -216,10 +218,10 @@ restore_user:
 
 void ncr_limits_remove(uid_t uid, pid_t pid, limits_type_t type)
 {
-struct limit_process_item_st* pitem;
-struct limit_user_item_st* uitem;
-struct hlist_head *hhead;
-struct hlist_node *pos;
+	struct limit_process_item_st *pitem;
+	struct limit_user_item_st *uitem;
+	struct hlist_head *hhead;
+	struct hlist_node *pos;
 
 	BUG_ON(type >= NUM_LIMIT_TYPES);
 	hhead = user_limit_hash(uid);

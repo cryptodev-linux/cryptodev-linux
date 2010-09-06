@@ -52,14 +52,14 @@ void ncr_key_list_deinit(struct ncr_lists *lst)
 }
 
 /* returns the data item corresponding to desc */
-int ncr_key_item_get_read(struct key_item_st**st, struct ncr_lists *lst,
-	ncr_key_t desc)
+int ncr_key_item_get_read(struct key_item_st **st, struct ncr_lists *lst,
+			  ncr_key_t desc)
 {
-struct key_item_st* item;
-int ret;
-	
+	struct key_item_st *item;
+	int ret;
+
 	*st = NULL;
-	
+
 	mutex_lock(&lst->key_idr_mutex);
 	item = idr_find(&lst->key_idr, desc);
 	if (item == NULL) {
@@ -87,11 +87,11 @@ exit:
 /* as above but will never return anything that
  * is in use.
  */
-int ncr_key_item_get_write( struct key_item_st** st, 
-	struct ncr_lists *lst, ncr_key_t desc)
+int ncr_key_item_get_write(struct key_item_st **st,
+			   struct ncr_lists *lst, ncr_key_t desc)
 {
-struct key_item_st* item;
-int ret;
+	struct key_item_st *item;
+	int ret;
 
 	*st = NULL;
 
@@ -104,13 +104,13 @@ int ret;
 	}
 	/* do not return items that are in use already */
 
-	if (atomic_add_unless(&item->writer, 1, 1)==0) {
+	if (atomic_add_unless(&item->writer, 1, 1) == 0) {
 		/* another writer so busy */
 		ret = -EBUSY;
 		goto exit;
 	}
 
-	if (atomic_add_unless(&item->refcnt, 1, 2)==0) {
+	if (atomic_add_unless(&item->refcnt, 1, 2) == 0) {
 		/* some reader is active so busy */
 		atomic_dec(&item->writer);
 		ret = -EBUSY;
@@ -125,25 +125,25 @@ exit:
 	return ret;
 }
 
-void _ncr_key_item_put( struct key_item_st* item)
+void _ncr_key_item_put(struct key_item_st *item)
 {
 	if (atomic_read(&item->writer) > 0)
 		atomic_dec(&item->writer);
 	if (atomic_dec_and_test(&item->refcnt)) {
-			ncr_limits_remove(item->uid, item->pid, LIMIT_TYPE_KEY);
-			ncr_key_clear(item);
-			kfree(item);
+		ncr_limits_remove(item->uid, item->pid, LIMIT_TYPE_KEY);
+		ncr_key_clear(item);
+		kfree(item);
 	}
 }
 
 static void _ncr_key_remove(struct ncr_lists *lst, ncr_key_t desc)
 {
-	struct key_item_st * item;
+	struct key_item_st *item;
 
 	mutex_lock(&lst->key_idr_mutex);
 	item = idr_find(&lst->key_idr, desc);
 	if (item != NULL)
-		idr_remove(&lst->key_idr, desc); /* Steal the reference */
+		idr_remove(&lst->key_idr, desc);	/* Steal the reference */
 	mutex_unlock(&lst->key_idr_mutex);
 
 	if (item != NULL)
@@ -153,10 +153,12 @@ static void _ncr_key_remove(struct ncr_lists *lst, ncr_key_t desc)
 int ncr_key_init(struct ncr_lists *lst)
 {
 	ncr_key_t desc;
-	struct key_item_st* key;
+	struct key_item_st *key;
 	int ret;
 
-	ret = ncr_limits_add_and_check(current_euid(), task_pid_nr(current), LIMIT_TYPE_KEY);
+	ret =
+	    ncr_limits_add_and_check(current_euid(), task_pid_nr(current),
+				     LIMIT_TYPE_KEY);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -205,10 +207,10 @@ int ncr_key_deinit(struct ncr_lists *lst, ncr_key_t desc)
 int ncr_key_export(struct ncr_lists *lst, const struct ncr_key_export *data,
 		   struct nlattr *tb[])
 {
-struct key_item_st* item = NULL;
-void* tmp = NULL;
-uint32_t tmp_size;
-int ret;
+	struct key_item_st *item = NULL;
+	void *tmp = NULL;
+	uint32_t tmp_size;
+	int ret;
 
 	if (data->buffer_size < 0) {
 		err();
@@ -228,57 +230,59 @@ int ret;
 	}
 
 	switch (item->type) {
-		case NCR_KEY_TYPE_SECRET:
-			if (item->key.secret.size > data->buffer_size) {
-				err();
-				ret = -ERANGE;
-				goto fail;
-			}
+	case NCR_KEY_TYPE_SECRET:
+		if (item->key.secret.size > data->buffer_size) {
+			err();
+			ret = -ERANGE;
+			goto fail;
+		}
 
-			/* found */
-			if (item->key.secret.size > 0) {
-				ret = copy_to_user(data->buffer, item->key.secret.data, item->key.secret.size);
-				if (unlikely(ret)) {
-					err();
-					ret = -EFAULT;
-					goto fail;
-				}
-			}
-
-			ret = item->key.secret.size;
-			break;
-#ifdef CONFIG_ASSYMETRIC
-		case NCR_KEY_TYPE_PUBLIC:
-		case NCR_KEY_TYPE_PRIVATE:
-			tmp_size = data->buffer_size;
-			
-			tmp = kmalloc(tmp_size, GFP_KERNEL);
-			if (tmp == NULL) {
-				err();
-				ret = -ENOMEM;
-				goto fail;
-			}
-
-			ret = ncr_pk_pack(item, tmp, &tmp_size);
-			if (ret < 0) {
-				err();
-				goto fail;
-			}
-
-			ret = copy_to_user(data->buffer, tmp, tmp_size);
+		/* found */
+		if (item->key.secret.size > 0) {
+			ret =
+			    copy_to_user(data->buffer, item->key.secret.data,
+					 item->key.secret.size);
 			if (unlikely(ret)) {
 				err();
 				ret = -EFAULT;
 				goto fail;
 			}
-			
-			ret = tmp_size;
-			break;
-#endif
-		default:
+		}
+
+		ret = item->key.secret.size;
+		break;
+#ifdef CONFIG_ASSYMETRIC
+	case NCR_KEY_TYPE_PUBLIC:
+	case NCR_KEY_TYPE_PRIVATE:
+		tmp_size = data->buffer_size;
+
+		tmp = kmalloc(tmp_size, GFP_KERNEL);
+		if (tmp == NULL) {
 			err();
-			ret = -EINVAL;
+			ret = -ENOMEM;
 			goto fail;
+		}
+
+		ret = ncr_pk_pack(item, tmp, &tmp_size);
+		if (ret < 0) {
+			err();
+			goto fail;
+		}
+
+		ret = copy_to_user(data->buffer, tmp, tmp_size);
+		if (unlikely(ret)) {
+			err();
+			ret = -EFAULT;
+			goto fail;
+		}
+
+		ret = tmp_size;
+		break;
+#endif
+	default:
+		err();
+		ret = -EINVAL;
+		goto fail;
 	}
 
 fail:
@@ -286,10 +290,10 @@ fail:
 	if (item)
 		_ncr_key_item_put(item);
 	return ret;
-	
+
 }
 
-int ncr_key_update_flags(struct key_item_st* item, const struct nlattr *nla)
+int ncr_key_update_flags(struct key_item_st *item, const struct nlattr *nla)
 {
 	uint32_t flags;
 
@@ -306,13 +310,13 @@ int ncr_key_update_flags(struct key_item_st* item, const struct nlattr *nla)
 int ncr_key_import(struct ncr_lists *lst, const struct ncr_key_import *data,
 		   struct nlattr *tb[])
 {
-const struct nlattr *nla;
-struct key_item_st* item = NULL;
-int ret;
-void* tmp = NULL;
-size_t tmp_size;
+	const struct nlattr *nla;
+	struct key_item_st *item = NULL;
+	int ret;
+	void *tmp = NULL;
+	size_t tmp_size;
 
-	ret = ncr_key_item_get_write( &item, lst, data->key);
+	ret = ncr_key_item_get_write(&item, lst, data->key);
 	if (ret < 0) {
 		err();
 		return ret;
@@ -326,7 +330,7 @@ size_t tmp_size;
 		ret = -ENOMEM;
 		goto fail;
 	}
-	
+
 	if (unlikely(copy_from_user(tmp, data->data, data->data_size))) {
 		err();
 		ret = -EFAULT;
@@ -367,31 +371,31 @@ size_t tmp_size;
 		memcpy(item->key_id, nla_data(nla), item->key_id_size);
 	}
 
-	switch(item->type) {
-		case NCR_KEY_TYPE_SECRET:
-			if (tmp_size > NCR_CIPHER_MAX_KEY_LEN) {
-				err();
-				ret = -EINVAL;
-				goto fail;
-			}
-			
-			memcpy(item->key.secret.data, tmp, tmp_size);
-			item->key.secret.size = tmp_size;
-			break;
-#ifdef CONFIG_ASSYMETRIC
-		case NCR_KEY_TYPE_PRIVATE:
-		case NCR_KEY_TYPE_PUBLIC:
-			ret = ncr_pk_unpack( item, tmp, tmp_size);
-			if (ret < 0) {
-				err();
-				goto fail;
-			}
-			break;
-#endif
-		default:
+	switch (item->type) {
+	case NCR_KEY_TYPE_SECRET:
+		if (tmp_size > NCR_CIPHER_MAX_KEY_LEN) {
 			err();
 			ret = -EINVAL;
 			goto fail;
+		}
+
+		memcpy(item->key.secret.data, tmp, tmp_size);
+		item->key.secret.size = tmp_size;
+		break;
+#ifdef CONFIG_ASSYMETRIC
+	case NCR_KEY_TYPE_PRIVATE:
+	case NCR_KEY_TYPE_PUBLIC:
+		ret = ncr_pk_unpack(item, tmp, tmp_size);
+		if (ret < 0) {
+			err();
+			goto fail;
+		}
+		break;
+#endif
+	default:
+		err();
+		ret = -EINVAL;
+		goto fail;
 	}
 
 	ret = 0;
@@ -404,13 +408,13 @@ fail:
 	return ret;
 }
 
-void ncr_key_clear(struct key_item_st* item)
+void ncr_key_clear(struct key_item_st *item)
 {
 	/* clears any previously allocated parameters */
 #ifdef CONFIG_ASSYMETRIC
 	if (item->type == NCR_KEY_TYPE_PRIVATE ||
-		item->type == NCR_KEY_TYPE_PUBLIC) {
-		
+	    item->type == NCR_KEY_TYPE_PUBLIC) {
+
 		ncr_pk_clear(item);
 	}
 #endif
@@ -418,7 +422,7 @@ void ncr_key_clear(struct key_item_st* item)
 	memset(item->key_id, 0, sizeof(item->key_id));
 	item->key_id_size = 0;
 	item->flags = 0;
-	
+
 	return;
 }
 
@@ -427,11 +431,11 @@ void ncr_key_clear(struct key_item_st* item)
 int ncr_key_generate(struct ncr_lists *lst, const struct ncr_key_generate *gen,
 		     struct nlattr *tb[])
 {
-const struct nlattr *nla;
-struct key_item_st* item = NULL;
-const struct algo_properties_st *algo;
-int ret;
-size_t size;
+	const struct nlattr *nla;
+	struct key_item_st *item = NULL;
+	const struct algo_properties_st *algo;
+	int ret;
+	size_t size;
 
 	ret = ncr_key_item_get_write(&item, lst, gen->key);
 	if (ret < 0) {
@@ -485,12 +489,13 @@ size_t size;
 		ret = -EINVAL;
 		goto fail;
 	}
-	
+
 	ret = 0;
 
 fail:
 	if (item) {
-		if (ret < 0) item->type = NCR_KEY_TYPE_INVALID;
+		if (ret < 0)
+			item->type = NCR_KEY_TYPE_INVALID;
 		_ncr_key_item_put(item);
 	}
 	return ret;
@@ -503,56 +508,57 @@ fail:
  * symmetric ones. Should be kept up to date.
  */
 static const struct {
-	unsigned int bits; /* sec level */
+	unsigned int bits;	/* sec level */
 	unsigned int rsa_bits;
 	unsigned int dlog_bits;
 } ecrypt_vals[] = {
-	{64, 816, 816},
-	{80, 1248, 1248},
-	{112, 2432, 2432},
-	{128, 3248, 3248},
-	{160, 5312, 5312},
-	{192, 7936, 7936},
-	{256, 15424, 15424},
-	{0,0,0}
+	{
+	64, 816, 816}, {
+	80, 1248, 1248}, {
+	112, 2432, 2432}, {
+	128, 3248, 3248}, {
+	160, 5312, 5312}, {
+	192, 7936, 7936}, {
+	256, 15424, 15424}, {
+	0, 0, 0}
 };
 
 static unsigned int rsa_to_bits(unsigned int rsa_bits)
 {
-int i = 1;
+	int i = 1;
 
 	if (rsa_bits <= ecrypt_vals[0].rsa_bits)
 		return ecrypt_vals[0].rsa_bits;
 
 	do {
-		if (rsa_bits <= ecrypt_vals[i].rsa_bits && 
-			rsa_bits > ecrypt_vals[i-1].rsa_bits) {
+		if (rsa_bits <= ecrypt_vals[i].rsa_bits &&
+		    rsa_bits > ecrypt_vals[i - 1].rsa_bits) {
 
 			return ecrypt_vals[i].bits;
 		}
-	} while(ecrypt_vals[++i].bits != 0);
-	
+	} while (ecrypt_vals[++i].bits != 0);
+
 	/* return the highest found so far */
-	return ecrypt_vals[i-1].bits;
+	return ecrypt_vals[i - 1].bits;
 }
 
 static unsigned int dlog_to_bits(unsigned int dlog_bits)
 {
-int i = 1;
+	int i = 1;
 
 	if (dlog_bits <= ecrypt_vals[0].dlog_bits)
 		return ecrypt_vals[0].dlog_bits;
 
 	do {
-		if (dlog_bits <= ecrypt_vals[i].dlog_bits && 
-			dlog_bits > ecrypt_vals[i-1].dlog_bits) {
+		if (dlog_bits <= ecrypt_vals[i].dlog_bits &&
+		    dlog_bits > ecrypt_vals[i - 1].dlog_bits) {
 
 			return ecrypt_vals[i].bits;
 		}
-	} while(ecrypt_vals[++i].bits != 0);
-	
+	} while (ecrypt_vals[++i].bits != 0);
+
 	/* return the highest found so far */
-	return ecrypt_vals[i-1].bits;
+	return ecrypt_vals[i - 1].bits;
 }
 
 #endif
@@ -560,46 +566,47 @@ int i = 1;
 /* returns the security level of the key in bits. Private/Public keys
  * are mapped to symmetric key bits using the ECRYPT II 2010 recommendation.
  */
-int _ncr_key_get_sec_level(struct key_item_st* item)
+int _ncr_key_get_sec_level(struct key_item_st *item)
 {
 	/* FIXME: should we move everything here into algorithm properties? 
 	 */
 	if (item->type == NCR_KEY_TYPE_SECRET) {
-		if (item->algorithm->algo == NCR_ALG_3DES_CBC || item->algorithm->algo == NCR_ALG_3DES_ECB)
+		if (item->algorithm->algo == NCR_ALG_3DES_CBC
+		    || item->algorithm->algo == NCR_ALG_3DES_ECB)
 			return 112;
 
-		return item->key.secret.size*8;
+		return item->key.secret.size * 8;
 #ifdef CONFIG_ASSYMETRIC
 	} else if (item->type == NCR_KEY_TYPE_PRIVATE) {
 		int bits;
 
-		switch(item->algorithm->algo) {
-			case NCR_ALG_RSA:
-				bits = ncr_pk_get_rsa_size(&item->key.pk.rsa);
-				if (bits < 0) {
-					err();
-					return bits;
-				}
-				
-				return rsa_to_bits(bits);
-			case NCR_ALG_DSA:
-				bits = ncr_pk_get_dsa_size(&item->key.pk.dsa);
-				if (bits < 0) {
-					err();
-					return bits;
-				}
-				
-				return dlog_to_bits(bits);
-			case NCR_ALG_DH:
-				bits = ncr_pk_get_dh_size(&item->key.pk.dh);
-				if (bits < 0) {
-					err();
-					return bits;
-				}
-				
-				return dlog_to_bits(bits);
-			default:
-				return -EINVAL;
+		switch (item->algorithm->algo) {
+		case NCR_ALG_RSA:
+			bits = ncr_pk_get_rsa_size(&item->key.pk.rsa);
+			if (bits < 0) {
+				err();
+				return bits;
+			}
+
+			return rsa_to_bits(bits);
+		case NCR_ALG_DSA:
+			bits = ncr_pk_get_dsa_size(&item->key.pk.dsa);
+			if (bits < 0) {
+				err();
+				return bits;
+			}
+
+			return dlog_to_bits(bits);
+		case NCR_ALG_DH:
+			bits = ncr_pk_get_dh_size(&item->key.pk.dh);
+			if (bits < 0) {
+				err();
+				return bits;
+			}
+
+			return dlog_to_bits(bits);
+		default:
+			return -EINVAL;
 		}
 #endif
 	} else {
@@ -610,17 +617,17 @@ int _ncr_key_get_sec_level(struct key_item_st* item)
 int ncr_key_get_info(struct ncr_lists *lst, struct ncr_out *out,
 		     const struct ncr_key_get_info *info, struct nlattr *tb[])
 {
-const struct nlattr *nla;
-const u16 *attr, *attr_end;
-struct key_item_st* item = NULL;
-int ret;
+	const struct nlattr *nla;
+	const u16 *attr, *attr_end;
+	struct key_item_st *item = NULL;
+	int ret;
 
 	ret = ncr_key_item_get_read(&item, lst, info->key);
 	if (ret < 0) {
 		err();
 		return ret;
 	}
-	
+
 	if (item->type == NCR_KEY_TYPE_INVALID) {
 		err();
 		ret = -EINVAL;
@@ -648,7 +655,7 @@ int ret;
 						 item->algorithm->kstr);
 			break;
 		default:
-			break; /* Silently ignore */
+			break;	/* Silently ignore */
 		}
 		if (ret != 0) {
 			err();
@@ -664,7 +671,7 @@ int ret;
 	}
 
 fail:
-	_ncr_key_item_put( item);
+	_ncr_key_item_put(item);
 
 	return ret;
 }
@@ -674,9 +681,9 @@ int ncr_key_generate_pair(struct ncr_lists *lst,
 			  struct nlattr *tb[])
 {
 #ifdef CONFIG_ASSYMETRIC
-struct key_item_st* private = NULL;
-struct key_item_st* public = NULL;
-int ret;
+	struct key_item_st *private = NULL;
+	struct key_item_st *public = NULL;
+	int ret;
 
 	ret = ncr_key_item_get_write(&private, lst, gen->private_key);
 	if (ret < 0) {
@@ -695,7 +702,7 @@ int ret;
 
 	/* we generate only secret keys */
 	private->algorithm = public->algorithm
-		= _ncr_nla_to_properties(tb[NCR_ATTR_ALGORITHM]);
+	    = _ncr_nla_to_properties(tb[NCR_ATTR_ALGORITHM]);
 	if (private->algorithm == NULL) {
 		err();
 		ret = -EINVAL;
@@ -714,8 +721,8 @@ int ret;
 		goto fail;
 	}
 
-	public->flags |= (NCR_KEY_FLAG_EXPORTABLE|NCR_KEY_FLAG_WRAPPABLE);
-	
+	public->flags |= (NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE);
+
 	if (public->type == NCR_KEY_TYPE_PUBLIC) {
 		ret = ncr_pk_generate(public->algorithm, tb, private, public);
 		if (ret < 0) {
@@ -727,15 +734,17 @@ int ret;
 		ret = -EINVAL;
 		goto fail;
 	}
-	
+
 	ret = 0;
 fail:
 	if (public) {
-		if (ret < 0) public->type = NCR_KEY_TYPE_INVALID;
+		if (ret < 0)
+			public->type = NCR_KEY_TYPE_INVALID;
 		_ncr_key_item_put(public);
 	}
 	if (private) {
-		if (ret < 0) private->type = NCR_KEY_TYPE_INVALID;
+		if (ret < 0)
+			private->type = NCR_KEY_TYPE_INVALID;
 		_ncr_key_item_put(private);
 	}
 	return ret;
@@ -747,19 +756,20 @@ fail:
 int ncr_key_derive(struct ncr_lists *lst, const struct ncr_key_derive *data,
 		   struct nlattr *tb[])
 {
-int ret;
-struct key_item_st* key = NULL;
-struct key_item_st* newkey = NULL;
+	int ret;
+	struct key_item_st *key = NULL;
+	struct key_item_st *newkey = NULL;
 
 	ret = ncr_key_item_get_read(&key, lst, data->input_key);
 	if (ret < 0) {
 		err();
 		return ret;
 	}
-	
+
 	/* wrapping keys cannot be used for anything except wrapping.
 	 */
-	if (key->flags & NCR_KEY_FLAG_WRAPPING || key->flags & NCR_KEY_FLAG_UNWRAPPING) {
+	if (key->flags & NCR_KEY_FLAG_WRAPPING
+	    || key->flags & NCR_KEY_FLAG_UNWRAPPING) {
 		err();
 		ret = -EINVAL;
 		goto fail;
@@ -781,19 +791,19 @@ struct key_item_st* newkey = NULL;
 
 	switch (key->type) {
 #ifdef CONFIG_ASSYMETRIC
-		case NCR_KEY_TYPE_PUBLIC:
-		case NCR_KEY_TYPE_PRIVATE:
-			ret = ncr_pk_derive(newkey, key, tb);
-			if (ret < 0) {
-				err();
-				goto fail;
-			}
-			break;
-#endif
-		default:
+	case NCR_KEY_TYPE_PUBLIC:
+	case NCR_KEY_TYPE_PRIVATE:
+		ret = ncr_pk_derive(newkey, key, tb);
+		if (ret < 0) {
 			err();
-			ret = -EINVAL;
 			goto fail;
+		}
+		break;
+#endif
+	default:
+		err();
+		ret = -EINVAL;
+		goto fail;
 	}
 
 fail:
@@ -802,6 +812,5 @@ fail:
 	if (newkey)
 		_ncr_key_item_put(newkey);
 	return ret;
-	
-}
 
+}

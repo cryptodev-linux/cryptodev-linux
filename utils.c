@@ -48,45 +48,44 @@
 #endif /* !CONFIG_COMPAT */
 
 static const struct nla_policy ncr_attr_policy[NCR_ATTR_MAX + 1] = {
-	[NCR_ATTR_ALGORITHM] = { NLA_NUL_STRING, 0 },
-	[NCR_ATTR_DERIVATION_ALGORITHM] = { NLA_NUL_STRING, 0 },
-	[NCR_ATTR_SIGNATURE_HASH_ALGORITHM] = { NLA_NUL_STRING, 0 },
-	[NCR_ATTR_WRAPPING_ALGORITHM] = { NLA_NUL_STRING, 0 },
+	[NCR_ATTR_ALGORITHM] = {NLA_NUL_STRING, 0},
+	[NCR_ATTR_DERIVATION_ALGORITHM] = {NLA_NUL_STRING, 0},
+	[NCR_ATTR_SIGNATURE_HASH_ALGORITHM] = {NLA_NUL_STRING, 0},
+	[NCR_ATTR_WRAPPING_ALGORITHM] = {NLA_NUL_STRING, 0},
 	[NCR_ATTR_UPDATE_INPUT_DATA] = {
-		NLA_BINARY, MAX_SESSION_INPUT_DATA_SIZE
-	},
+					NLA_BINARY,
+					MAX_SESSION_INPUT_DATA_SIZE},
 	[NCR_ATTR_UPDATE_OUTPUT_BUFFER] = {
-		NLA_BINARY, MAX_SESSION_OUTPUT_BUFFER_SIZE
-	},
-	[NCR_ATTR_UPDATE_INPUT_KEY_AS_DATA] = { NLA_U32, 0 },
+					   NLA_BINARY,
+					   MAX_SESSION_OUTPUT_BUFFER_SIZE},
+	[NCR_ATTR_UPDATE_INPUT_KEY_AS_DATA] = {NLA_U32, 0},
 	[NCR_ATTR_FINAL_INPUT_DATA] = {
-		NLA_BINARY, MAX_SESSION_INPUT_DATA_SIZE
-	},
+				       NLA_BINARY, MAX_SESSION_INPUT_DATA_SIZE},
 	[NCR_ATTR_FINAL_OUTPUT_BUFFER] = {
-		NLA_BINARY, MAX_SESSION_OUTPUT_BUFFER_SIZE
-	},
-	[NCR_ATTR_KEY] = { NLA_U32, 0 },
-	[NCR_ATTR_KEY_FLAGS] = { NLA_U32, 0 },
-	[NCR_ATTR_KEY_ID] = { NLA_BINARY, 0 },
-	[NCR_ATTR_KEY_TYPE] = { NLA_U32, 0 },
-	[NCR_ATTR_IV] = { NLA_BINARY, 0 },
-	[NCR_ATTR_SECRET_KEY_BITS] = { NLA_U32, 0 },
-	[NCR_ATTR_RSA_MODULUS_BITS] = { NLA_U32, 0 },
-	[NCR_ATTR_RSA_E] = { NLA_BINARY, 0 },
-	[NCR_ATTR_RSA_ENCODING_METHOD] = { NLA_U32, 0 },
-	[NCR_ATTR_RSA_OAEP_HASH_ALGORITHM] = { NLA_NUL_STRING, 0 },
-	[NCR_ATTR_RSA_PSS_SALT_LENGTH] = { NLA_U32, 0 },
-	[NCR_ATTR_DSA_P_BITS] = { NLA_U32, 0 },
-	[NCR_ATTR_DSA_Q_BITS] = { NLA_U32, 0 },
-	[NCR_ATTR_DH_PRIME] = { NLA_BINARY, 0 },
-	[NCR_ATTR_DH_BASE] = { NLA_BINARY, 0 },
-	[NCR_ATTR_DH_PUBLIC] = { NLA_BINARY, 0 },
-	[NCR_ATTR_WANTED_ATTRS] = { NLA_BINARY, 0 },
-	[NCR_ATTR_SESSION_CLONE_FROM] = { NLA_U32, 0 },
+					  NLA_BINARY,
+					  MAX_SESSION_OUTPUT_BUFFER_SIZE},
+	[NCR_ATTR_KEY] = {NLA_U32, 0},
+	[NCR_ATTR_KEY_FLAGS] = {NLA_U32, 0},
+	[NCR_ATTR_KEY_ID] = {NLA_BINARY, 0},
+	[NCR_ATTR_KEY_TYPE] = {NLA_U32, 0},
+	[NCR_ATTR_IV] = {NLA_BINARY, 0},
+	[NCR_ATTR_SECRET_KEY_BITS] = {NLA_U32, 0},
+	[NCR_ATTR_RSA_MODULUS_BITS] = {NLA_U32, 0},
+	[NCR_ATTR_RSA_E] = {NLA_BINARY, 0},
+	[NCR_ATTR_RSA_ENCODING_METHOD] = {NLA_U32, 0},
+	[NCR_ATTR_RSA_OAEP_HASH_ALGORITHM] = {NLA_NUL_STRING, 0},
+	[NCR_ATTR_RSA_PSS_SALT_LENGTH] = {NLA_U32, 0},
+	[NCR_ATTR_DSA_P_BITS] = {NLA_U32, 0},
+	[NCR_ATTR_DSA_Q_BITS] = {NLA_U32, 0},
+	[NCR_ATTR_DH_PRIME] = {NLA_BINARY, 0},
+	[NCR_ATTR_DH_BASE] = {NLA_BINARY, 0},
+	[NCR_ATTR_DH_PUBLIC] = {NLA_BINARY, 0},
+	[NCR_ATTR_WANTED_ATTRS] = {NLA_BINARY, 0},
+	[NCR_ATTR_SESSION_CLONE_FROM] = {NLA_U32, 0},
 };
 
 void *__ncr_get_input_args(void *fixed, struct nlattr *tb[], size_t fixed_size,
-			   u32 *input_size_ptr, const void __user *arg)
+			   u32 * input_size_ptr, const void __user * arg)
 {
 	size_t input_size, buf_size;
 	void *buf;
@@ -143,22 +142,22 @@ err_buf:
 	return ERR_PTR(ret);
 }
 
-static int update_output_size(void __user *arg, size_t output_size_offset,
+static int update_output_size(void __user * arg, size_t output_size_offset,
 			      u32 old_value, u32 new_value)
 {
 	if (old_value != 0 && old_value != new_value) {
 		u32 __user *dest;
 
-		dest = (u32 __user *)((char __user *)arg + output_size_offset);
+		dest = (u32 __user *) ((char __user *)arg + output_size_offset);
 		return put_user(new_value, dest);
 	}
 	return 0;
 }
 
 void *__ncr_get_input_args_no_output(void *fixed, struct nlattr *tb[],
-				     size_t fixed_size, u32 *input_size_ptr,
+				     size_t fixed_size, u32 * input_size_ptr,
 				     size_t output_size_offset,
-				     void __user *arg)
+				     void __user * arg)
 {
 	void *attr_buf;
 	u32 output_size;
@@ -180,7 +179,7 @@ void *__ncr_get_input_args_no_output(void *fixed, struct nlattr *tb[],
 }
 
 int __ncr_out_init(struct ncr_out *out, const void *fixed, size_t fixed_size,
-		   size_t output_size_offset, void __user *arg)
+		   size_t output_size_offset, void __user * arg)
 {
 	u32 output_size;
 
@@ -248,7 +247,8 @@ struct nlattr *ncr_out_reserve(struct ncr_out *out, int attrtype, int attrlen)
 	return nla;
 }
 
-int ncr_out_put(struct ncr_out *out, int attrtype, int attrlen, const void *data)
+int ncr_out_put(struct ncr_out *out, int attrtype, int attrlen,
+		const void *data)
 {
 	struct nlattr *nla;
 

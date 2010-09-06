@@ -31,10 +31,10 @@ extern const uint32_t crypto_fl_tab[4][256];
 extern const uint32_t crypto_it_tab[4][256];
 extern const uint32_t crypto_il_tab[4][256];
 
-int crypto_aes_expand_key(struct crypto_aes_ctx *ctx, const uint8_t *in_key,
-		unsigned int key_len);
+int crypto_aes_expand_key(struct crypto_aes_ctx *ctx, const uint8_t * in_key,
+			  unsigned int key_len);
 
 int crypto_cbc_encrypt(const struct crypto_aes_ctx *ctx,
-	void* src, int nbytes, void* dst, void* iv);
+		       void *src, int nbytes, void *dst, void *iv);
 
 #endif
