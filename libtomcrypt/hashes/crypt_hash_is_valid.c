@@ -9,6 +9,7 @@
  * Tom St Denis, tomstdenis@gmail.com, http://libtom.org
  */
 #include "tomcrypt.h"
+#include <ncr-int.h>
 
 /**
   @file crypt_hash_is_valid.c
@@ -22,7 +23,9 @@
 */
 int hash_is_valid(const struct algo_properties_st *hash)
 {
-	return CRYPT_OK;
+	if (hash->can_digest == 0) return CRYPT_INVALID_ARG;
+        
+        return CRYPT_OK;
 }
 
 /* $Source: /cvs/libtom/libtomcrypt/src/misc/crypt/crypt_hash_is_valid.c,v $ */

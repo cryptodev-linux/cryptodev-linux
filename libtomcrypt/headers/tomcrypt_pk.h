@@ -18,7 +18,7 @@ typedef struct Oid {
 	unsigned long OIDlen;
 } oid_st;
 
-int pk_get_oid(int pk, oid_st * st);
+int pk_get_oid(const struct algo_properties_st *pk, oid_st * st);
 int rand_prime(mp_int * N, long len);
 
 /* ---- RSA ---- */
@@ -234,7 +234,7 @@ int der_length_sequence(ltc_asn1_list * list, unsigned long inlen,
 /* SUBJECT PUBLIC KEY INFO */
 int der_encode_subject_public_key_info(unsigned char *out,
 				       unsigned long *outlen,
-				       unsigned int algorithm, void *public_key,
+				       const struct algo_properties_st *algorithm, void *public_key,
 				       unsigned long public_key_len,
 				       unsigned long parameters_type,
 				       void *parameters,
@@ -242,7 +242,7 @@ int der_encode_subject_public_key_info(unsigned char *out,
 
 int der_decode_subject_public_key_info(const unsigned char *in,
 				       unsigned long inlen,
-				       unsigned int algorithm, void *public_key,
+				       const struct algo_properties_st *algorithm, void *public_key,
 				       unsigned long *public_key_len,
 				       unsigned long parameters_type,
 				       ltc_asn1_list * parameters,

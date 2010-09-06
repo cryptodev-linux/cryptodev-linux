@@ -9,6 +9,7 @@
  * Tom St Denis, tomstdenis@gmail.com, http://libtom.org
  */
 #include "tomcrypt.h"
+#include <ncr-int.h>
 
 /**
    @file dsa_import.c
@@ -29,9 +30,14 @@ int dsa_import(const unsigned char *in, unsigned long inlen, dsa_key * key)
 	int err;
 	unsigned long zero = 0;
 	unsigned char *tmpbuf = NULL;
+	const struct algo_properties_st *algo = _ncr_algo_to_properties(NCR_ALG_DSA);
 
 	LTC_ARGCHK(in != NULL);
 	LTC_ARGCHK(key != NULL);
+
+	if (algo == NULL) {
+		return CRYPT_INVALID_ARG;
+	}
 
 	/* init key */
 	if (mp_init_multi(&key->p, &key->g, &key->q, &key->x, &key->y, NULL) !=
@@ -65,7 +71,7 @@ int dsa_import(const unsigned char *in, unsigned long inlen, dsa_key * key)
 		}
 
 		err = der_decode_subject_public_key_info(in, inlen,
-							 PKA_DSA, tmpbuf,
+							 algo, tmpbuf,
 							 &tmpbuf_len,
 							 LTC_ASN1_SEQUENCE,
 							 params, 3);

@@ -9,6 +9,7 @@
  * Tom St Denis, tomstdenis@gmail.com, http://libtom.org
  */
 #include "tomcrypt.h"
+#include <ncr-int.h>
 
 /**
    @file dsa_export.c
@@ -30,10 +31,15 @@ int dsa_export(unsigned char *out, unsigned long *outlen, int type,
 {
 	unsigned long zero = 0;
 	int err;
+	const struct algo_properties_st *algo = _ncr_algo_to_properties(NCR_ALG_DSA);
 
 	LTC_ARGCHK(out != NULL);
 	LTC_ARGCHK(outlen != NULL);
 	LTC_ARGCHK(key != NULL);
+
+	if (algo == NULL) {
+		return CRYPT_INVALID_ARG;
+	}
 
 	/* can we store the static header?  */
 	if (type == PK_PRIVATE && key->type != PK_PRIVATE) {
@@ -83,7 +89,7 @@ int dsa_export(unsigned char *out, unsigned long *outlen, int type,
 		int_list[2].type = LTC_ASN1_INTEGER;
 
 		err = der_encode_subject_public_key_info(out, outlen,
-							 PKA_DSA, tmp, tmplen,
+							 algo, tmp, tmplen,
 							 LTC_ASN1_SEQUENCE,
 							 int_list,
 							 sizeof(int_list) /

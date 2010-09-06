@@ -209,7 +209,7 @@ const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo);
 const struct algo_properties_st *_ncr_nla_to_properties(const struct nlattr
 							*nla);
 int _ncr_key_get_sec_level(struct key_item_st *item);
-const struct algo_properties_st *_ncr_oid_to_properties(oid_st * oid);
+const struct algo_properties_st *_ncr_oid_to_properties(const oid_st * oid);
 const oid_st *_ncr_properties_to_oid(const struct algo_properties_st *prop,
 				     int key_size);
 

@@ -8,32 +8,20 @@
  *
  */
 #include "tomcrypt.h"
-
-static const oid_st rsa_oid = {
-	.OIDlen = 7,
-	.OID = {1, 2, 840, 113549, 1, 1, 1},
-};
-
-static const oid_st dsa_oid = {
-	.OIDlen = 6,
-	.OID = {1, 2, 840, 10040, 4, 1},
-};
+#include <ncr-int.h>
 
 /*
    Returns the OID of the public key algorithm.
    @return CRYPT_OK if valid
 */
-int pk_get_oid(int pk, oid_st * st)
+int pk_get_oid(const struct algo_properties_st *pk, oid_st * st)
 {
-	switch (pk) {
-	case PKA_RSA:
-		memcpy(st, &rsa_oid, sizeof(*st));
-		break;
-	case PKA_DSA:
-		memcpy(st, &dsa_oid, sizeof(*st));
-		break;
-	default:
+	if (pk->is_pk == 0 || pk->oids[0].key_size != -1) { 
+		/* not a pk */
 		return CRYPT_INVALID_ARG;
 	}
+
+	memcpy(st, &pk->oids[0].oid, sizeof(*st));
+
 	return CRYPT_OK;
 }

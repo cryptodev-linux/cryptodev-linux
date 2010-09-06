@@ -48,7 +48,7 @@
   @return CRYPT_OK on success
 */  
 int der_encode_subject_public_key_info(unsigned char *out, unsigned long *outlen, 
-        unsigned int algorithm, void* public_key, unsigned long public_key_len, 
+        const struct algo_properties_st *algorithm, void* public_key, unsigned long public_key_len, 
         unsigned long parameters_type, void* parameters, unsigned long parameters_len)
 {
    int           err;

@@ -31,6 +31,8 @@ int rsa_export(unsigned char *out, unsigned long *outlen, int type,
 {
 	unsigned long zero = 0;
 	int err;
+	const struct algo_properties_st *algo = _ncr_algo_to_properties(NCR_ALG_RSA);
+	
 	LTC_ARGCHK(out != NULL);
 	LTC_ARGCHK(outlen != NULL);
 	LTC_ARGCHK(key != NULL);
@@ -38,6 +40,10 @@ int rsa_export(unsigned char *out, unsigned long *outlen, int type,
 	/* type valid? */
 	if (!(key->type == PK_PRIVATE) && (type == PK_PRIVATE)) {
 		return CRYPT_PK_INVALID_TYPE;
+	}
+
+	if (algo == NULL) {
+		return CRYPT_INVALID_ARG;
 	}
 
 	if (type == PK_PRIVATE) {
@@ -75,7 +81,7 @@ int rsa_export(unsigned char *out, unsigned long *outlen, int type,
 		}
 
 		err = der_encode_subject_public_key_info(out, outlen,
-							 PKA_RSA, tmp, tmplen,
+							 algo, tmp, tmplen,
 							 LTC_ASN1_NULL, NULL,
 							 0);
 

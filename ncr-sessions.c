@@ -297,6 +297,43 @@ const static struct algo_oid_st dh_oid[] = {
 	{.key_size = 0}
 };
 
+const static struct algo_oid_st sha1_oid[] = {
+	{.key_size = -1,
+	 .oid = {.OIDlen = 6, .OID = {1, 3, 14, 3, 2, 26}}},
+	 {.key_size = 0}
+};
+
+const static struct algo_oid_st md5_oid[] = {
+	{.key_size = -1,
+	 .oid = {.OIDlen = 6,.OID = {1, 2, 840, 113549, 2, 5,}}},
+	 {.key_size = 0}
+};
+
+const static struct algo_oid_st sha224_oid[] = {
+	{.key_size = -1,
+	 .oid = {.OIDlen = 9,.OID = {2, 16, 840, 1, 101, 3, 4, 2, 4,}}},
+	 {.key_size = 0}
+};
+
+const static struct algo_oid_st sha256_oid[] = {
+	{.key_size = -1,
+	 .oid = {.OIDlen = 9,.OID = {2, 16, 840, 1, 101, 3, 4, 2, 1,}}},
+	 {.key_size = 0}
+};
+
+const static struct algo_oid_st sha384_oid[] = {
+	{.key_size = -1,
+	 .oid = {.OIDlen = 9,.OID = {2, 16, 840, 1, 101, 3, 4, 2, 2,}}},
+	 {.key_size = 0}
+};
+
+const static struct algo_oid_st sha512_oid[] = {
+	{.key_size = -1,
+	 .oid = {.OIDlen = 9,.OID = {2, 16, 840, 1, 101, 3, 4, 2, 3,}}},
+	 {.key_size = 0}
+};
+
+
 /* OIDs are used in cipher algorithms to distinguish keys on key wrapping.
  */
 
@@ -330,22 +367,22 @@ static const struct algo_properties_st algo_properties[] = {
 	 .needs_iv = 0,.is_symmetric = 1,.can_encrypt = 1,
 	 .key_type = NCR_KEY_TYPE_SECRET, /* FIXME: no OIDs */ },
 	{.algo = NCR_ALG_SHA1, KSTR("sha1"),
-	 .digest_size = 20,.can_digest = 1,
+	 .digest_size = 20,.can_digest = 1, .oids = sha1_oid,
 	 .key_type = NCR_KEY_TYPE_INVALID},
-	{.algo = NCR_ALG_MD5, KSTR("md5"),
-	 .digest_size = 16,.can_digest = 1,
+	{.algo = NCR_ALG_MD5, KSTR("md5"), 
+	 .digest_size = 16,.can_digest = 1, .oids = md5_oid,
 	 .key_type = NCR_KEY_TYPE_INVALID},
 	{.algo = NCR_ALG_SHA2_224, KSTR("sha224"),
-	 .digest_size = 28,.can_digest = 1,
+	 .digest_size = 28,.can_digest = 1, .oids = sha224_oid,
 	 .key_type = NCR_KEY_TYPE_INVALID},
 	{.algo = NCR_ALG_SHA2_256, KSTR("sha256"),
-	 .digest_size = 32,.can_digest = 1,
+	 .digest_size = 32,.can_digest = 1, .oids = sha256_oid,
 	 .key_type = NCR_KEY_TYPE_INVALID},
 	{.algo = NCR_ALG_SHA2_384, KSTR("sha384"),
-	 .digest_size = 48,.can_digest = 1,
+	 .digest_size = 48,.can_digest = 1, .oids = sha384_oid,
 	 .key_type = NCR_KEY_TYPE_INVALID},
 	{.algo = NCR_ALG_SHA2_512, KSTR("sha512"),
-	 .digest_size = 64,.can_digest = 1,
+	 .digest_size = 64,.can_digest = 1, .oids = sha512_oid,
 	 .key_type = NCR_KEY_TYPE_INVALID},
 	{.is_hmac = 1, KSTR("hmac(sha1)"),
 	 .digest_size = 20,.can_sign = 1,
@@ -402,7 +439,7 @@ const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo)
 	return NULL;
 }
 
-static void print_oid(oid_st * oid)
+static void print_oid(const oid_st * oid)
 {
 	char txt[128] = "";
 	char tmp[64];
@@ -416,7 +453,7 @@ static void print_oid(oid_st * oid)
 	dprintk(1, KERN_DEBUG, "unknown oid: %s\n", txt);
 }
 
-const struct algo_properties_st *_ncr_oid_to_properties(oid_st * oid)
+const struct algo_properties_st *_ncr_oid_to_properties(const oid_st * oid)
 {
 	const struct algo_properties_st *a;
 	int i;
