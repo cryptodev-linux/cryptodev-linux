@@ -13,13 +13,12 @@
 /**
   @file crypt_argchk.c
   Perform argument checking, Tom St Denis
-*/  
+*/
 
 #if (ARGTYPE == 0)
 void crypt_argchk(char *v, char *s, int d)
 {
- printk("LTC_ARGCHK '%s' failure on line %d of file %s\n",
-         v, d, s);
+	printk("LTC_ARGCHK '%s' failure on line %d of file %s\n", v, d, s);
 }
 #endif
 

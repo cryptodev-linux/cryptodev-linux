@@ -26,41 +26,41 @@
   @param outlen [in/out] Max size and resulting size of the digest
   @return CRYPT_OK if successful
 */
-int hash_memory(const struct algo_properties_st *hash, const unsigned char *in, unsigned long inlen, unsigned char *out, unsigned long *outlen)
+int hash_memory(const struct algo_properties_st *hash, const unsigned char *in,
+		unsigned long inlen, unsigned char *out, unsigned long *outlen)
 {
-    int err;
-    struct hash_data hdata;
+	int err;
+	struct hash_data hdata;
 
-    LTC_ARGCHK(in     != NULL);
-    LTC_ARGCHK(out    != NULL);
-    LTC_ARGCHK(outlen != NULL);
+	LTC_ARGCHK(in != NULL);
+	LTC_ARGCHK(out != NULL);
+	LTC_ARGCHK(outlen != NULL);
 
-    if ((err = hash_is_valid(hash)) != CRYPT_OK) {
-        return err;
-    }
+	if ((err = hash_is_valid(hash)) != CRYPT_OK) {
+		return err;
+	}
 
-    if (*outlen < hash->digest_size) {
-       *outlen = hash->digest_size;
-       return CRYPT_BUFFER_OVERFLOW;
-    }
+	if (*outlen < hash->digest_size) {
+		*outlen = hash->digest_size;
+		return CRYPT_BUFFER_OVERFLOW;
+	}
 
-    err = cryptodev_hash_init(&hdata, hash->kstr, NULL, 0);
-    if (err < 0) {
-       err = CRYPT_INVALID_HASH;
-       goto LBL_ERR;
-    }
+	err = cryptodev_hash_init(&hdata, hash->kstr, NULL, 0);
+	if (err < 0) {
+		err = CRYPT_INVALID_HASH;
+		goto LBL_ERR;
+	}
 
-    if ((err = _cryptodev_hash_update(&hdata, in, inlen)) < 0) {
-       err = CRYPT_ERROR;
-       goto LBL_ERR;
-    }
-    
-    err = cryptodev_hash_final(&hdata, out);
-    
-    *outlen = hash->digest_size;
+	if ((err = _cryptodev_hash_update(&hdata, in, inlen)) < 0) {
+		err = CRYPT_ERROR;
+		goto LBL_ERR;
+	}
+
+	err = cryptodev_hash_final(&hdata, out);
+
+	*outlen = hash->digest_size;
 LBL_ERR:
-    cryptodev_hash_deinit(&hdata);
+	cryptodev_hash_deinit(&hdata);
 
-    return err;
+	return err;
 }
-

@@ -11,7 +11,6 @@
 #include "tomcrypt.h"
 #include <ncr-int.h>
 
-
 /**
   @file pkcs_1_oaep_decode.c
   OAEP Padding for LTC_PKCS #1, Tom St Denis 
@@ -32,157 +31,163 @@
    @param res              [out] Result of decoding, 1==valid, 0==invalid
    @return CRYPT_OK if successful (even if invalid)
 */
-int pkcs_1_oaep_decode(const unsigned char *msg,    unsigned long msglen,
-                       const unsigned char *lparam, unsigned long lparamlen,
-                             unsigned long modulus_bitlen, const struct algo_properties_st *hash,
-                             unsigned char *out,    unsigned long *outlen,
-                             int           *res)
+int pkcs_1_oaep_decode(const unsigned char *msg, unsigned long msglen,
+		       const unsigned char *lparam, unsigned long lparamlen,
+		       unsigned long modulus_bitlen,
+		       const struct algo_properties_st *hash,
+		       unsigned char *out, unsigned long *outlen, int *res)
 {
-   unsigned char *DB, *seed, *mask;
-   unsigned long hLen, x, y, modulus_len;
-   int           err;
+	unsigned char *DB, *seed, *mask;
+	unsigned long hLen, x, y, modulus_len;
+	int err;
 
-   LTC_ARGCHK(msg    != NULL);
-   LTC_ARGCHK(out    != NULL);
-   LTC_ARGCHK(outlen != NULL);
-   LTC_ARGCHK(res    != NULL);
+	LTC_ARGCHK(msg != NULL);
+	LTC_ARGCHK(out != NULL);
+	LTC_ARGCHK(outlen != NULL);
+	LTC_ARGCHK(res != NULL);
 
-   /* default to invalid packet */
-   *res = 0;
-   
-   /* test valid hash */
-   if ((err = hash_is_valid(hash)) != CRYPT_OK) {
-      return err;
-   }
+	/* default to invalid packet */
+	*res = 0;
 
-   hLen = hash->digest_size;
-   modulus_len = (modulus_bitlen >> 3) + (modulus_bitlen & 7 ? 1 : 0);
+	/* test valid hash */
+	if ((err = hash_is_valid(hash)) != CRYPT_OK) {
+		return err;
+	}
 
-   /* test hash/message size */
-   if ((2*hLen >= (modulus_len - 2)) || (msglen != modulus_len)) {
-      return CRYPT_PK_INVALID_SIZE;
-   }
+	hLen = hash->digest_size;
+	modulus_len = (modulus_bitlen >> 3) + (modulus_bitlen & 7 ? 1 : 0);
 
-   /* allocate ram for DB/mask/salt of size modulus_len */
-   DB   = XMALLOC(modulus_len);
-   mask = XMALLOC(modulus_len);
-   seed = XMALLOC(hLen);
-   if (DB == NULL || mask == NULL || seed == NULL) {
-      if (DB != NULL) {
-         XFREE(DB);
-      }
-      if (mask != NULL) {
-         XFREE(mask);
-      }
-      if (seed != NULL) {
-         XFREE(seed);
-      }
-      return CRYPT_MEM;
-   }
+	/* test hash/message size */
+	if ((2 * hLen >= (modulus_len - 2)) || (msglen != modulus_len)) {
+		return CRYPT_PK_INVALID_SIZE;
+	}
 
-   /* ok so it's now in the form
-  
-      0x00  || maskedseed || maskedDB 
-  
-       1    ||   hLen     ||  modulus_len - hLen - 1
-   
-    */
+	/* allocate ram for DB/mask/salt of size modulus_len */
+	DB = XMALLOC(modulus_len);
+	mask = XMALLOC(modulus_len);
+	seed = XMALLOC(hLen);
+	if (DB == NULL || mask == NULL || seed == NULL) {
+		if (DB != NULL) {
+			XFREE(DB);
+		}
+		if (mask != NULL) {
+			XFREE(mask);
+		}
+		if (seed != NULL) {
+			XFREE(seed);
+		}
+		return CRYPT_MEM;
+	}
 
-   /* must have leading 0x00 byte */
-   if (msg[0] != 0x00) {
-      err = CRYPT_OK;
-      goto LBL_ERR;
-   }
+	/* ok so it's now in the form
 
-   /* now read the masked seed */
-   x = 1;
-   XMEMCPY(seed, msg + x, hLen);
-   x += hLen;
+	   0x00  || maskedseed || maskedDB 
 
-   /* now read the masked DB */
-   XMEMCPY(DB, msg + x, modulus_len - hLen - 1);
-   x += modulus_len - hLen - 1;
+	   1    ||   hLen     ||  modulus_len - hLen - 1
 
-   /* compute MGF1 of maskedDB (hLen) */ 
-   if ((err = pkcs_1_mgf1(hash, DB, modulus_len - hLen - 1, mask, hLen)) != CRYPT_OK) {
-      goto LBL_ERR;
-   }
+	 */
 
-   /* XOR against seed */
-   for (y = 0; y < hLen; y++) {
-      seed[y] ^= mask[y];
-   }
+	/* must have leading 0x00 byte */
+	if (msg[0] != 0x00) {
+		err = CRYPT_OK;
+		goto LBL_ERR;
+	}
 
-   /* compute MGF1 of seed (k - hlen - 1) */
-   if ((err = pkcs_1_mgf1(hash, seed, hLen, mask, modulus_len - hLen - 1)) != CRYPT_OK) {
-      goto LBL_ERR;
-   }
+	/* now read the masked seed */
+	x = 1;
+	XMEMCPY(seed, msg + x, hLen);
+	x += hLen;
 
-   /* xor against DB */
-   for (y = 0; y < (modulus_len - hLen - 1); y++) {
-       DB[y] ^= mask[y]; 
-   }
+	/* now read the masked DB */
+	XMEMCPY(DB, msg + x, modulus_len - hLen - 1);
+	x += modulus_len - hLen - 1;
 
-   /* now DB == lhash || PS || 0x01 || M, PS == k - mlen - 2hlen - 2 zeroes */
+	/* compute MGF1 of maskedDB (hLen) */
+	if ((err =
+	     pkcs_1_mgf1(hash, DB, modulus_len - hLen - 1, mask,
+			 hLen)) != CRYPT_OK) {
+		goto LBL_ERR;
+	}
 
-   /* compute lhash and store it in seed [reuse temps!] */
-   x = modulus_len;
-   if (lparam != NULL) {
-      if ((err = hash_memory(hash, lparam, lparamlen, seed, &x)) != CRYPT_OK) {
-         goto LBL_ERR;
-      }
-   } else {
-      /* can't pass hash_memory a NULL so use DB with zero length */
-      if ((err = hash_memory(hash, DB, 0, seed, &x)) != CRYPT_OK) {
-         goto LBL_ERR;
-      }
-   }
+	/* XOR against seed */
+	for (y = 0; y < hLen; y++) {
+		seed[y] ^= mask[y];
+	}
 
-   /* compare the lhash'es */
-   if (XMEMCMP(seed, DB, hLen) != 0) {
-      err = CRYPT_OK;
-      goto LBL_ERR;
-   }
+	/* compute MGF1 of seed (k - hlen - 1) */
+	if ((err =
+	     pkcs_1_mgf1(hash, seed, hLen, mask,
+			 modulus_len - hLen - 1)) != CRYPT_OK) {
+		goto LBL_ERR;
+	}
 
-   /* now zeroes before a 0x01 */
-   for (x = hLen; x < (modulus_len - hLen - 1) && DB[x] == 0x00; x++) {
-      /* step... */
-   }
+	/* xor against DB */
+	for (y = 0; y < (modulus_len - hLen - 1); y++) {
+		DB[y] ^= mask[y];
+	}
 
-   /* error out if wasn't 0x01 */
-   if (x == (modulus_len - hLen - 1) || DB[x] != 0x01) {
-      err = CRYPT_INVALID_PACKET;
-      goto LBL_ERR;
-   }
+	/* now DB == lhash || PS || 0x01 || M, PS == k - mlen - 2hlen - 2 zeroes */
 
-   /* rest is the message (and skip 0x01) */
-   if ((modulus_len - hLen - 1 - ++x) > *outlen) {
-      *outlen = modulus_len - hLen - 1 - x;
-      err = CRYPT_BUFFER_OVERFLOW;
-      goto LBL_ERR;
-   }
+	/* compute lhash and store it in seed [reuse temps!] */
+	x = modulus_len;
+	if (lparam != NULL) {
+		if ((err =
+		     hash_memory(hash, lparam, lparamlen, seed,
+				 &x)) != CRYPT_OK) {
+			goto LBL_ERR;
+		}
+	} else {
+		/* can't pass hash_memory a NULL so use DB with zero length */
+		if ((err = hash_memory(hash, DB, 0, seed, &x)) != CRYPT_OK) {
+			goto LBL_ERR;
+		}
+	}
 
-   /* copy message */
-   *outlen = modulus_len - hLen - 1 - x;
-   XMEMCPY(out, DB + x, modulus_len - hLen - 1 - x);
-   x += modulus_len - hLen - 1;
+	/* compare the lhash'es */
+	if (XMEMCMP(seed, DB, hLen) != 0) {
+		err = CRYPT_OK;
+		goto LBL_ERR;
+	}
 
-   /* valid packet */
-   *res = 1;
+	/* now zeroes before a 0x01 */
+	for (x = hLen; x < (modulus_len - hLen - 1) && DB[x] == 0x00; x++) {
+		/* step... */
+	}
 
-   err = CRYPT_OK;
+	/* error out if wasn't 0x01 */
+	if (x == (modulus_len - hLen - 1) || DB[x] != 0x01) {
+		err = CRYPT_INVALID_PACKET;
+		goto LBL_ERR;
+	}
+
+	/* rest is the message (and skip 0x01) */
+	if ((modulus_len - hLen - 1 - ++x) > *outlen) {
+		*outlen = modulus_len - hLen - 1 - x;
+		err = CRYPT_BUFFER_OVERFLOW;
+		goto LBL_ERR;
+	}
+
+	/* copy message */
+	*outlen = modulus_len - hLen - 1 - x;
+	XMEMCPY(out, DB + x, modulus_len - hLen - 1 - x);
+	x += modulus_len - hLen - 1;
+
+	/* valid packet */
+	*res = 1;
+
+	err = CRYPT_OK;
 LBL_ERR:
 #ifdef LTC_CLEAN_STACK
-   zeromem(DB,   modulus_len);
-   zeromem(seed, hLen);
-   zeromem(mask, modulus_len);
+	zeromem(DB, modulus_len);
+	zeromem(seed, hLen);
+	zeromem(mask, modulus_len);
 #endif
 
-   XFREE(seed);
-   XFREE(mask);
-   XFREE(DB);
+	XFREE(seed);
+	XFREE(mask);
+	XFREE(DB);
 
-   return err;
+	return err;
 }
 
 #endif /* LTC_PKCS_1 */

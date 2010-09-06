@@ -27,58 +27,58 @@
   @param inlen  The length of the data to hash (octets)
   @param ...    tuples of (data,len) pairs to hash, terminated with a (NULL,x) (x=don't care)
   @return CRYPT_OK if successful
-*/  
-int hash_memory_multi(const struct algo_properties_st *hash, unsigned char *out, unsigned long *outlen,
-                      const unsigned char *in, unsigned long inlen, ...)
+*/
+int hash_memory_multi(const struct algo_properties_st *hash, unsigned char *out,
+		      unsigned long *outlen, const unsigned char *in,
+		      unsigned long inlen, ...)
 {
-    struct hash_data hdata;
-    int                  err;
-    va_list              args;
-    const unsigned char *curptr;
-    unsigned long        curlen;
+	struct hash_data hdata;
+	int err;
+	va_list args;
+	const unsigned char *curptr;
+	unsigned long curlen;
 
-    LTC_ARGCHK(in     != NULL);
-    LTC_ARGCHK(out    != NULL);
-    LTC_ARGCHK(outlen != NULL);
+	LTC_ARGCHK(in != NULL);
+	LTC_ARGCHK(out != NULL);
+	LTC_ARGCHK(outlen != NULL);
 
-    if ((err = hash_is_valid(hash)) != CRYPT_OK) {
-        return err;
-    }
+	if ((err = hash_is_valid(hash)) != CRYPT_OK) {
+		return err;
+	}
 
-    if (*outlen < hash->digest_size) {
-       *outlen = hash->digest_size;
-       return CRYPT_BUFFER_OVERFLOW;
-    }
+	if (*outlen < hash->digest_size) {
+		*outlen = hash->digest_size;
+		return CRYPT_BUFFER_OVERFLOW;
+	}
 
-    err = cryptodev_hash_init(&hdata, hash->kstr, NULL, 0);
-    if (err < 0) {
-       err = CRYPT_INVALID_HASH;
-       goto LBL_ERR;
-    }
+	err = cryptodev_hash_init(&hdata, hash->kstr, NULL, 0);
+	if (err < 0) {
+		err = CRYPT_INVALID_HASH;
+		goto LBL_ERR;
+	}
 
-    va_start(args, inlen);
-    curptr = in; 
-    curlen = inlen;
-    for (;;) {
-       /* process buf */
-       if ((err = _cryptodev_hash_update(&hdata, curptr, curlen)) < 0) {
-	   err = CRYPT_ERROR;
-           goto LBL_ERR;
-       }
-       /* step to next */
-       curptr = va_arg(args, const unsigned char*);
-       if (curptr == NULL) {
-          break;
-       }
-       curlen = va_arg(args, unsigned long);
-    }
- 
-    err = cryptodev_hash_final(&hdata, out);
-    
-    *outlen = hash->digest_size;
+	va_start(args, inlen);
+	curptr = in;
+	curlen = inlen;
+	for (;;) {
+		/* process buf */
+		if ((err = _cryptodev_hash_update(&hdata, curptr, curlen)) < 0) {
+			err = CRYPT_ERROR;
+			goto LBL_ERR;
+		}
+		/* step to next */
+		curptr = va_arg(args, const unsigned char *);
+		if (curptr == NULL) {
+			break;
+		}
+		curlen = va_arg(args, unsigned long);
+	}
+
+	err = cryptodev_hash_final(&hdata, out);
+
+	*outlen = hash->digest_size;
 LBL_ERR:
-    cryptodev_hash_deinit(&hdata);
-    va_end(args);
-    return err;
+	cryptodev_hash_deinit(&hdata);
+	va_end(args);
+	return err;
 }
-

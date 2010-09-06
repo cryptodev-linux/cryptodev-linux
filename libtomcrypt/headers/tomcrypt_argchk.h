@@ -20,7 +20,7 @@ void crypt_argchk(char *v, char *s, int d);
 
 #elif ARGTYPE == 3
 
-#define LTC_ARGCHK(x) 
+#define LTC_ARGCHK(x)
 #define LTC_ARGCHKVD(x) LTC_ARGCHK(x)
 
 #elif ARGTYPE == 4
@@ -29,7 +29,6 @@ void crypt_argchk(char *v, char *s, int d);
 #define LTC_ARGCHKVD(x) if (!(x)) { printk( "\nwarning: ARGCHK failed at %s:%d\n", __FILE__, __LINE__); return; }
 
 #endif
-
 
 /* $Source: /cvs/libtom/libtomcrypt/src/headers/tomcrypt_argchk.h,v $ */
 /* $Revision: 1.5 $ */

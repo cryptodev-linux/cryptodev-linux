@@ -9,5 +9,4 @@
 
 #include <tommath.h>
 
-typedef mp_int* mp_int_t;
-
+typedef mp_int *mp_int_t;

@@ -17,60 +17,60 @@
 */
 
 static const oid_st sha1_oid = {
-   .OIDlen = 6,
-   .OID = { 1, 3, 14, 3, 2, 26  },
+	.OIDlen = 6,
+	.OID = {1, 3, 14, 3, 2, 26},
 };
 
 static const oid_st md5_oid = {
-   .OIDlen = 6,
-   .OID = { 1, 2, 840, 113549, 2, 5,  },
+	.OIDlen = 6,
+	.OID = {1, 2, 840, 113549, 2, 5,},
 };
 
 static const oid_st sha224_oid = {
-   .OIDlen = 9,
-   .OID = { 2, 16, 840, 1, 101, 3, 4, 2, 4,  },
+	.OIDlen = 9,
+	.OID = {2, 16, 840, 1, 101, 3, 4, 2, 4,},
 };
 
 static const oid_st sha256_oid = {
-   .OIDlen = 9,
-   .OID = { 2, 16, 840, 1, 101, 3, 4, 2, 1,  },
+	.OIDlen = 9,
+	.OID = {2, 16, 840, 1, 101, 3, 4, 2, 1,},
 };
 
 static const oid_st sha384_oid = {
-   .OIDlen = 9,
-   .OID = { 2, 16, 840, 1, 101, 3, 4, 2, 2,  },
+	.OIDlen = 9,
+	.OID = {2, 16, 840, 1, 101, 3, 4, 2, 2,},
 };
 
 static const oid_st sha512_oid = {
-   .OIDlen = 9,
-   .OID = { 2, 16, 840, 1, 101, 3, 4, 2, 3,  },
+	.OIDlen = 9,
+	.OID = {2, 16, 840, 1, 101, 3, 4, 2, 3,},
 };
 
-int hash_get_oid(const struct algo_properties_st *hash, oid_st *st)
+int hash_get_oid(const struct algo_properties_st *hash, oid_st * st)
 {
-   switch (hash->algo) {
-      case NCR_ALG_SHA1:
-         memcpy(st, &sha1_oid, sizeof(*st));
-         break;
-      case NCR_ALG_MD5:
-         memcpy(st, &md5_oid, sizeof(*st));
-         break;
-      case NCR_ALG_SHA2_224:
-         memcpy(st, &sha224_oid, sizeof(*st));
-         break;
-      case NCR_ALG_SHA2_256:
-         memcpy(st, &sha256_oid, sizeof(*st));
-         break;
-      case NCR_ALG_SHA2_384:
-         memcpy(st, &sha384_oid, sizeof(*st));
-         break;
-      case NCR_ALG_SHA2_512:
-         memcpy(st, &sha512_oid, sizeof(*st));
-         break;
-      default:
-         return CRYPT_INVALID_ARG;
-   }
-   return CRYPT_OK;
+	switch (hash->algo) {
+	case NCR_ALG_SHA1:
+		memcpy(st, &sha1_oid, sizeof(*st));
+		break;
+	case NCR_ALG_MD5:
+		memcpy(st, &md5_oid, sizeof(*st));
+		break;
+	case NCR_ALG_SHA2_224:
+		memcpy(st, &sha224_oid, sizeof(*st));
+		break;
+	case NCR_ALG_SHA2_256:
+		memcpy(st, &sha256_oid, sizeof(*st));
+		break;
+	case NCR_ALG_SHA2_384:
+		memcpy(st, &sha384_oid, sizeof(*st));
+		break;
+	case NCR_ALG_SHA2_512:
+		memcpy(st, &sha512_oid, sizeof(*st));
+		break;
+	default:
+		return CRYPT_INVALID_ARG;
+	}
+	return CRYPT_OK;
 }
 
 /* $Source: /cvs/libtom/libtomcrypt/src/misc/crypt/crypt_hash_is_valid.c,v $ */

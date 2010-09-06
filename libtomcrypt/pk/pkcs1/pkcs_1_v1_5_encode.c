@@ -28,65 +28,64 @@
  *
  *  \return CRYPT_OK if successful
  */
-int pkcs_1_v1_5_encode(const unsigned char *msg, 
-                             unsigned long  msglen,
-                                       int  block_type,
-                             unsigned long  modulus_bitlen,
-                             unsigned char *out, 
-                             unsigned long *outlen)
+int pkcs_1_v1_5_encode(const unsigned char *msg,
+		       unsigned long msglen,
+		       int block_type,
+		       unsigned long modulus_bitlen,
+		       unsigned char *out, unsigned long *outlen)
 {
-  unsigned long modulus_len, ps_len, i;
-  unsigned char *ps;
-  int result;
+	unsigned long modulus_len, ps_len, i;
+	unsigned char *ps;
+	int result;
 
-  /* valid block_type? */
-  if ((block_type != LTC_LTC_PKCS_1_EMSA) &&
-      (block_type != LTC_LTC_PKCS_1_EME)) {
-     return CRYPT_PK_INVALID_PADDING;
-  }
+	/* valid block_type? */
+	if ((block_type != LTC_LTC_PKCS_1_EMSA) &&
+	    (block_type != LTC_LTC_PKCS_1_EME)) {
+		return CRYPT_PK_INVALID_PADDING;
+	}
 
-  modulus_len = (modulus_bitlen >> 3) + (modulus_bitlen & 7 ? 1 : 0);
+	modulus_len = (modulus_bitlen >> 3) + (modulus_bitlen & 7 ? 1 : 0);
 
-  /* test message size */
-  if ((msglen + 11) > modulus_len) {
-    return CRYPT_PK_INVALID_SIZE;
-  }
+	/* test message size */
+	if ((msglen + 11) > modulus_len) {
+		return CRYPT_PK_INVALID_SIZE;
+	}
 
-  if (*outlen < modulus_len) {
-    *outlen = modulus_len;
-    result = CRYPT_BUFFER_OVERFLOW;
-    goto bail;
-  }
+	if (*outlen < modulus_len) {
+		*outlen = modulus_len;
+		result = CRYPT_BUFFER_OVERFLOW;
+		goto bail;
+	}
 
-  /* generate an octets string PS */
-  ps = &out[2];
-  ps_len = modulus_len - msglen - 3;
+	/* generate an octets string PS */
+	ps = &out[2];
+	ps_len = modulus_len - msglen - 3;
 
-  if (block_type == LTC_LTC_PKCS_1_EME) {
-    /* now choose a random ps */
-    get_random_bytes(ps, ps_len);
+	if (block_type == LTC_LTC_PKCS_1_EME) {
+		/* now choose a random ps */
+		get_random_bytes(ps, ps_len);
 
-    /* transform zero bytes (if any) to non-zero random bytes */
-    for (i = 0; i < ps_len; i++) {
-      while (ps[i] == 0) {
-        get_random_bytes(&ps[i], 1);
-      }
-    }
-  } else {
-    XMEMSET(ps, 0xFF, ps_len);
-  }
+		/* transform zero bytes (if any) to non-zero random bytes */
+		for (i = 0; i < ps_len; i++) {
+			while (ps[i] == 0) {
+				get_random_bytes(&ps[i], 1);
+			}
+		}
+	} else {
+		XMEMSET(ps, 0xFF, ps_len);
+	}
 
-  /* create string of length modulus_len */
-  out[0]          = 0x00;
-  out[1]          = (unsigned char)block_type;  /* block_type 1 or 2 */
-  out[2 + ps_len] = 0x00;
-  XMEMCPY(&out[2 + ps_len + 1], msg, msglen);
-  *outlen = modulus_len;
+	/* create string of length modulus_len */
+	out[0] = 0x00;
+	out[1] = (unsigned char)block_type;	/* block_type 1 or 2 */
+	out[2 + ps_len] = 0x00;
+	XMEMCPY(&out[2 + ps_len + 1], msg, msglen);
+	*outlen = modulus_len;
 
-  result  = CRYPT_OK;
+	result = CRYPT_OK;
 bail:
-  return result;
-} /* pkcs_1_v1_5_encode */
+	return result;
+}				/* pkcs_1_v1_5_encode */
 
 #endif /* #ifdef LTC_PKCS_1 */
 

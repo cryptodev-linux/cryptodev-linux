@@ -1,10 +1,10 @@
 /* ---- LTC_BASE64 Routines ---- */
 #ifdef LTC_BASE64
-int base64_encode(const unsigned char *in,  unsigned long len, 
-                        unsigned char *out, unsigned long *outlen);
+int base64_encode(const unsigned char *in, unsigned long len,
+		  unsigned char *out, unsigned long *outlen);
 
-int base64_decode(const unsigned char *in,  unsigned long len, 
-                        unsigned char *out, unsigned long *outlen);
+int base64_decode(const unsigned char *in, unsigned long len,
+		  unsigned char *out, unsigned long *outlen);
 #endif
 
 /* ---- MEM routines ---- */

@@ -13,7 +13,7 @@
 /**
   @file crypt_hash_is_valid.c
   Determine if hash is valid, Tom St Denis
-*/  
+*/
 
 /*
    Test if a hash index is valid
@@ -22,7 +22,7 @@
 */
 int hash_is_valid(const struct algo_properties_st *hash)
 {
-   return CRYPT_OK;
+	return CRYPT_OK;
 }
 
 /* $Source: /cvs/libtom/libtomcrypt/src/misc/crypt/crypt_hash_is_valid.c,v $ */

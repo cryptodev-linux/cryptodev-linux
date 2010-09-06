@@ -11,7 +11,6 @@
 #include "tomcrypt.h"
 #include <ncr-int.h>
 
-
 /**
   @file pkcs_1_pss_encode.c
   LTC_PKCS #1 PSS Signature Padding, Tom St Denis 
@@ -31,123 +30,128 @@
    @return CRYPT_OK if successful
 */
 int pkcs_1_pss_encode(const unsigned char *msghash, unsigned long msghashlen,
-                            unsigned long saltlen, const struct algo_properties_st *hash_algo,
-                            unsigned long modulus_bitlen,
-                            unsigned char *out,     unsigned long *outlen)
+		      unsigned long saltlen,
+		      const struct algo_properties_st *hash_algo,
+		      unsigned long modulus_bitlen, unsigned char *out,
+		      unsigned long *outlen)
 {
-   unsigned char *DB, *mask, *salt, *hash;
-   unsigned long x, y, hLen, modulus_len;
-   int           err;
+	unsigned char *DB, *mask, *salt, *hash;
+	unsigned long x, y, hLen, modulus_len;
+	int err;
 
-   LTC_ARGCHK(msghash != NULL);
-   LTC_ARGCHK(out     != NULL);
-   LTC_ARGCHK(outlen  != NULL);
+	LTC_ARGCHK(msghash != NULL);
+	LTC_ARGCHK(out != NULL);
+	LTC_ARGCHK(outlen != NULL);
 
-   /* ensure hash and PRNG are valid */
-   if ((err = hash_is_valid(hash_algo)) != CRYPT_OK) {
-      return err;
-   }
+	/* ensure hash and PRNG are valid */
+	if ((err = hash_is_valid(hash_algo)) != CRYPT_OK) {
+		return err;
+	}
 
-   hLen = hash_algo->digest_size;
-   modulus_len = (modulus_bitlen>>3) + (modulus_bitlen & 7 ? 1 : 0);
+	hLen = hash_algo->digest_size;
+	modulus_len = (modulus_bitlen >> 3) + (modulus_bitlen & 7 ? 1 : 0);
 
-   /* check sizes */
-   if ((saltlen > modulus_len) || (modulus_len < hLen + saltlen + 2)) {
-      return CRYPT_PK_INVALID_SIZE;
-   }
+	/* check sizes */
+	if ((saltlen > modulus_len) || (modulus_len < hLen + saltlen + 2)) {
+		return CRYPT_PK_INVALID_SIZE;
+	}
 
-   /* allocate ram for DB/mask/salt/hash of size modulus_len */
-   DB   = XMALLOC(modulus_len);
-   mask = XMALLOC(modulus_len);
-   salt = XMALLOC(modulus_len);
-   hash = XMALLOC(modulus_len);
-   if (DB == NULL || mask == NULL || salt == NULL || hash == NULL) {
-      if (DB != NULL) {
-         XFREE(DB);
-      }
-      if (mask != NULL) {
-         XFREE(mask);
-      }
-      if (salt != NULL) {
-         XFREE(salt);
-      }
-      if (hash != NULL) {
-         XFREE(hash);
-      }
-      return CRYPT_MEM;
-   }
+	/* allocate ram for DB/mask/salt/hash of size modulus_len */
+	DB = XMALLOC(modulus_len);
+	mask = XMALLOC(modulus_len);
+	salt = XMALLOC(modulus_len);
+	hash = XMALLOC(modulus_len);
+	if (DB == NULL || mask == NULL || salt == NULL || hash == NULL) {
+		if (DB != NULL) {
+			XFREE(DB);
+		}
+		if (mask != NULL) {
+			XFREE(mask);
+		}
+		if (salt != NULL) {
+			XFREE(salt);
+		}
+		if (hash != NULL) {
+			XFREE(hash);
+		}
+		return CRYPT_MEM;
+	}
 
+	/* generate random salt */
+	if (saltlen > 0) {
+		get_random_bytes(salt, saltlen);
+	}
 
-   /* generate random salt */
-   if (saltlen > 0) {
-      get_random_bytes(salt, saltlen);
-   }
-   
-   zeromem(DB, 8);
+	zeromem(DB, 8);
 
-   /* M = (eight) 0x00 || msghash || salt, hash = H(M) */
-   err = hash_memory_multi(hash_algo, hash, &hLen, DB, (unsigned long)8, msghash, (unsigned long)msghashlen, salt, (unsigned long)saltlen, NULL, 0);
-   if (err != CRYPT_OK) {
-      goto LBL_ERR;
-   }
+	/* M = (eight) 0x00 || msghash || salt, hash = H(M) */
+	err =
+	    hash_memory_multi(hash_algo, hash, &hLen, DB, (unsigned long)8,
+			      msghash, (unsigned long)msghashlen, salt,
+			      (unsigned long)saltlen, NULL, 0);
+	if (err != CRYPT_OK) {
+		goto LBL_ERR;
+	}
 
-   /* generate DB = PS || 0x01 || salt, PS == modulus_len - saltlen - hLen - 2 zero bytes */
-   x = 0;
-   XMEMSET(DB + x, 0, modulus_len - saltlen - hLen - 2);
-   x += modulus_len - saltlen - hLen - 2;
-   DB[x++] = 0x01;
-   XMEMCPY(DB + x, salt, saltlen);
-   x += saltlen;
+	/* generate DB = PS || 0x01 || salt, PS == modulus_len - saltlen - hLen - 2 zero bytes */
+	x = 0;
+	XMEMSET(DB + x, 0, modulus_len - saltlen - hLen - 2);
+	x += modulus_len - saltlen - hLen - 2;
+	DB[x++] = 0x01;
+	XMEMCPY(DB + x, salt, saltlen);
+	x += saltlen;
 
-   /* generate mask of length modulus_len - hLen - 1 from hash */
-   if ((err = pkcs_1_mgf1(hash_algo, hash, hLen, mask, modulus_len - hLen - 1)) != CRYPT_OK) {
-      goto LBL_ERR;
-   }
+	/* generate mask of length modulus_len - hLen - 1 from hash */
+	if ((err =
+	     pkcs_1_mgf1(hash_algo, hash, hLen, mask,
+			 modulus_len - hLen - 1)) != CRYPT_OK) {
+		goto LBL_ERR;
+	}
 
-   /* xor against DB */
-   for (y = 0; y < (modulus_len - hLen - 1); y++) {
-      DB[y] ^= mask[y];
-   }
+	/* xor against DB */
+	for (y = 0; y < (modulus_len - hLen - 1); y++) {
+		DB[y] ^= mask[y];
+	}
 
-   /* output is DB || hash || 0xBC */
-   if (*outlen < modulus_len) {
-      *outlen = modulus_len;
-      err = CRYPT_BUFFER_OVERFLOW;
-      goto LBL_ERR;
-   }
+	/* output is DB || hash || 0xBC */
+	if (*outlen < modulus_len) {
+		*outlen = modulus_len;
+		err = CRYPT_BUFFER_OVERFLOW;
+		goto LBL_ERR;
+	}
 
-   /* DB len = modulus_len - hLen - 1 */
-   y = 0;
-   XMEMCPY(out + y, DB, modulus_len - hLen - 1);
-   y += modulus_len - hLen - 1;
+	/* DB len = modulus_len - hLen - 1 */
+	y = 0;
+	XMEMCPY(out + y, DB, modulus_len - hLen - 1);
+	y += modulus_len - hLen - 1;
 
-   /* hash */
-   XMEMCPY(out + y, hash, hLen);
-   y += hLen;
+	/* hash */
+	XMEMCPY(out + y, hash, hLen);
+	y += hLen;
 
-   /* 0xBC */
-   out[y] = 0xBC;
+	/* 0xBC */
+	out[y] = 0xBC;
 
-   /* now clear the 8*modulus_len - modulus_bitlen most significant bits */
-   out[0] &= 0xFF >> ((modulus_len<<3) - (modulus_bitlen-1));
+	/* now clear the 8*modulus_len - modulus_bitlen most significant bits */
+	out[0] &= 0xFF >> ((modulus_len << 3) - (modulus_bitlen - 1));
 
-   /* store output size */
-   *outlen = modulus_len;
-   err = CRYPT_OK;
+	/* store output size */
+	*outlen = modulus_len;
+	err = CRYPT_OK;
 LBL_ERR:
 #ifdef LTC_CLEAN_STACK
-   zeromem(DB,   modulus_len);   
-   zeromem(mask, modulus_len);   
-   zeromem(salt, modulus_len);   
-   zeromem(hash, modulus_len);   
+	zeromem(DB, modulus_len);
+	zeromem(mask, modulus_len);
+	zeromem(salt, modulus_len);
+	zeromem(hash, modulus_len);
 #endif
 
-   XFREE(hash);
-   XFREE(salt);
-   XFREE(mask);
-   XFREE(DB);
+	XFREE(hash);
+	XFREE(salt);
+	XFREE(mask);
+	XFREE(DB);
 
-   return err;
+	return err;
 }
 
 #endif /* LTC_PKCS_1 */
