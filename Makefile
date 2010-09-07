@@ -91,10 +91,10 @@ install:
 clean:
 	$(MAKE) -C $(KERNEL_DIR) SUBDIRS=`pwd` clean
 	rm -f $(hostprogs)
-	KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C examples clean
+	KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C tests clean
 
 check:
-	KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C examples check
+	KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C tests check
 
 FILEBASE = cryptodev-linux-$(VERSION)
 TMPDIR ?= /tmp
