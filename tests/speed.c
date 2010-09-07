@@ -159,7 +159,7 @@ int main(void)
 
 	signal(SIGALRM, alarm_handler);
 
-	if ((fd = open("/dev/crypto", O_RDWR, 0)) < 0) {
+	if ((fd = open("/dev/ncr", O_RDWR, 0)) < 0) {
 		perror("open()");
 		return 1;
 	}

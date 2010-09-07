@@ -1,5 +1,5 @@
 /*
- * New driver for /dev/crypto device (aka CryptoDev)
+ * New driver for /dev/ncr device (aka NCR)
  *
  * Copyright (c) 2010 Katholieke Universiteit Leuven
  *

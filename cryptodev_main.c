@@ -1,5 +1,5 @@
 /*
- * Driver for /dev/crypto device (aka CryptoDev)
+ * Driver for /dev/ncr device (aka NCR)
  *
  * Copyright (c) 2004 Michal Ludvig <mludvig@logix.net.nz>, SuSE Labs
  * Copyright (c) 2009,2010 Nikos Mavrogiannopoulos <nmav@gnutls.org>
@@ -22,11 +22,11 @@
  */
 
 /*
- * Device /dev/crypto provides an interface for 
+ * Device /dev/ncr provides an interface for 
  * accessing kernel CryptoAPI algorithms (ciphers,
  * hashes) from userspace programs.
  *
- * /dev/crypto interface was originally introduced in
+ * /dev/ncr interface was originally introduced in
  * OpenBSD and this module attempts to keep the API.
  *
  */
@@ -46,7 +46,7 @@
 #include "version.h"
 
 MODULE_AUTHOR("Nikos Mavrogiannopoulos <nmav@gnutls.org>");
-MODULE_DESCRIPTION("CryptoDev driver");
+MODULE_DESCRIPTION("NCR driver");
 MODULE_LICENSE("GPL");
 
 /* ====== Module parameters ====== */
@@ -99,7 +99,7 @@ int __get_userbuf(uint8_t __user * addr, uint32_t len, int write,
 	return 0;
 }
 
-/* ====== /dev/crypto ====== */
+/* ====== /dev/ncr ====== */
 
 static int cryptodev_open(struct inode *inode, struct file *filp)
 {
@@ -165,7 +165,7 @@ static const struct file_operations cryptodev_fops = {
 
 static struct miscdevice cryptodev = {
 	.minor = MISC_DYNAMIC_MINOR,
-	.name = "crypto",
+	.name = "ncr",
 	.fops = &cryptodev_fops,
 };
 
@@ -179,7 +179,7 @@ static int __init cryptodev_register(void)
 	rc = misc_register(&cryptodev);
 	if (unlikely(rc)) {
 		ncr_limits_deinit();
-		printk(KERN_ERR PFX "registration of /dev/crypto failed\n");
+		printk(KERN_ERR PFX "registration of /dev/ncr failed\n");
 		return rc;
 	}
 

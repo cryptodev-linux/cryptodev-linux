@@ -1,5 +1,5 @@
 /*
- * Demo on how to use /dev/crypto device for HMAC.
+ * Demo on how to use /dev/ncr device for HMAC.
  *
  * Placed under public domain.
  *
@@ -1310,9 +1310,9 @@ int main()
 	int fd = -1;
 
 	/* Open the crypto device */
-	fd = open("/dev/crypto", O_RDWR, 0);
+	fd = open("/dev/ncr", O_RDWR, 0);
 	if (fd < 0) {
-		perror("open(/dev/crypto)");
+		perror("open(/dev/ncr)");
 		return 1;
 	}
 

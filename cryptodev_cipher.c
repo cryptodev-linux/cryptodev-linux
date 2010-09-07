@@ -1,5 +1,5 @@
 /*
- * Driver for /dev/crypto device (aka CryptoDev)
+ * Driver for /dev/ncr device (aka NCR)
  *
  * Copyright (c) 2010 Nikos Mavrogiannopoulos <nmav@gnutls.org>
  * Portions Copyright (c) 2010 Michael Weiser
