@@ -1,5 +1,5 @@
 KERNEL_DIR = /lib/modules/$(shell uname -r)/build
-VERSION = 0.99
+VERSION = 0.1
 CONFIG_CRYPTO_USERSPACE_ASYMMETRIC=y
 
 ifeq ($(CONFIG_CRYPTO_USERSPACE_ASYMMETRIC),y)
@@ -90,13 +90,14 @@ install:
 
 clean:
 	$(MAKE) -C $(KERNEL_DIR) SUBDIRS=`pwd` clean
+	$(MAKE) -C tests clean
+	$(MAKE) -C userspace clean
 	rm -f $(hostprogs)
-	KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C tests clean
 
 check:
 	KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C tests check
 
-FILEBASE = cryptodev-linux-$(VERSION)
+FILEBASE = ncr-$(VERSION)
 TMPDIR ?= /tmp
 OUTPUT = $(FILEBASE).tar.gz
 
@@ -105,7 +106,8 @@ dist: clean
 	@rm -f *.tar.gz
 	@mkdir $(TMPDIR)/$(FILEBASE)
 	@cp -ar . $(TMPDIR)/$(FILEBASE)
-	@rm -rf $(TMPDIR)/$(FILEBASE)/.git* $(TMPDIR)/$(FILEBASE)/releases $(TMPDIR)/$(FILEBASE)/scripts
+	@rm -rf $(TMPDIR)/$(FILEBASE)/.git* $(TMPDIR)/$(FILEBASE)/releases $(TMPDIR)/$(FILEBASE)/scripts $(TMPDIR)/$(FILEBASE)/tags $(TMPDIR)/$(FILEBASE)/run.sh
+	@find $(TMPDIR)/$(FILEBASE) -name '*~' -exec rm -f '{}' ';'
 	@tar -C /tmp -czf ./$(OUTPUT) $(FILEBASE)
 	@rm -rf $(TMPDIR)/$(FILEBASE)
 	@echo Signing $(OUTPUT)
