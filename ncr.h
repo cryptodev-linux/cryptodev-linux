@@ -6,6 +6,51 @@
 #define __user
 #endif
 
+/* algorithms to be used by NCR_ATTR_ALGORITHM
+ */
+typedef enum {
+	NCR_ALG_NONE,
+	NCR_ALG_NULL,
+
+	NCR_ALG_3DES_CBC,
+	NCR_ALG_3DES_ECB,
+
+	NCR_ALG_AES_ECB,
+	NCR_ALG_AES_CBC,
+	NCR_ALG_AES_CTR,
+
+	NCR_ALG_CAMELIA_ECB,
+	NCR_ALG_CAMELIA_CBC,
+	NCR_ALG_CAMELIA_CTR,
+
+	NCR_ALG_MD5 = 200,
+	NCR_ALG_SHA1,
+	NCR_ALG_SHA2_224,
+	NCR_ALG_SHA2_256,
+	NCR_ALG_SHA2_384,
+	NCR_ALG_SHA2_512,
+
+	NCR_ALG_HMAC_MD5 = 300,
+	NCR_ALG_HMAC_SHA1,
+	NCR_ALG_HMAC_SHA2_224,
+	NCR_ALG_HMAC_SHA2_256,
+	NCR_ALG_HMAC_SHA2_384,
+	NCR_ALG_HMAC_SHA2_512,
+
+	NCR_ALG_RSA = 600,
+	NCR_ALG_DSA,
+	NCR_ALG_DH,
+} ncr_algorithm_t;
+
+typedef enum {
+       NCR_WALG_AES_RFC3394, /* for secret keys only */
+       NCR_WALG_AES_RFC5649, /* can wrap arbitrary key */
+} ncr_wrap_algorithm_t;
+
+typedef enum {
+       NCR_DERIVE_DH=1,
+} ncr_derive_t;
+
 /* Serves to make sure the structure is suitably aligned to continue with
    a struct nlattr without external padding.
 
@@ -30,10 +75,10 @@
    of attributes used for the frequent operations? */
 enum {
 	NCR_ATTR_UNSPEC,	/* 0 is special in lib/nlattr.c. */
-	NCR_ATTR_ALGORITHM,	/* NLA_NUL_STRING */
-	NCR_ATTR_DERIVATION_ALGORITHM,	/* NLA_NUL_STRING - NCR_DERIVE_* */
-	NCR_ATTR_SIGNATURE_HASH_ALGORITHM,	/* NLA_NUL_STRING */
-	NCR_ATTR_WRAPPING_ALGORITHM,	/* NLA_NUL_STRING - NCR_WALG_* */
+	NCR_ATTR_ALGORITHM,	/* NLA_U32 <- ncr_algorithm_t */
+	NCR_ATTR_DERIVATION_ALGORITHM,	/* NLA_U32 <- ncr_derive_t */
+	NCR_ATTR_SIGNATURE_HASH_ALGORITHM,	/* NLA_U32 */
+	NCR_ATTR_WRAPPING_ALGORITHM,	/* NLA_U32 <- ncr_wrap_algorithm_t  */
 	NCR_ATTR_UPDATE_INPUT_DATA,	/* NLA_BINARY - ncr_session_input_data */
 	/* NLA_BINARY - ncr_session_output_buffer */
 	NCR_ATTR_UPDATE_OUTPUT_BUFFER,
@@ -54,6 +99,7 @@ enum {
 	NCR_ATTR_RSA_PSS_SALT_LENGTH,	/* NLA_U32 */
 	NCR_ATTR_DSA_P_BITS,	/* NLA_U32 */
 	NCR_ATTR_DSA_Q_BITS,	/* NLA_U32 */
+	NCR_ATTR_SIGNATURE_TRANSPARENT,	/* NLA_U32 */
 	NCR_ATTR_DH_PRIME,	/* NLA_BINARY */
 	NCR_ATTR_DH_BASE,	/* NLA_BINARY */
 	NCR_ATTR_DH_PUBLIC,	/* NLA_BINARY */
@@ -68,13 +114,6 @@ enum {
 
 #define NCR_CIPHER_MAX_BLOCK_LEN 32
 #define NCR_HASH_MAX_OUTPUT_SIZE  64
-
-/* Better names wanted */
-#define NCR_ALG_DSA_TRANSPARENT_HASH "__dsa_transparent_hash"
-#define NCR_ALG_RSA_TRANSPARENT_HASH "__rsa_transparent_hash"
-
-#define NCR_WALG_AES_RFC3394 "walg-aes-rfc3394"	/* for secret keys only */
-#define NCR_WALG_AES_RFC5649 "walg-aes-rfc5649"	/* can wrap arbitrary key */
 
 typedef enum {
 	NCR_KEY_TYPE_INVALID,
@@ -127,8 +166,6 @@ typedef enum {
 	RSA_PKCS1_OAEP,		/* for encryption only */
 	RSA_PKCS1_PSS,		/* for signatures only */
 } ncr_rsa_type_t;
-
-#define NCR_DERIVE_DH "dh"
 
 struct ncr_key_derive {
 	__u32 input_size, output_size;

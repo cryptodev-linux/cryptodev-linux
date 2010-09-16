@@ -627,10 +627,10 @@ int ncr_key_wrap(struct ncr_lists *lst, const struct ncr_key_wrap *wrap,
 		ret = -EINVAL;
 		goto fail;
 	}
-	if (nla_strcmp(nla, NCR_WALG_AES_RFC3394) == 0)
+	if (nla_get_u32(nla) == NCR_WALG_AES_RFC3394)
 		ret = wrap_aes_rfc3394(wkey, key, data, &data_size, iv,
 				       iv_size);
-	else if (nla_strcmp(nla, NCR_WALG_AES_RFC5649) == 0)
+	else if (nla_get_u32(nla) == NCR_WALG_AES_RFC5649)
 		ret = wrap_aes_rfc5649(wkey, key, data, &data_size, iv,
 				       iv_size);
 	else {
@@ -721,9 +721,9 @@ int ncr_key_unwrap(struct ncr_lists *lst, const struct ncr_key_unwrap *wrap,
 		ret = -EINVAL;
 		goto fail;
 	}
-	if (nla_strcmp(nla, NCR_WALG_AES_RFC3394) == 0)
+	if (nla_get_u32(nla) == NCR_WALG_AES_RFC3394)
 		ret = unwrap_aes_rfc3394(wkey, key, data, data_size, tb);
-	else if (nla_strcmp(nla, NCR_WALG_AES_RFC5649) == 0)
+	else if (nla_get_u32(nla) == NCR_WALG_AES_RFC5649)
 		ret = unwrap_aes_rfc5649(wkey, key, data, data_size, tb);
 	else {
 		err();

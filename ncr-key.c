@@ -644,8 +644,8 @@ int ncr_key_get_info(struct ncr_lists *lst, struct ncr_out *out,
 			ret = ncr_out_put_u32(out, *attr, item->type);
 			break;
 		case NCR_ATTR_ALGORITHM:
-			ret = ncr_out_put_string(out, *attr,
-						 item->algorithm->kstr);
+			ret = ncr_out_put_u32(out, *attr,
+						 item->algorithm->algo);
 			break;
 		default:
 			break;	/* Silently ignore */

@@ -380,48 +380,40 @@ static const struct algo_properties_st algo_properties[] = {
 	{.algo = NCR_ALG_SHA2_512, KSTR("sha512"),
 	 .digest_size = 64,.can_digest = 1, .oids = sha512_oid,
 	 .key_type = NCR_KEY_TYPE_INVALID},
-	{.is_hmac = 1, KSTR("hmac(sha1)"),
+	{.algo = NCR_ALG_HMAC_SHA1, .is_hmac = 1, KSTR("hmac(sha1)"),
 	 .digest_size = 20,.can_sign = 1,
 	 .key_type = NCR_KEY_TYPE_SECRET},
-	{.is_hmac = 1, KSTR("hmac(md5)"),
+	{.algo = NCR_ALG_HMAC_MD5, .is_hmac = 1, KSTR("hmac(md5)"),
 	 .digest_size = 16,.can_sign = 1,
 	 .key_type = NCR_KEY_TYPE_SECRET},
-	{.is_hmac = 1, KSTR("hmac(sha224)"),
+	{.algo = NCR_ALG_HMAC_SHA2_224, .is_hmac = 1, KSTR("hmac(sha224)"),
 	 .digest_size = 28,.can_sign = 1,
 	 .key_type = NCR_KEY_TYPE_SECRET},
-	{.is_hmac = 1, KSTR("hmac(sha256)"),
+	{.algo = NCR_ALG_HMAC_SHA2_256, .is_hmac = 1, KSTR("hmac(sha256)"),
 	 .digest_size = 32,.can_sign = 1,
 	 .key_type = NCR_KEY_TYPE_SECRET},
-	{.is_hmac = 1, KSTR("hmac(sha384)"),
+	{.algo = NCR_ALG_HMAC_SHA2_384, .is_hmac = 1, KSTR("hmac(sha384)"),
 	 .digest_size = 48,.can_sign = 1,
 	 .key_type = NCR_KEY_TYPE_SECRET},
-	{.is_hmac = 1, KSTR("hmac(sha512)"),
+	{.algo = NCR_ALG_HMAC_SHA2_512, .is_hmac = 1, KSTR("hmac(sha512)"),
 	 .digest_size = 64,.can_sign = 1,
 	 .key_type = NCR_KEY_TYPE_SECRET},
+
 	/* NOTE: These algorithm names are not available through the kernel API
 	   (yet). */
-	{.algo = NCR_ALG_RSA, KSTR("rsa"),.is_pk = 1,
+	{.algo = NCR_ALG_RSA, .is_pk = 1,
 	 .can_encrypt = 1,.can_sign = 1,.key_type = NCR_KEY_TYPE_PUBLIC,
 	 .oids = rsa_oid},
-	{.algo = NCR_ALG_DSA, KSTR("dsa"),.is_pk = 1,
+	{.algo = NCR_ALG_DSA, .is_pk = 1,
 	 .can_sign = 1,.key_type = NCR_KEY_TYPE_PUBLIC,
 	 .oids = dsa_oid},
-	{.algo = NCR_ALG_DH, KSTR("dh"),.is_pk = 1,
+	{.algo = NCR_ALG_DH, .is_pk = 1,
 	 .can_kx = 1,.key_type = NCR_KEY_TYPE_PUBLIC,
 	 .oids = dh_oid},
-
-	{.algo = NCR_ALG_DSA, KSTR(NCR_ALG_DSA_TRANSPARENT_HASH),.is_pk = 1,
-	 .can_sign = 1,.has_transparent_hash = 1,
-	 .key_type = NCR_KEY_TYPE_PUBLIC,.oids = rsa_oid},
-	{.algo = NCR_ALG_RSA, KSTR(NCR_ALG_RSA_TRANSPARENT_HASH),.is_pk = 1,
-	 .can_encrypt = 1,.can_sign = 1,.has_transparent_hash = 1,
-	 .key_type = NCR_KEY_TYPE_PUBLIC,.oids = dsa_oid},
 
 #undef KSTR
 };
 
-/* The lookups by string are inefficient - can we look up all we need from
-   crypto API? */
 const struct algo_properties_st *_ncr_algo_to_properties(ncr_algorithm_t algo)
 {
 	const struct algo_properties_st *a;
@@ -477,21 +469,15 @@ const struct algo_properties_st *_ncr_oid_to_properties(const oid_st * oid)
 const struct algo_properties_st *_ncr_nla_to_properties(const struct nlattr
 							*nla)
 {
-	const struct algo_properties_st *a;
-	size_t name_len;
+	ncr_algorithm_t algo;
 
 	if (nla == NULL)
 		return NULL;
 
 	/* nla_len() >= 1 ensured by validate_nla() case NLA_NUL_STRING */
-	name_len = nla_len(nla) - 1;
-	for (a = algo_properties;
-	     a < algo_properties + ARRAY_SIZE(algo_properties); a++) {
-		if (a->kstr_len == name_len
-		    && memcmp(a->kstr, nla_data(nla), name_len + 1) == 0)
-			return a;
-	}
-	return NULL;
+	algo = nla_get_u32(nla);
+	
+	return _ncr_algo_to_properties(algo);
 }
 
 static int key_item_get_nla_read(struct key_item_st **st,
@@ -532,6 +518,18 @@ init_or_clone_hash(struct session_item_st *session,
 	}
 	ret = cryptodev_hash_clone(&session->hash, &old_session->hash, mac_key,
 				   mac_key_size);
+				   
+	if (old_session->transparent_hash) {
+		session->transparent_hash =
+		    kzalloc(session->hash.digestsize,
+			    GFP_KERNEL);
+		if (session->transparent_hash == NULL) {
+			err();
+			ret = -ENOMEM;
+		} else
+			memcpy(session->transparent_hash, old_session->transparent_hash, session->hash.digestsize);
+	}
+
 	mutex_unlock(&old_session->mutex);
 
 	return ret;
@@ -782,7 +780,8 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 					goto fail;
 				}
 
-				if (ns->algorithm->has_transparent_hash) {
+				nla = tb[NCR_ATTR_SIGNATURE_TRANSPARENT];
+				if (nla != NULL && nla_get_u32(nla) != 0) {
 					/* transparent hash has to be allowed by the key
 					 */
 					if (!
@@ -1143,7 +1142,7 @@ static int _ncr_session_update(struct session_item_st *sess,
 
 	case NCR_OP_SIGN:
 	case NCR_OP_VERIFY:
-		if (sess->algorithm->has_transparent_hash) {
+		if (sess->transparent_hash) {
 			if (isg_size != sess->hash.digestsize) {
 				err();
 				ret = -EINVAL;
@@ -1248,7 +1247,7 @@ static int _ncr_session_final(struct ncr_lists *lists,
 				ret = -EINVAL;
 				goto fail;
 			}
-			if (sess->algorithm->has_transparent_hash)
+			if (sess->transparent_hash)
 				memcpy(digest, sess->transparent_hash,
 				       digest_size);
 			else {
@@ -1295,7 +1294,7 @@ static int _ncr_session_final(struct ncr_lists *lists,
 				goto fail;
 			}
 
-			if (sess->algorithm->has_transparent_hash)
+			if (sess->transparent_hash)
 				memcpy(digest, sess->transparent_hash,
 				       digest_size);
 			else {
@@ -1404,7 +1403,7 @@ static int _ncr_session_update_key(struct ncr_lists *lists,
 		goto fail;
 	case NCR_OP_SIGN:
 	case NCR_OP_VERIFY:
-		if (sess->algorithm->has_transparent_hash) {
+		if (sess->transparent_hash) {
 			err();
 			ret = -EINVAL;
 			goto fail;

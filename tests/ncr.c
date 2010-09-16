@@ -21,9 +21,6 @@
 
 #define DATA_SIZE 4096
 
-#define ALG_AES_CBC "cbc(aes)"
-#define ALG_AES_ECB "ecb(aes)"
-
 static void randomize_data(uint8_t * data, size_t data_size)
 {
 	int i;
@@ -73,7 +70,7 @@ static int test_ncr_key(int cfd)
 	kimport.f.data_size = sizeof(data);
 	ncr_put(&nla, NCR_ATTR_KEY_ID, "ab", 2);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_TYPE, NCR_KEY_TYPE_SECRET);
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_AES_CBC);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_AES_CBC);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, NCR_KEY_FLAG_EXPORTABLE);
 	NCR_FINISH(kimport, nla);
 
@@ -125,8 +122,8 @@ static int test_ncr_key(int cfd)
 
 	nla = NCR_INIT(kgen);
 	kgen.f.key = key;
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_AES_CBC);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, NCR_KEY_FLAG_EXPORTABLE);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_AES_CBC);
 	ncr_put_u32(&nla, NCR_ATTR_SECRET_KEY_BITS, 128); /* 16 bytes */
 	NCR_FINISH(kgen, nla);
 
@@ -192,17 +189,13 @@ static int test_ncr_key(int cfd)
 		data = (char *)nla + NLA_HDRLEN;
 		switch (nla->nla_type) {
 		case NCR_ATTR_ALGORITHM:
-			if (nla->nla_len < NLA_HDRLEN + 1) {
+			if (nla->nla_len < NLA_HDRLEN + sizeof(uint32_t)) {
 				fprintf(stderr, "Attribute too small\n");
 				return 1;
 			}
-			if (((char *)data)[nla->nla_len - NLA_HDRLEN - 1]
-			    != 0) {
-				fprintf(stderr, "NUL missing\n");
-				return 1;
-			}
-			if (strcmp(data, ALG_AES_CBC) != 0) {
-				fprintf(stderr, "Unexpected algorithm\n");
+			if (*(uint32_t *) data != NCR_ALG_AES_CBC) {
+				fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+				fprintf(stderr, "Unexpected algorithm (%u)\n", (unsigned int)*(uint32_t *) data);
 				return 1;
 			}
 			got_algo++;
@@ -261,7 +254,7 @@ static int test_ncr_key(int cfd)
 
 	nla = NCR_INIT(kgen);
 	kgen.f.key = key;
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_AES_CBC);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_AES_CBC);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, 0);
 	ncr_put_u32(&nla, NCR_ATTR_SECRET_KEY_BITS, 128); /* 16 bytes */
 	NCR_FINISH(kgen, nla);
@@ -329,7 +322,7 @@ static int test_ncr_wrap_key(int cfd)
 	kimport.f.data_size = 16;
 	ncr_put(&nla, NCR_ATTR_KEY_ID, "ab", 2);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_TYPE, NCR_KEY_TYPE_SECRET);
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_AES_CBC);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_AES_CBC);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
 		    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPING
 		    | NCR_KEY_FLAG_UNWRAPPING);
@@ -363,7 +356,7 @@ static int test_ncr_wrap_key(int cfd)
 	kimport.f.data_size = 16;
 	ncr_put(&nla, NCR_ATTR_KEY_ID, "ba", 2);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_TYPE, NCR_KEY_TYPE_SECRET);
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_AES_CBC);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_AES_CBC);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
 		    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE);
 	NCR_FINISH(kimport, nla);
@@ -380,7 +373,7 @@ static int test_ncr_wrap_key(int cfd)
 	kwrap.f.source_key = key2;
 	kwrap.f.buffer = data;
 	kwrap.f.buffer_size = sizeof(data);
-	ncr_put_string(&nla, NCR_ATTR_WRAPPING_ALGORITHM, NCR_WALG_AES_RFC3394);
+	ncr_put_u32(&nla, NCR_ATTR_WRAPPING_ALGORITHM, NCR_WALG_AES_RFC3394);
 	NCR_FINISH(kwrap, nla);
 
 	data_size = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
@@ -422,7 +415,7 @@ static int test_ncr_wrap_key(int cfd)
 	kunwrap.f.dest_key = key2;
 	kunwrap.f.data = data;
 	kunwrap.f.data_size = data_size;
-	ncr_put_string(&nla, NCR_ATTR_WRAPPING_ALGORITHM, NCR_WALG_AES_RFC3394);
+	ncr_put_u32(&nla, NCR_ATTR_WRAPPING_ALGORITHM, NCR_WALG_AES_RFC3394);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
 		    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE);
 	NCR_FINISH(kunwrap, nla);
@@ -505,7 +498,7 @@ static int test_ncr_wrap_key2(int cfd)
 	kimport.f.data_size = 16;
 	ncr_put(&nla, NCR_ATTR_KEY_ID, "ab", 2);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_TYPE, NCR_KEY_TYPE_SECRET);
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_AES_CBC);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_AES_CBC);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
 		    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPING
 		    | NCR_KEY_FLAG_UNWRAPPING);
@@ -531,7 +524,7 @@ static int test_ncr_wrap_key2(int cfd)
 	kimport.f.data_size = 32;
 	ncr_put(&nla, NCR_ATTR_KEY_ID, "ba", 2);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_TYPE, NCR_KEY_TYPE_SECRET);
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_AES_CBC);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_AES_CBC);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
 		    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE);
 	NCR_FINISH(kimport, nla);
@@ -548,7 +541,7 @@ static int test_ncr_wrap_key2(int cfd)
 	kwrap.f.source_key = key2;
 	kwrap.f.buffer = data;
 	kwrap.f.buffer_size = sizeof(data);
-	ncr_put_string(&nla, NCR_ATTR_WRAPPING_ALGORITHM, NCR_WALG_AES_RFC3394);
+	ncr_put_u32(&nla, NCR_ATTR_WRAPPING_ALGORITHM, NCR_WALG_AES_RFC3394);
 	NCR_FINISH(kwrap, nla);
 
 	ret = ioctl(cfd, NCRIO_KEY_WRAP, &kwrap);
@@ -595,7 +588,7 @@ static int test_ncr_store_wrap_key(int cfd)
 	kimport.f.data_size = 16;
 	ncr_put(&nla, NCR_ATTR_KEY_ID, "ba", 2);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_TYPE, NCR_KEY_TYPE_SECRET);
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_AES_CBC);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_AES_CBC);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
 		    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE);
 	NCR_FINISH(kimport, nla);
@@ -756,7 +749,7 @@ static int test_ncr_aes(int cfd)
 		kimport.f.data_size = 16;
 		ncr_put(&nla, NCR_ATTR_KEY_ID, "ab", 2);
 		ncr_put_u32(&nla, NCR_ATTR_KEY_TYPE, NCR_KEY_TYPE_SECRET);
-		ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_AES_ECB);
+		ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_AES_ECB);
 		ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, NCR_KEY_FLAG_EXPORTABLE);
 		NCR_FINISH(kimport, nla);
 		if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
@@ -768,7 +761,7 @@ static int test_ncr_aes(int cfd)
 		/* encrypt */
 		nla = NCR_INIT(op);
 		op.f.op = NCR_OP_ENCRYPT;
-		ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_AES_ECB);
+		ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_AES_ECB);
 		ncr_put_u32(&nla, NCR_ATTR_KEY, key);
 		ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA,
 					   aes_vectors[i].plaintext, 16);
@@ -811,7 +804,7 @@ static int test_ncr_aes(int cfd)
 		kimport.f.data_size = 16;
 		ncr_put(&nla, NCR_ATTR_KEY_ID, "ab", 2);
 		ncr_put_u32(&nla, NCR_ATTR_KEY_TYPE, NCR_KEY_TYPE_SECRET);
-		ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_AES_CBC);
+		ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_AES_CBC);
 		ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, NCR_KEY_FLAG_EXPORTABLE);
 		NCR_FINISH(kimport, nla);
 		if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
@@ -823,7 +816,7 @@ static int test_ncr_aes(int cfd)
 		/* decrypt */
 		nla = NCR_INIT(op);
 		op.f.op = NCR_OP_DECRYPT;
-		ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_AES_ECB);
+		ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_AES_ECB);
 		ncr_put_u32(&nla, NCR_ATTR_KEY, key);
 		ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA,
 					   aes_vectors[i].ciphertext, 16);
@@ -863,7 +856,8 @@ static int test_ncr_aes(int cfd)
 }
 
 struct hash_vectors_st {
-	const char *algorithm;
+	char * name;
+	int algorithm;
 	const uint8_t *key;	/* if hmac */
 	int key_size;
 	const uint8_t *plaintext;
@@ -873,7 +867,8 @@ struct hash_vectors_st {
 	ncr_crypto_op_t op;
 } hash_vectors[] = {
 	{
-	.algorithm = "sha1",.key = NULL,.plaintext =
+	.name = "SHA1",
+	.algorithm = NCR_ALG_SHA1,.key = NULL,.plaintext =
 		    (uint8_t *) "what do ya want for nothing?",.
 		    plaintext_size =
 		    sizeof("what do ya want for nothing?") - 1,.output =
@@ -881,7 +876,8 @@ struct hash_vectors_st {
 		    "\x8f\x82\x03\x94\xf9\x53\x35\x18\x20\x45\xda\x24\xf3\x4d\xe5\x2b\xf8\xbc\x34\x32",.
 		    output_size = 20,.op = NCR_OP_SIGN,}
 	, {
-	.algorithm = "hmac(md5)",.key = (uint8_t *) "Jefe",.key_size =
+	.name = "HMAC-MD5",
+	.algorithm = NCR_ALG_HMAC_MD5,.key = (uint8_t *) "Jefe",.key_size =
 		    4,.plaintext =
 		    (uint8_t *) "what do ya want for nothing?",.
 		    plaintext_size =
@@ -892,7 +888,8 @@ struct hash_vectors_st {
 	,
 	    /* from rfc4231 */
 	{
-	.algorithm = "hmac(sha224)",.key =
+	.name = "HMAC-SHA2-224",
+	.algorithm = NCR_ALG_HMAC_SHA2_224,.key =
 		    (uint8_t *)
 		    "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",.
 		    key_size = 20,.plaintext =
@@ -902,7 +899,8 @@ struct hash_vectors_st {
 		    "\x89\x6f\xb1\x12\x8a\xbb\xdf\x19\x68\x32\x10\x7c\xd4\x9d\xf3\x3f\x47\xb4\xb1\x16\x99\x12\xba\x4f\x53\x68\x4b\x22",.
 		    output_size = 28,.op = NCR_OP_SIGN,}
 	, {
-	.algorithm = "hmac(sha256)",.key =
+	.name = "HMAC-SHA2-256",
+	.algorithm = NCR_ALG_HMAC_SHA2_256,.key =
 		    (uint8_t *)
 		    "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",.
 		    key_size = 20,.plaintext =
@@ -912,7 +910,8 @@ struct hash_vectors_st {
 		    "\xb0\x34\x4c\x61\xd8\xdb\x38\x53\x5c\xa8\xaf\xce\xaf\x0b\xf1\x2b\x88\x1d\xc2\x00\xc9\x83\x3d\xa7\x26\xe9\x37\x6c\x2e\x32\xcf\xf7",.
 		    output_size = 32,.op = NCR_OP_SIGN,}
 	, {
-	.algorithm = "hmac(sha384)",.key =
+	.name = "HMAC-SHA2-384",
+	.algorithm = NCR_ALG_HMAC_SHA2_384,.key =
 		    (uint8_t *)
 		    "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",.
 		    key_size = 20,.plaintext =
@@ -922,7 +921,8 @@ struct hash_vectors_st {
 		    "\xaf\xd0\x39\x44\xd8\x48\x95\x62\x6b\x08\x25\xf4\xab\x46\x90\x7f\x15\xf9\xda\xdb\xe4\x10\x1e\xc6\x82\xaa\x03\x4c\x7c\xeb\xc5\x9c\xfa\xea\x9e\xa9\x07\x6e\xde\x7f\x4a\xf1\x52\xe8\xb2\xfa\x9c\xb6",.
 		    output_size = 48,.op = NCR_OP_SIGN,}
 	, {
-	.algorithm = "hmac(sha512)",.key =
+	.name = "HMAC-SHA2-512",
+	.algorithm = NCR_ALG_HMAC_SHA2_512,.key =
 		    (uint8_t *)
 		    "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b",.
 		    key_size = 20,.plaintext =
@@ -955,10 +955,8 @@ static int test_ncr_hash(int cfd)
 
 	fprintf(stdout, "Tests on Hashes\n");
 	for (i = 0; i < sizeof(hash_vectors) / sizeof(hash_vectors[0]); i++) {
-		size_t algo_size;
 
-		algo_size = strlen(hash_vectors[i].algorithm) + 1;
-		fprintf(stdout, "\t%s:\n", hash_vectors[i].algorithm);
+		fprintf(stdout, "\t%s:\n", hash_vectors[i].name);
 		/* import key */
 		if (hash_vectors[i].key != NULL) {
 
@@ -971,8 +969,8 @@ static int test_ncr_hash(int cfd)
 				    NCR_KEY_TYPE_SECRET);
 			ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
 				    NCR_KEY_FLAG_EXPORTABLE);
-			ncr_put(&nla, NCR_ATTR_ALGORITHM,
-				hash_vectors[i].algorithm, algo_size);
+			ncr_put_u32(&nla, NCR_ATTR_ALGORITHM,
+				hash_vectors[i].algorithm);
 			NCR_FINISH(kimport, nla);
 			if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
 				fprintf(stderr, "Error: %s:%d\n", __func__,
@@ -992,8 +990,7 @@ static int test_ncr_hash(int cfd)
 		ncr_put_session_output_buffer(&nla,
 					      NCR_ATTR_FINAL_OUTPUT_BUFFER,
 					      data, sizeof(data), &data_size);
-		ncr_put(&nla, NCR_ATTR_ALGORITHM, hash_vectors[i].algorithm,
-			algo_size);
+		ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, hash_vectors[i].algorithm);
 		NCR_FINISH(op, nla);
 
 		if (ioctl(cfd, NCRIO_SESSION_ONCE, &op)) {
@@ -1054,10 +1051,8 @@ static int test_ncr_hash_clone(int cfd)
 	for (hv = hash_vectors;
 	     hv < hash_vectors + sizeof(hash_vectors) / sizeof(hash_vectors[0]);
 	     hv++) {
-		size_t algo_size;
 
-		algo_size = strlen(hv->algorithm) + 1;
-		fprintf(stdout, "\t%s:\n", hv->algorithm);
+		fprintf(stdout, "\t%s:\n", hv->name);
 		/* import key */
 		if (hv->key != NULL) {
 
@@ -1070,8 +1065,7 @@ static int test_ncr_hash_clone(int cfd)
 				    NCR_KEY_TYPE_SECRET);
 			ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
 				    NCR_KEY_FLAG_EXPORTABLE);
-			ncr_put(&nla, NCR_ATTR_ALGORITHM, hv->algorithm,
-				algo_size);
+			ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, hv->algorithm);
 			NCR_FINISH(kimport, nla);
 			if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
 				fprintf(stderr, "Error: %s:%d\n", __func__,
@@ -1086,7 +1080,7 @@ static int test_ncr_hash_clone(int cfd)
 		kinit.f.op = hv->op;
 		ncr_put_u32(&nla, NCR_ATTR_KEY,
 			    hv->key != NULL ? key : NCR_KEY_INVALID);
-		ncr_put(&nla, NCR_ATTR_ALGORITHM, hv->algorithm, algo_size);
+		ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, hv->algorithm);
 		NCR_FINISH(kinit, nla);
 
 		ses = ioctl(cfd, NCRIO_SESSION_INIT, &kinit);
@@ -1197,7 +1191,7 @@ static int test_ncr_hash_key(int cfd)
 	NCR_STRUCT(ncr_key_import) kimport;
 	uint8_t data[HASH_DATA_SIZE];
 	int j;
-	size_t data_size, algo_size;
+	size_t data_size;
 	NCR_STRUCT(ncr_session_init) op_init;
 	NCR_STRUCT(ncr_session_update) op_up_data;
 	NCR_STRUCT(ncr_session_update) op_up_key;
@@ -1216,8 +1210,8 @@ static int test_ncr_hash_key(int cfd)
 
 	fprintf(stdout, "Tests on Hashes of Keys\n");
 
-	fprintf(stdout, "\t%s:\n", hash_vectors[0].algorithm);
-	algo_size = strlen(hash_vectors[0].algorithm) + 1;
+	fprintf(stdout, "\t%s:\n", hash_vectors[0].name);
+
 	/* import key */
 	nla = NCR_INIT(kimport);
 	kimport.f.key = key;
@@ -1227,7 +1221,7 @@ static int test_ncr_hash_key(int cfd)
 	ncr_put_u32(&nla, NCR_ATTR_KEY_TYPE, NCR_KEY_TYPE_SECRET);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
 		    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_HASHABLE);
-	ncr_put(&nla, NCR_ATTR_ALGORITHM, hash_vectors[0].algorithm, algo_size);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, hash_vectors[0].algorithm);
 	NCR_FINISH(kimport, nla);
 	if (ioctl(cfd, NCRIO_KEY_IMPORT, &kimport)) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -1237,7 +1231,7 @@ static int test_ncr_hash_key(int cfd)
 
 	nla = NCR_INIT(op_init);
 	op_init.f.op = hash_vectors[0].op;
-	ncr_put(&nla, NCR_ATTR_ALGORITHM, hash_vectors[0].algorithm, algo_size);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, hash_vectors[0].algorithm);
 	NCR_FINISH(op_init, nla);
 
 	ses = ioctl(cfd, NCRIO_SESSION_INIT, &op_init);

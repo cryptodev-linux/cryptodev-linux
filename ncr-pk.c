@@ -659,7 +659,7 @@ int ncr_pk_derive(struct key_item_st *newkey, struct key_item_st *oldkey,
 		err();
 		return -EINVAL;
 	}
-	if (nla_strcmp(nla, NCR_DERIVE_DH) == 0) {
+	if (nla_get_u32(nla) == NCR_DERIVE_DH) {
 		if (oldkey->type != NCR_KEY_TYPE_PRIVATE &&
 		    oldkey->algorithm->algo != NCR_ALG_DH) {
 			err();

@@ -18,35 +18,6 @@
 struct nlattr;
 struct ncr_out;
 
-// Not all known algorithms - only for quick internal identification.  Note
-// that more than one struct algo_properties_st may share the same enum value!
-typedef enum {
-	NCR_ALG_NONE,
-	NCR_ALG_NULL,
-
-	NCR_ALG_3DES_CBC,
-	NCR_ALG_3DES_ECB,
-
-	NCR_ALG_AES_ECB,
-	NCR_ALG_AES_CBC,
-	NCR_ALG_AES_CTR,
-
-	NCR_ALG_CAMELIA_ECB,
-	NCR_ALG_CAMELIA_CBC,
-	NCR_ALG_CAMELIA_CTR,
-
-	NCR_ALG_MD5 = 200,
-	NCR_ALG_SHA1,
-	NCR_ALG_SHA2_224,
-	NCR_ALG_SHA2_256,
-	NCR_ALG_SHA2_384,
-	NCR_ALG_SHA2_512,
-
-	NCR_ALG_RSA = 600,
-	NCR_ALG_DSA,
-	NCR_ALG_DH,
-} ncr_algorithm_t;
-
 struct algo_oid_st {
 	oid_st oid;
 	int key_size;
@@ -64,7 +35,6 @@ struct algo_properties_st {
 	unsigned can_kx:1;	/* key exchange */
 	unsigned is_symmetric:1;
 	unsigned is_pk:1;
-	unsigned has_transparent_hash:1;
 	int digest_size;
 	/* NCR_KEY_TYPE_SECRET if for a secret key algorithm or MAC,
 	 * NCR_KEY_TYPE_PUBLIC for a public key algorithm.

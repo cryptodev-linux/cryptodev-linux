@@ -27,13 +27,8 @@
 
 #define DATA_SIZE 4096
 
-#define SIGNATURE_HASH "sha1"
+#define SIGNATURE_HASH NCR_ALG_SHA1
 #define SIGNATURE_HASH_SIZE 20
-
-#define ALG_AES_CBC "cbc(aes)"
-#define ALG_DH "dh"
-#define ALG_DSA "dsa"
-#define ALG_RSA "rsa"
 
 static void print_hex_datum(gnutls_datum_t * dat)
 {
@@ -392,7 +387,7 @@ static int test_ncr_dh(int cfd)
 		nla = NCR_INIT(kgen);
 		kgen.f.private_key = private1;
 		kgen.f.public_key = public1;
-		ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_DH);
+		ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_DH);
 		ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, NCR_KEY_FLAG_EXPORTABLE);
 		ncr_put(&nla, NCR_ATTR_DH_PRIME, p.data, p.size);
 		ncr_put(&nla, NCR_ATTR_DH_BASE, g.data, g.size);
@@ -423,7 +418,7 @@ static int test_ncr_dh(int cfd)
 		nla = NCR_INIT(kgen);
 		kgen.f.private_key = private2;
 		kgen.f.public_key = public2;
-		ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_DH);
+		ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_DH);
 		ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, NCR_KEY_FLAG_EXPORTABLE);
 		ncr_put(&nla, NCR_ATTR_DH_PRIME, p.data, p.size);
 		ncr_put(&nla, NCR_ATTR_DH_BASE, g.data, g.size);
@@ -473,7 +468,7 @@ static int test_ncr_dh(int cfd)
 		nla = NCR_INIT(kderive);
 		kderive.f.input_key = private1;
 		kderive.f.new_key = z1;
-		ncr_put_string(&nla, NCR_ATTR_DERIVATION_ALGORITHM,
+		ncr_put_u32(&nla, NCR_ATTR_DERIVATION_ALGORITHM,
 			       NCR_DERIVE_DH);
 		ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, NCR_KEY_FLAG_EXPORTABLE);
 		ncr_put(&nla, NCR_ATTR_DH_PUBLIC, y2, y2_size);
@@ -497,7 +492,7 @@ static int test_ncr_dh(int cfd)
 		nla = NCR_INIT(kderive);
 		kderive.f.input_key = private2;
 		kderive.f.new_key = z2;
-		ncr_put_string(&nla, NCR_ATTR_DERIVATION_ALGORITHM,
+		ncr_put_u32(&nla, NCR_ATTR_DERIVATION_ALGORITHM,
 			       NCR_DERIVE_DH);
 		ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, NCR_KEY_FLAG_EXPORTABLE);
 		ncr_put(&nla, NCR_ATTR_DH_PUBLIC, y1, y1_size);
@@ -647,7 +642,7 @@ static int test_ncr_wrap_key3(int cfd)
 	kimport.f.data_size = 16;
 	ncr_put(&nla, NCR_ATTR_KEY_ID, "ab", 2);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_TYPE, NCR_KEY_TYPE_SECRET);
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_AES_CBC);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_AES_CBC);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
 		    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPING
 		    | NCR_KEY_FLAG_UNWRAPPING);
@@ -667,7 +662,7 @@ static int test_ncr_wrap_key3(int cfd)
 		nla = NCR_INIT(kgen);
 		kgen.f.private_key = privkey;
 		kgen.f.public_key = pubkey;
-		ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_RSA);
+		ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_RSA);
 		ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
 			    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE);
 		ncr_put_u32(&nla, NCR_ATTR_RSA_MODULUS_BITS, sizes[i]);
@@ -686,7 +681,7 @@ static int test_ncr_wrap_key3(int cfd)
 		kwrap.f.source_key = pubkey;
 		kwrap.f.buffer = data;
 		kwrap.f.buffer_size = sizeof(data);
-		ncr_put_string(&nla, NCR_ATTR_WRAPPING_ALGORITHM,
+		ncr_put_u32(&nla, NCR_ATTR_WRAPPING_ALGORITHM,
 			       NCR_WALG_AES_RFC5649);
 		NCR_FINISH(kwrap, nla);
 
@@ -704,7 +699,7 @@ static int test_ncr_wrap_key3(int cfd)
 		kwrap.f.source_key = privkey;
 		kwrap.f.buffer = data;
 		kwrap.f.buffer_size = sizeof(data);
-		ncr_put_string(&nla, NCR_ATTR_WRAPPING_ALGORITHM,
+		ncr_put_u32(&nla, NCR_ATTR_WRAPPING_ALGORITHM,
 			       NCR_WALG_AES_RFC5649);
 		NCR_FINISH(kwrap, nla);
 
@@ -730,7 +725,7 @@ static int test_ncr_wrap_key3(int cfd)
 			kunwrap.f.dest_key = privkey;
 			kunwrap.f.data = data;
 			kunwrap.f.data_size = data_size;
-			ncr_put_string(&nla, NCR_ATTR_WRAPPING_ALGORITHM,
+			ncr_put_u32(&nla, NCR_ATTR_WRAPPING_ALGORITHM,
 				       NCR_WALG_AES_RFC5649);
 			ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, 0);
 			NCR_FINISH(kunwrap, nla);
@@ -772,11 +767,11 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey,
 	/* do encryption */
 	nla = NCR_INIT(op);
 	op.f.op = NCR_OP_ENCRYPT;
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_RSA);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_RSA);
 	ncr_put_u32(&nla, NCR_ATTR_KEY, pubkey);
 	ncr_put_u32(&nla, NCR_ATTR_RSA_ENCODING_METHOD,
 		    oaep ? RSA_PKCS1_OAEP : RSA_PKCS1_V1_5);
-	ncr_put_string(&nla, NCR_ATTR_RSA_OAEP_HASH_ALGORITHM,
+	ncr_put_u32(&nla, NCR_ATTR_RSA_OAEP_HASH_ALGORITHM,
 		       SIGNATURE_HASH);	/* Ignored if not using OAEP */
 	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
 				   RSA_ENCRYPT_SIZE);
@@ -793,11 +788,11 @@ static int rsa_key_encrypt(int cfd, ncr_key_t privkey, ncr_key_t pubkey,
 	/* decrypt data */
 	nla = NCR_INIT(op);
 	op.f.op = NCR_OP_DECRYPT;
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_RSA);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_RSA);
 	ncr_put_u32(&nla, NCR_ATTR_KEY, privkey);
 	ncr_put_u32(&nla, NCR_ATTR_RSA_ENCODING_METHOD,
 		    oaep ? RSA_PKCS1_OAEP :  RSA_PKCS1_V1_5);
-	ncr_put_string(&nla, NCR_ATTR_RSA_OAEP_HASH_ALGORITHM,
+	ncr_put_u32(&nla, NCR_ATTR_RSA_OAEP_HASH_ALGORITHM,
 		       SIGNATURE_HASH);	/* Ignored if not using OAEP */
 	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
 				   enc_size);
@@ -846,11 +841,11 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey,
 	/* sign data */
 	nla = NCR_INIT(ksign);
 	ksign.f.op = NCR_OP_SIGN;
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_RSA);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_RSA);
 	ncr_put_u32(&nla, NCR_ATTR_KEY, privkey);
 	ncr_put_u32(&nla, NCR_ATTR_RSA_ENCODING_METHOD,
 		    (pss != 0) ? RSA_PKCS1_PSS : RSA_PKCS1_V1_5);
-	ncr_put_string(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
 	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
 				   DATA_TO_SIGN);
 	ncr_put_session_output_buffer(&nla, NCR_ATTR_FINAL_OUTPUT_BUFFER, sig,
@@ -868,11 +863,11 @@ static int rsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey,
 
 	nla = NCR_INIT(kverify);
 	kverify.f.op = NCR_OP_VERIFY;
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_RSA);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_RSA);
 	ncr_put_u32(&nla, NCR_ATTR_KEY, pubkey);
 	ncr_put_u32(&nla, NCR_ATTR_RSA_ENCODING_METHOD,
 		    (pss != 0) ? RSA_PKCS1_PSS : RSA_PKCS1_V1_5);
-	ncr_put_string(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
 	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
 				   DATA_TO_SIGN);
 	ncr_put_session_input_data(&nla, NCR_ATTR_FINAL_INPUT_DATA, sig,
@@ -917,11 +912,12 @@ static int rsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 	/* sign data */
 	nla = NCR_INIT(ksign);
 	ksign.f.op = NCR_OP_SIGN;
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_RSA_TRANSPARENT_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_RSA);
+	ncr_put_u32(&nla, NCR_ATTR_SIGNATURE_TRANSPARENT, 1);
 	ncr_put_u32(&nla, NCR_ATTR_KEY, privkey);
 	ncr_put_u32(&nla, NCR_ATTR_RSA_ENCODING_METHOD,
 		    (pss != 0) ? RSA_PKCS1_PSS : RSA_PKCS1_V1_5);
-	ncr_put_string(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
 	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
 				   SIGNATURE_HASH_SIZE);
 	ncr_put_session_output_buffer(&nla, NCR_ATTR_FINAL_OUTPUT_BUFFER, sig,
@@ -939,11 +935,12 @@ static int rsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 
 	nla = NCR_INIT(kverify);
 	kverify.f.op = NCR_OP_VERIFY;
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_RSA_TRANSPARENT_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_RSA);
+	ncr_put_u32(&nla, NCR_ATTR_SIGNATURE_TRANSPARENT, 1);
 	ncr_put_u32(&nla, NCR_ATTR_KEY, pubkey);
 	ncr_put_u32(&nla, NCR_ATTR_RSA_ENCODING_METHOD,
 		    (pss != 0) ? RSA_PKCS1_PSS : RSA_PKCS1_V1_5);
-	ncr_put_string(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
 	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
 				   SIGNATURE_HASH_SIZE);
 	ncr_put_session_input_data(&nla, NCR_ATTR_FINAL_INPUT_DATA, sig,
@@ -985,9 +982,9 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 	/* sign data */
 	nla = NCR_INIT(ksign);
 	ksign.f.op = NCR_OP_SIGN;
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_DSA);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_DSA);
 	ncr_put_u32(&nla, NCR_ATTR_KEY, privkey);
-	ncr_put_string(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
 	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
 				   DATA_TO_SIGN);
 	ncr_put_session_output_buffer(&nla, NCR_ATTR_FINAL_OUTPUT_BUFFER, sig,
@@ -1003,9 +1000,9 @@ static int dsa_key_sign_verify(int cfd, ncr_key_t privkey, ncr_key_t pubkey)
 	/* verify signature */
 	nla = NCR_INIT(kverify);
 	kverify.f.op = NCR_OP_VERIFY;
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_DSA);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_DSA);
 	ncr_put_u32(&nla, NCR_ATTR_KEY, pubkey);
-	ncr_put_string(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
 	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
 				   DATA_TO_SIGN);
 	ncr_put_session_input_data(&nla, NCR_ATTR_FINAL_INPUT_DATA, sig,
@@ -1049,9 +1046,10 @@ static int dsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 	/* sign data */
 	nla = NCR_INIT(ksign);
 	ksign.f.op = NCR_OP_SIGN;
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_DSA_TRANSPARENT_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_DSA);
+	ncr_put_u32(&nla, NCR_ATTR_SIGNATURE_TRANSPARENT, 1);
 	ncr_put_u32(&nla, NCR_ATTR_KEY, privkey);
-	ncr_put_string(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
 	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
 				   SIGNATURE_HASH_SIZE);
 	ncr_put_session_output_buffer(&nla, NCR_ATTR_FINAL_OUTPUT_BUFFER, sig,
@@ -1067,9 +1065,10 @@ static int dsa_key_sign_verify_transparent(int cfd, ncr_key_t privkey,
 	/* verify signature */
 	nla = NCR_INIT(kverify);
 	kverify.f.op = NCR_OP_VERIFY;
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_DSA_TRANSPARENT_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_DSA);
+	ncr_put_u32(&nla, NCR_ATTR_SIGNATURE_TRANSPARENT, 1);
 	ncr_put_u32(&nla, NCR_ATTR_KEY, pubkey);
-	ncr_put_string(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
+	ncr_put_u32(&nla, NCR_ATTR_SIGNATURE_HASH_ALGORITHM, SIGNATURE_HASH);
 	ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA, data,
 				   SIGNATURE_HASH_SIZE);
 	ncr_put_session_input_data(&nla, NCR_ATTR_FINAL_INPUT_DATA, sig,
@@ -1124,7 +1123,7 @@ static int test_ncr_rsa(int cfd)
 	nla = NCR_INIT(kgen);
 	kgen.f.private_key = privkey;
 	kgen.f.public_key = pubkey;
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_RSA);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_RSA);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
 		    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE
 		    | NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH);
@@ -1251,7 +1250,7 @@ static int test_ncr_dsa(int cfd)
 	nla = NCR_INIT(kgen);
 	kgen.f.private_key = privkey;
 	kgen.f.public_key = pubkey;
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_DSA);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_DSA);
 	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS,
 		    NCR_KEY_FLAG_EXPORTABLE | NCR_KEY_FLAG_WRAPPABLE
 		    | NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH);
