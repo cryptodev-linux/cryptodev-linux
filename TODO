@@ -5,3 +5,6 @@
 * Implement the NIST DSA generation algorithm.
 * Make key generation interruptible.
 * Allow assymetric keys to wrap other keys.
+* Tie keys to specific algorithms
+* Add support for AEAD ciphers
+* Add permissions to keys.
