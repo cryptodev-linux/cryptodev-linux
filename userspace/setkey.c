@@ -64,9 +64,9 @@ int main(int argc, char** argv)
 	key.key_size = size;
 
 	/* Open the crypto device */
-	fd = open("/dev/crypto", O_RDWR, 0);
+	fd = open("/dev/ncr", O_RDWR, 0);
 	if (fd < 0) {
-		perror("open(/dev/crypto)");
+		perror("open(/dev/ncr)");
 		return 1;
 	}
 
