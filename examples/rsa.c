@@ -1,5 +1,5 @@
 /*
- * Demo on how to use /dev/ncr device for HMAC.
+ * Demo on how to use /dev/ncr device for RSA.
  *
  * Placed under public domain.
  *
