@@ -328,6 +328,8 @@ struct ncr_session_once {
 
 /* Several utility macros and functions
  */
+#ifndef __KERNEL__
+
 #define NCR_MAX_REQUEST 4096
 
 #define NCR_STRUCT(NAME) union {			\
@@ -409,4 +411,5 @@ ncr_put_session_output_buffer(struct nlattr **nla_p, uint16_t type,
 		(STRUCT).f.input_size = (char *)nla - (char *)&(STRUCT); \
 	} while (0)
 
+#endif /* KERNEL */
 #endif
