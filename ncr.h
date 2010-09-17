@@ -1,12 +1,12 @@
 #ifndef L_NCR_H
 #define L_NCR_H
 
-#include <string.h>
-#include <stdint.h>
 #include <linux/types.h>
 #include <linux/netlink.h>
 #ifndef __KERNEL__
 #define __user
+#include <string.h>
+#include <stdint.h>
 #endif
 
 /* algorithms to be used by NCR_ATTR_ALGORITHM
