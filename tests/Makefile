@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -g -O2
 
-progs := ncr pk speed
+progs := ncr pk speed uspeed
 
 all: $(progs)
 
