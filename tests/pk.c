@@ -23,7 +23,6 @@
 #if GNUTLS_VERSION_NUMBER >= 0x020b00
 # include <gnutls/abstract.h>
 #endif
-#include "utils.h"
 
 #define DATA_SIZE 4096
 

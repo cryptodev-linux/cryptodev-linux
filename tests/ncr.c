@@ -17,7 +17,6 @@
 #include <linux/netlink.h>
 #include "../ncr.h"
 #include <stdlib.h>
-#include "utils.h"
 
 #define DATA_SIZE 4096
 

@@ -30,7 +30,6 @@
 #include <unistd.h>
 #include <linux/netlink.h>
 #include "../ncr.h"
-#include "utils.h"
 
 #define ALG_AES_CBC "cbc(aes)"
 
