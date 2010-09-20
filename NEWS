@@ -1,0 +1,5 @@
+Version 0.1.1 (released 2010-09-20)
+
+* Added several helper functions to ncr.h to simplify API.
+
+* Added examples of API usage in the examples/ directory.

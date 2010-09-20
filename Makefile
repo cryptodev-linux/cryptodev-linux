@@ -1,5 +1,5 @@
 KERNEL_DIR = /lib/modules/$(shell uname -r)/build
-VERSION = 0.1
+VERSION = 0.1.1
 CONFIG_CRYPTO_USERSPACE_ASYMMETRIC=y
 
 ifeq ($(CONFIG_CRYPTO_USERSPACE_ASYMMETRIC),y)
@@ -91,6 +91,7 @@ install:
 clean:
 	$(MAKE) -C $(KERNEL_DIR) SUBDIRS=`pwd` clean
 	$(MAKE) -C tests clean
+	$(MAKE) -C examples clean
 	$(MAKE) -C userspace clean
 	rm -f $(hostprogs)
 
