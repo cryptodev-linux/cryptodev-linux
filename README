@@ -15,14 +15,6 @@ encryption/decryption/signing/verifying), but raw access to the
 keys is not be possible.
 
 
-=== OpenBSD crypto compatibility ===
-
-A compatibility API using OpenBSD's interface via /dev/crypto device driver 
-is supported. This enables access to kernel space cipher implementations
-and hardware accelerators.
-
-
-
 For questions and suggestions please use the mailing lists at:
 http://home.gna.org/cryptodev-linux/lists.html
 
