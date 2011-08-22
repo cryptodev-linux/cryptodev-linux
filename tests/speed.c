@@ -54,12 +54,14 @@ static void value2human(double bytes, double time, double *data, double *speed,
 		*speed = *data / time;
 		strcpy(metric, "Kb");
 		return;
+#if 0
 	} else if (bytes >= 1000 * 1000 && bytes < 1000 * 1000 * 1000) {
 		*data = ((double)bytes) / (1000 * 1000);
 		*speed = *data / time;
 		strcpy(metric, "Mb");
 		return;
-	} else if (bytes >= 1000 * 1000 * 1000) {
+#endif
+	} else if (bytes >= 1000 * 1000) {
 		*data = ((double)bytes) / (1000 * 1000 * 1000);
 		*speed = *data / time;
 		strcpy(metric, "Gb");
@@ -72,7 +74,7 @@ static void value2human(double bytes, double time, double *data, double *speed,
 	}
 }
 
-int encrypt_data_ncr_direct(int cfd, const char *algo, int chunksize)
+int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 {
 	char *buffer, iv[32];
 	static int val = 23;
@@ -84,9 +86,7 @@ int encrypt_data_ncr_direct(int cfd, const char *algo, int chunksize)
 	NCR_STRUCT(ncr_key_generate) kgen;
 	NCR_STRUCT(ncr_session_once) op;
 	struct nlattr *nla;
-	size_t algo_size;
 
-	algo_size = strlen(algo) + 1;
 	key = ioctl(cfd, NCRIO_KEY_INIT);
 	if (key == -1) {
 		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
@@ -96,7 +96,7 @@ int encrypt_data_ncr_direct(int cfd, const char *algo, int chunksize)
 
 	nla = NCR_INIT(kgen);
 	kgen.f.key = key;
-	ncr_put_string(&nla, NCR_ATTR_ALGORITHM, ALG_AES_CBC);
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_AES_CBC);
 	ncr_put_u32(&nla, NCR_ATTR_SECRET_KEY_BITS, 128); /* 16 bytes */
 	NCR_FINISH(kgen, nla);
 
@@ -130,7 +130,7 @@ int encrypt_data_ncr_direct(int cfd, const char *algo, int chunksize)
 					      NCR_ATTR_UPDATE_OUTPUT_BUFFER,
 					      buffer, chunksize, &output_size);
 		ncr_put(&nla, NCR_ATTR_IV, NULL, 0);
-		ncr_put(&nla, NCR_ATTR_ALGORITHM, algo, algo_size);
+		ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, algo);
 		NCR_FINISH(op, nla);
 
 		if (ioctl(cfd, NCRIO_SESSION_ONCE, &op)) {
@@ -147,7 +147,109 @@ int encrypt_data_ncr_direct(int cfd, const char *algo, int chunksize)
 
 	value2human(total, secs, &ddata, &dspeed, metric);
 	printf("done. %.2f %s in %.2f secs: ", ddata, metric, secs);
-	printf("%.2f %s/sec\n", dspeed, metric);
+	printf("%.3f %s/sec\n", dspeed, metric);
+
+	return 0;
+}
+
+int encrypt_data_ncr(int cfd, int algo, int chunksize)
+{
+	char *buffer, iv[32];
+	static int val = 23;
+	struct timeval start, end;
+	double total = 0;
+	double secs, ddata, dspeed;
+	char metric[16];
+	ncr_key_t key;
+	NCR_STRUCT(ncr_key_generate) kgen;
+	NCR_STRUCT(ncr_session_init) kinit;
+	NCR_STRUCT(ncr_session_update) kupdate;
+	NCR_STRUCT(ncr_session_final) kfinal;
+	struct nlattr *nla;
+	ncr_session_t ses;
+
+	key = ioctl(cfd, NCRIO_KEY_INIT);
+	if (key == -1) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_INIT)");
+		return 1;
+	}
+
+	nla = NCR_INIT(kgen);
+	kgen.f.key = key;
+	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_AES_CBC);
+	ncr_put_u32(&nla, NCR_ATTR_SECRET_KEY_BITS, 128); /* 16 bytes */
+	NCR_FINISH(kgen, nla);
+
+	if (ioctl(cfd, NCRIO_KEY_GENERATE, &kgen)) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_GENERATE)");
+		return 1;
+	}
+
+	buffer = malloc(chunksize);
+	memset(iv, 0x23, 32);
+
+	printf("\tEncrypting in chunks of %d bytes: ", chunksize);
+	fflush(stdout);
+
+	memset(buffer, val++, chunksize);
+
+	must_finish = 0;
+	alarm(5);
+
+	gettimeofday(&start, NULL);
+	do {
+		size_t output_size;
+
+		nla = NCR_INIT(kinit);
+		kinit.f.op = NCR_OP_ENCRYPT;
+		ncr_put_u32(&nla, NCR_ATTR_KEY, key);
+		ncr_put(&nla, NCR_ATTR_IV, NULL, 0);
+		ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, algo);
+		NCR_FINISH(kinit, nla);
+		
+		ses = ioctl(cfd, NCRIO_SESSION_INIT, &kinit);
+		if (ses < 0) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_SESSION_INIT)");
+			return 1;
+		}
+		
+
+		nla = NCR_INIT(kupdate);
+		kupdate.f.ses = ses;
+		ncr_put_session_input_data(&nla, NCR_ATTR_UPDATE_INPUT_DATA,
+					   buffer, chunksize);
+		ncr_put_session_output_buffer(&nla,
+					      NCR_ATTR_UPDATE_OUTPUT_BUFFER,
+					      buffer, chunksize, &output_size);
+		NCR_FINISH(kupdate, nla);
+
+		if (ioctl(cfd, NCRIO_SESSION_UPDATE, &kupdate)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_SESSION_UPDATE)");
+			return 1;
+		}
+		nla = NCR_INIT(kfinal);
+		kfinal.f.ses = ses;
+		NCR_FINISH(kfinal, nla);
+
+		if (ioctl(cfd, NCRIO_SESSION_FINAL, &kfinal)) {
+			fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+			perror("ioctl(NCRIO_SESSION_FINAL)");
+			return 1;
+		}
+
+		total += chunksize;
+	} while (must_finish == 0);
+	gettimeofday(&end, NULL);
+
+	secs = udifftimeval(start, end) / 1000000.0;
+
+	value2human(total, secs, &ddata, &dspeed, metric);
+	printf("done. %.2f %s in %.2f secs: ", ddata, metric, secs);
+	printf("%.3f %s/sec\n", dspeed, metric);
 
 	return 0;
 }
@@ -163,17 +265,30 @@ int main(void)
 		return 1;
 	}
 
+	fprintf(stderr, "\nTesting NCR with NULL cipher: \n");
+	for (i = 512; i <= (64 * 1024); i *= 2) {
+		if (encrypt_data_ncr(fd, NCR_ALG_NULL, i))
+			break;
+	}
+
 	fprintf(stderr, "\nTesting NCR-DIRECT with NULL cipher: \n");
-	for (i = 256; i <= (64 * 1024); i *= 2) {
-		if (encrypt_data_ncr_direct(fd, "ecb(cipher_null)", i))
+	for (i = 512; i <= (64 * 1024); i *= 2) {
+		if (encrypt_data_ncr_direct(fd, NCR_ALG_NULL, i))
+			break;
+	}
+
+	fprintf(stderr, "\nTesting NCR with AES-128-CBC cipher: \n");
+	for (i = 512; i <= (64 * 1024); i *= 2) {
+		if (encrypt_data_ncr(fd, NCR_ALG_AES_CBC, i))
 			break;
 	}
 
 	fprintf(stderr, "\nTesting NCR-DIRECT with AES-128-CBC cipher: \n");
-	for (i = 256; i <= (64 * 1024); i *= 2) {
-		if (encrypt_data_ncr_direct(fd, "cbc(aes)", i))
+	for (i = 512; i <= (64 * 1024); i *= 2) {
+		if (encrypt_data_ncr_direct(fd, NCR_ALG_AES_CBC, i))
 			break;
 	}
+
 
 	close(fd);
 	return 0;
