@@ -900,7 +900,7 @@ static int key_to_packed_data(uint8_t ** sdata, size_t * sdata_size,
 	uint8_t *pkey = NULL;
 	uint8_t *derkey = NULL;
 	uint32_t pkey_size;
-	int ret, err;
+	int ret = 0, err;
 	unsigned long version = KEY_WRAP_VERSION;
 	unsigned long type;
 	unsigned long derlen;

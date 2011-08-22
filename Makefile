@@ -72,12 +72,13 @@ TOMCRYPT_OBJECTS = libtomcrypt/misc/zeromem.o libtomcrypt/misc/crypt/crypt_argch
 
 cryptodev-objs = cryptodev_main.o cryptodev_cipher.o ncr.o \
 	ncr-key.o ncr-limits.o  ncr-sessions.o \
-	ncr-key-storage.o utils.o ncr-key-wrap.o
+	ncr-key-storage.o utils.o ncr-key-wrap.o \
+	ncr-dh.o ncr-pk.o
 
 obj-m += cryptodev.o
 
 cryptodev-$(CONFIG_CRYPTO_USERSPACE_ASYMMETRIC) += $(TOMMATH_OBJECTS) \
-	$(TOMCRYPT_OBJECTS) ncr-dh.o ncr-pk.o
+	$(TOMCRYPT_OBJECTS)
 
 build:
 	@$(MAKE) version.h

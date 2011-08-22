@@ -30,11 +30,17 @@ extern u32 __ncr_u32_type_check;
  * contains "input_size", which is an u32 filled with total input size,
  * including the attributes, which are parsed into @tb.
  */
+#if 0
 #define NCR_GET_INPUT_ARGS(fixed, tb, arg)			\
 	(__NCR_VERIFY_FIXED_SIZE(fixed),			\
 	 __NCR_VERIFY_TB(tb),					\
 	 __ncr_get_input_args(fixed, tb, sizeof(*(fixed)),	\
 			      &(fixed)->input_size, arg))
+#else
+#define NCR_GET_INPUT_ARGS(fixed, tb, arg)			\
+	 __ncr_get_input_args(fixed, tb, sizeof(*(fixed)),	\
+			      &(fixed)->input_size, arg)
+#endif
 void *__ncr_get_input_args(void *fixed, struct nlattr *tb[], size_t fixed_size,
 			   u32 * input_size_ptr, const void __user * arg);
 
@@ -45,12 +51,19 @@ void *__ncr_get_input_args(void *fixed, struct nlattr *tb[], size_t fixed_size,
  * to the user through u32 "output_size" that no output attributes will be
  * returned.
  */
+#if 0
 #define NCR_GET_INPUT_ARGS_NO_OUTPUT(fixed, tb, arg)			\
 	(__NCR_VERIFY_FIXED_SIZE(fixed),				\
 	 __NCR_VERIFY_TB(tb),						\
 	 __ncr_get_input_args_no_output(fixed, tb, sizeof(*(fixed)),	\
 					&(fixed)->input_size,		\
 					__OUT_SIZE_OFF(fixed), arg))
+#else
+#define NCR_GET_INPUT_ARGS_NO_OUTPUT(fixed, tb, arg)			\
+	 __ncr_get_input_args_no_output(fixed, tb, sizeof(*(fixed)),	\
+					&(fixed)->input_size,		\
+					__OUT_SIZE_OFF(fixed), arg)
+#endif
 void *__ncr_get_input_args_no_output(void *fixed, struct nlattr *tb[],
 				     size_t fixed_size, u32 * input_size_ptr,
 				     size_t output_size_offset,
@@ -61,10 +74,16 @@ void *__ncr_get_input_args_no_output(void *fixed, struct nlattr *tb[],
  * contains "output_size", an u32 containing total output size, including
  * @fixed.  Store @arg for later ncr_out_finish().
  */
+#if 0
 #define NCR_OUT_INIT(out, fixed, arg)				\
 	(__NCR_VERIFY_FIXED_SIZE(fixed),			\
 	 __ncr_out_init((out), (fixed), sizeof(*(fixed)),	\
 			__OUT_SIZE_OFF(fixed), (arg)))
+#else
+#define NCR_OUT_INIT(out, fixed, arg)				\
+	 __ncr_out_init((out), (fixed), sizeof(*(fixed)),	\
+			__OUT_SIZE_OFF(fixed), (arg))
+#endif
 int __ncr_out_init(struct ncr_out *out, const void *fixed, size_t fixed_size,
 		   size_t output_size_offset, void __user * arg);
 
