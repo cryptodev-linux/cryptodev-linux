@@ -46,37 +46,26 @@ static void alarm_handler(int signo)
 	must_finish = 1;
 }
 
-static void value2human(double bytes, double time, double *data, double *speed,
-			char *metric)
+static char *si_units[] = { "", "K", "M", "G", "T", 0};
+
+static void value2human(double bytes, double time, double* data, double* speed,char* metric)
 {
-	if (bytes > 1000 && bytes < 1000 * 1000) {
-		*data = ((double)bytes) / 1000;
-		*speed = *data / time;
-		strcpy(metric, "Kb");
-		return;
-#if 0
-	} else if (bytes >= 1000 * 1000 && bytes < 1000 * 1000 * 1000) {
-		*data = ((double)bytes) / (1000 * 1000);
-		*speed = *data / time;
-		strcpy(metric, "Mb");
-		return;
-#endif
-	} else if (bytes >= 1000 * 1000) {
-		*data = ((double)bytes) / (1000 * 1000 * 1000);
-		*speed = *data / time;
-		strcpy(metric, "Gb");
-		return;
-	} else {
-		*data = (double)bytes;
-		*speed = *data / time;
-		strcpy(metric, "bytes");
-		return;
+	int unit = 0;
+
+	*data = bytes;
+	
+	while (*data > 1000 && si_units[unit + 1]) {
+		*data /= 1000;
+		unit++;
 	}
+	*speed = *data / time;
+	sprintf(metric, "%sB", si_units[unit]);
 }
 
 int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 {
-	char *buffer, iv[32];
+	void *buffer;
+	char iv[32];
 	static int val = 23;
 	struct timeval start, end;
 	double total = 0;
@@ -106,7 +95,11 @@ int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 		return 1;
 	}
 
-	buffer = malloc(chunksize);
+	if (posix_memalign(&buffer, 16, chunksize) < 0) {
+		perror("posix memalign");
+		return 1;
+	}
+
 	memset(iv, 0x23, 32);
 
 	printf("\tEncrypting in chunks of %d bytes: ", chunksize);
@@ -148,13 +141,16 @@ int encrypt_data_ncr_direct(int cfd, int algo, int chunksize)
 	value2human(total, secs, &ddata, &dspeed, metric);
 	printf("done. %.2f %s in %.2f secs: ", ddata, metric, secs);
 	printf("%.3f %s/sec\n", dspeed, metric);
+	
+	free(buffer);
 
 	return 0;
 }
 
 int encrypt_data_ncr(int cfd, int algo, int chunksize)
 {
-	char *buffer, iv[32];
+	void *buffer;
+	char* iv[32];
 	static int val = 23;
 	struct timeval start, end;
 	double total = 0;
@@ -187,7 +183,10 @@ int encrypt_data_ncr(int cfd, int algo, int chunksize)
 		return 1;
 	}
 
-	buffer = malloc(chunksize);
+	if (posix_memalign(&buffer, 16, chunksize) < 0) {
+		perror("posix memalign");
+		return 1;
+	}
 	memset(iv, 0x23, 32);
 
 	printf("\tEncrypting in chunks of %d bytes: ", chunksize);
@@ -250,6 +249,8 @@ int encrypt_data_ncr(int cfd, int algo, int chunksize)
 	value2human(total, secs, &ddata, &dspeed, metric);
 	printf("done. %.2f %s in %.2f secs: ", ddata, metric, secs);
 	printf("%.3f %s/sec\n", dspeed, metric);
+
+	free(buffer);
 
 	return 0;
 }

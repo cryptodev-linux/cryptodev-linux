@@ -1,7 +1,7 @@
 CC = gcc
 CFLAGS = -Wall -g -O2
 
-progs := ncr pk speed uspeed
+progs := ncr pk speed uspeed u2speed
 
 all: $(progs)
 
@@ -16,6 +16,9 @@ pk: pk.c
 
 uspeed: shm/aes_cbc.c shm/shm.c shm/aes.h
 	$(CC) $(CFLAGS) shm/aes_cbc.c shm/shm.c -o $@ -Ishm -lpthread
+
+u2speed: shm/aes_cbc.c shm/plain.c shm/aes.h
+	$(CC) $(CFLAGS) shm/aes_cbc.c shm/plain.c -o $@ -Ishm
 
 check: $(progs)
 	./ncr

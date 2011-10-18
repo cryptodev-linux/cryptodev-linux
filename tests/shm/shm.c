@@ -19,15 +19,16 @@ void child(pid_t parent, void *mem)
 	struct crypto_aes_ctx ctx;
 	uint32_t mem_size;
 
+	mem_size = *((uint32_t*)mem);
+
 	for (;;) {
-		memset(key, 0xa3, sizeof(key));
 		memset(iv, 0x3, sizeof(iv));
+		memset(key, 0xa3, sizeof(key));
+		crypto_aes_expand_key(&ctx, (void *)key, sizeof(key));
 
 		sem_wait(enc_sem);
 
-		crypto_aes_expand_key(&ctx, (void *)key, sizeof(key));
-
-		memcpy(&mem_size, mem, sizeof(mem_size));
+		mem_size = *((uint32_t*)mem);
 
 		crypto_cbc_encrypt(&ctx, mem, mem_size, mem, iv);
 
@@ -48,30 +49,20 @@ static double udifftimeval(struct timeval start, struct timeval end)
 	    (double)(end.tv_sec - start.tv_sec) * 1000 * 1000;
 }
 
-static void value2human(double bytes, double time, double *data, double *speed,
-			char *metric)
+static char *si_units[] = { "", "K", "M", "G", "T", 0};
+
+static void value2human(double bytes, double time, double* data, double* speed,char* metric)
 {
-	if (bytes > 1000 && bytes < 1000 * 1000) {
-		*data = ((double)bytes) / 1000;
-		*speed = *data / time;
-		strcpy(metric, "Kb");
-		return;
-	} else if (bytes >= 1000 * 1000 && bytes < 1000 * 1000 * 1000) {
-		*data = ((double)bytes) / (1000 * 1000);
-		*speed = *data / time;
-		strcpy(metric, "Mb");
-		return;
-	} else if (bytes >= 1000 * 1000 * 1000) {
-		*data = ((double)bytes) / (1000 * 1000 * 1000);
-		*speed = *data / time;
-		strcpy(metric, "Gb");
-		return;
-	} else {
-		*data = (double)bytes;
-		*speed = *data / time;
-		strcpy(metric, "bytes");
-		return;
+	int unit = 0;
+
+	*data = bytes;
+	
+	while (*data > 1000 && si_units[unit + 1]) {
+		*data /= 1000;
+		unit++;
 	}
+	*speed = *data / time;
+	sprintf(metric, "%sB", si_units[unit]);
 }
 
 void parent(pid_t child, void *mem)
@@ -86,7 +77,7 @@ void parent(pid_t child, void *mem)
 
 	/* set a default value in shared memory */
 
-	for (chunksize = 256; chunksize <= (64 * 1024); chunksize *= 2) {
+	for (chunksize = 512; chunksize <= (64 * 1024); chunksize *= 2) {
 		memset(mem, 0x33, chunksize);
 
 		printf("\tEncrypting in chunks of %d bytes: ", chunksize);
@@ -111,7 +102,7 @@ void parent(pid_t child, void *mem)
 		secs = udifftimeval(start, end) / 1000000.0;
 		value2human(total, secs, &ddata, &dspeed, metric);
 		printf("done. %.2f %s in %.2f secs: ", ddata, metric, secs);
-		printf("%.2f %s/sec\n", dspeed, metric);
+		printf("%.3f %s/sec\n", dspeed, metric);
 	}
 
 }
@@ -168,11 +159,16 @@ int main()
 		parent(pid, shm);
 		kill(pid, SIGTERM);
 		wait(0);	// let the child finish
+		sem_destroy(get_sem);
+		sem_destroy(enc_sem);
 		shmdt(shm);
+		shmdt(semmem);
 		shmctl(shmid, IPC_RMID, (struct shmid_ds *)0);
+		shmctl(shmid2, IPC_RMID, (struct shmid_ds *)0);
 		break;
 	case 0:
 		child(getppid(), shm);
+		shmdt(semmem);
 		shmdt(shm);
 		break;
 	}
