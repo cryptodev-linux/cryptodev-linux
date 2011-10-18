@@ -193,7 +193,7 @@ static void __exit cryptodev_deregister(void)
 }
 
 /* ====== Module init/exit ====== */
-static int __init init_cryptodev(void)
+static int __init init_ncrmod(void)
 {
 	int rc;
 
@@ -206,11 +206,11 @@ static int __init init_cryptodev(void)
 	return 0;
 }
 
-static void __exit exit_cryptodev(void)
+static void __exit exit_ncrmod(void)
 {
 	cryptodev_deregister();
 	printk(KERN_INFO PFX "driver unloaded.\n");
 }
 
-module_init(init_cryptodev);
-module_exit(exit_cryptodev);
+module_init(init_ncrmod);
+module_exit(exit_ncrmod);

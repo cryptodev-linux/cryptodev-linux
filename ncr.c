@@ -145,11 +145,11 @@ long ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 
 	case NCRIO_KEY_INIT:
 		return ncr_key_init(lst);
-		CASE_NO_OUTPUT(NCRIO_KEY_GENERATE, ncr_key_generate,
+	CASE_NO_OUTPUT(NCRIO_KEY_GENERATE, ncr_key_generate,
 			       ncr_key_generate);
-		CASE_NO_OUTPUT(NCRIO_KEY_GENERATE_PAIR, ncr_key_generate_pair,
+	CASE_NO_OUTPUT(NCRIO_KEY_GENERATE_PAIR, ncr_key_generate_pair,
 			       ncr_key_generate_pair);
-		CASE_NO_OUTPUT(NCRIO_KEY_DERIVE, ncr_key_derive,
+	CASE_NO_OUTPUT(NCRIO_KEY_DERIVE, ncr_key_derive,
 			       ncr_key_derive);
 	case NCRIO_KEY_GET_INFO:{
 			struct ncr_key_get_info data;
@@ -169,9 +169,9 @@ long ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 			ncr_out_free(&out);
 			break;
 		}
-		CASE_NO_OUTPUT(NCRIO_KEY_EXPORT, ncr_key_export,
+	CASE_NO_OUTPUT(NCRIO_KEY_EXPORT, ncr_key_export,
 			       ncr_key_export);
-		CASE_NO_OUTPUT(NCRIO_KEY_IMPORT, ncr_key_import,
+	CASE_NO_OUTPUT(NCRIO_KEY_IMPORT, ncr_key_import,
 			       ncr_key_import);
 	case NCRIO_KEY_DEINIT:{
 			ncr_key_t key;
@@ -183,22 +183,22 @@ long ncr_ioctl(struct ncr_lists *lst, unsigned int cmd, unsigned long arg_)
 			}
 			return ncr_key_deinit(lst, key);
 		}
-		CASE_NO_OUTPUT(NCRIO_KEY_WRAP, ncr_key_wrap, ncr_key_wrap);
-		CASE_NO_OUTPUT(NCRIO_KEY_UNWRAP, ncr_key_unwrap,
+	CASE_NO_OUTPUT(NCRIO_KEY_WRAP, ncr_key_wrap, ncr_key_wrap);
+	CASE_NO_OUTPUT(NCRIO_KEY_UNWRAP, ncr_key_unwrap,
 			       ncr_key_unwrap);
-		CASE_NO_OUTPUT(NCRIO_KEY_STORAGE_WRAP, ncr_key_storage_wrap,
+	CASE_NO_OUTPUT(NCRIO_KEY_STORAGE_WRAP, ncr_key_storage_wrap,
 			       ncr_key_storage_wrap);
-		CASE_NO_OUTPUT(NCRIO_KEY_STORAGE_UNWRAP, ncr_key_storage_unwrap,
+	CASE_NO_OUTPUT(NCRIO_KEY_STORAGE_UNWRAP, ncr_key_storage_unwrap,
 			       ncr_key_storage_unwrap);
-		CASE_NO_OUTPUT(NCRIO_SESSION_INIT, ncr_session_init,
+	CASE_NO_OUTPUT(NCRIO_SESSION_INIT, ncr_session_init,
 			       ncr_session_init);
-		CASE_NO_OUTPUT_COMPAT(NCRIO_SESSION_UPDATE, ncr_session_update,
+	CASE_NO_OUTPUT_COMPAT(NCRIO_SESSION_UPDATE, ncr_session_update,
 				      ncr_session_update);
-		CASE_NO_OUTPUT_COMPAT(NCRIO_SESSION_FINAL, ncr_session_final,
+	CASE_NO_OUTPUT_COMPAT(NCRIO_SESSION_FINAL, ncr_session_final,
 				      ncr_session_final);
-		CASE_NO_OUTPUT_COMPAT(NCRIO_SESSION_ONCE, ncr_session_once,
+	CASE_NO_OUTPUT_COMPAT(NCRIO_SESSION_ONCE, ncr_session_once,
 				      ncr_session_once);
-		CASE_(NCRIO_MASTER_KEY_SET, ncr_master_key_set,
+	CASE_(NCRIO_MASTER_KEY_SET, ncr_master_key_set,
 		      ncr_master_key_set, (&data, tb));
 	default:
 		return -EINVAL;

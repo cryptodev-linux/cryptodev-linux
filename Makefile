@@ -70,14 +70,14 @@ TOMCRYPT_OBJECTS = libtomcrypt/misc/zeromem.o libtomcrypt/misc/crypt/crypt_argch
 	libtomcrypt/misc/pk_get_oid.o libtomcrypt/pk/asn1/der/x509/der_encode_subject_public_key_info.o \
 	libtomcrypt/pk/asn1/der/x509/der_decode_subject_public_key_info.o
 
-cryptodev-objs = cryptodev_main.o cryptodev_cipher.o ncr.o \
+ncrmod-objs = cryptodev_main.o cryptodev_cipher.o ncr.o \
 	ncr-key.o ncr-limits.o  ncr-sessions.o \
 	ncr-key-storage.o utils.o ncr-key-wrap.o \
 	ncr-dh.o ncr-pk.o
 
-obj-m += cryptodev.o
+obj-m += ncrmod.o
 
-cryptodev-$(CONFIG_CRYPTO_USERSPACE_ASYMMETRIC) += $(TOMMATH_OBJECTS) \
+ncrmod-$(CONFIG_CRYPTO_USERSPACE_ASYMMETRIC) += $(TOMMATH_OBJECTS) \
 	$(TOMCRYPT_OBJECTS)
 
 build:

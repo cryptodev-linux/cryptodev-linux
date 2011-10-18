@@ -108,6 +108,7 @@ end:
 }
 
 /* Drop a pre-allocated, unpublished session descriptor */
+inline
 static void session_drop_desc(struct ncr_lists *lst, ncr_session_t desc)
 {
 	mutex_lock(&lst->session_idr_mutex);
@@ -116,6 +117,7 @@ static void session_drop_desc(struct ncr_lists *lst, ncr_session_t desc)
 }
 
 /* Make a session descriptor visible in user-space, stealing the reference */
+inline
 static void session_publish_ref(struct ncr_lists *lst,
 				struct session_item_st *sess)
 {
@@ -128,6 +130,7 @@ static void session_publish_ref(struct ncr_lists *lst,
 }
 
 /* returns the data item corresponding to desc */
+inline
 static struct session_item_st *session_get_ref(struct ncr_lists *lst,
 					       ncr_session_t desc)
 {
@@ -148,6 +151,7 @@ static struct session_item_st *session_get_ref(struct ncr_lists *lst,
 }
 
 /* Find a session, stealing the reference, but keep the descriptor allocated. */
+inline
 static struct session_item_st *session_unpublish_ref(struct ncr_lists *lst,
 						     ncr_session_t desc)
 {
@@ -164,6 +168,7 @@ static struct session_item_st *session_unpublish_ref(struct ncr_lists *lst,
 	return NULL;
 }
 
+inline
 static void _ncr_sessions_item_put(struct session_item_st *item)
 {
 	if (atomic_dec_and_test(&item->refcnt)) {
@@ -1182,6 +1187,7 @@ fail:
 }
 
 /* The caller is responsible for locking of the session. */
+inline 
 static int try_session_update(struct ncr_lists *lists,
 			      struct session_item_st *sess, struct nlattr *tb[],
 			      int compat)
