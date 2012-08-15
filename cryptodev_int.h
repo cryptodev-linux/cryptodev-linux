@@ -13,7 +13,7 @@
 #include <linux/scatterlist.h>
 #include <ncr.h>
 
-#define PFX "cryptodev: "
+#define PFX "ncr: "
 #define dprintk(level,severity,format,a...)			\
 	do {						\
 		if (level <= cryptodev_verbosity)				\

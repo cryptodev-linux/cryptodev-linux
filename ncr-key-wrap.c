@@ -442,7 +442,7 @@ static int unwrap_aes_rfc3394(struct key_item_st *output,
 	struct cipher_data ctx;
 	val64_t *R = NULL;
 	int iv_size;
-	const uint8_t *iv;
+	const uint8_t *iv = NULL;
 
 	nla = tb[NCR_ATTR_IV];
 	if (nla != NULL) {
@@ -450,6 +450,7 @@ static int unwrap_aes_rfc3394(struct key_item_st *output,
 		iv_size = nla_len(nla);
 	} else
 		iv_size = 0;
+
 	if (iv_size < sizeof(initA)) {
 		iv_size = sizeof(initA);
 		iv = initA;
