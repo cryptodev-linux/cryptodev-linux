@@ -99,10 +99,13 @@ static int test_ncr_rsa(int cfd)
 {
 	int ret;
 	NCR_STRUCT(ncr_key_generate_pair) kgen;
+	struct ncr_key_storage_wrap kwrap;
+	struct ncr_key_export kexport;
 	struct nlattr *nla;
 	ncr_key_t pubkey, privkey;
-	uint8_t data[128];
+	uint8_t data[4*1024];
 	int data_size;
+	FILE* fp;
 
 	fprintf(stdout, "Tests on RSA key generation:");
 	fflush(stdout);
@@ -127,7 +130,7 @@ static int test_ncr_rsa(int cfd)
 	kgen.f.private_key = privkey;
 	kgen.f.public_key = pubkey;
 	ncr_put_u32(&nla, NCR_ATTR_ALGORITHM, NCR_ALG_RSA);
-	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, 0);
+	ncr_put_u32(&nla, NCR_ATTR_KEY_FLAGS, NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH);
 	ncr_put_u32(&nla, NCR_ATTR_RSA_MODULUS_BITS, 1024);
 	NCR_FINISH(kgen, nla);
 
@@ -138,6 +141,48 @@ static int test_ncr_rsa(int cfd)
 
 	data_size = sizeof(data);
 	memset(data, 0x35, data_size);
+
+	memset(&kexport, 0, sizeof(kexport));
+	kexport.key = pubkey;
+	kexport.buffer = data;
+	kexport.buffer_size = sizeof(data);
+
+	data_size = ioctl(cfd, NCRIO_KEY_EXPORT, &kexport);
+	if (data_size == -1) {
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		perror("ioctl(NCRIO_KEY_EXPORT)");
+		return 1;
+	}
+
+#ifdef STORE_KEY
+	fp = fopen("public.key", "w");
+	if (fp != NULL)
+	  {
+	    fwrite(data, 1, data_size, fp);
+	    fclose(fp);
+	  }
+#endif
+
+	memset(&kwrap, 0, sizeof(kwrap));
+	kwrap.key = privkey;
+	kwrap.buffer = data;
+	kwrap.buffer_size = sizeof(data);
+
+	data_size = ioctl(cfd, NCRIO_KEY_STORAGE_WRAP, &kwrap);
+	if (data_size == -1) {
+		perror("ioctl(NCRIO_KEY_STORAGE_WRAP)");
+		fprintf(stderr, "Error: %s:%d\n", __func__, __LINE__);
+		return 1;
+	}
+
+#ifdef STORE_KEY
+	fp = fopen("private.key", "w");
+	if (fp != NULL)
+	  {
+	    fwrite(data, 1, data_size, fp);
+	    fclose(fp);
+	  }
+#endif
 
 	ret = rsa_key_sign_verify(cfd, privkey, pubkey, data, data_size, 1);
 	if (ret != 0) {
