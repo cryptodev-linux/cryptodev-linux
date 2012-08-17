@@ -54,6 +54,7 @@ struct session_item_st {
 	   between the hash to identify in the signature and the hash to
 	   actually use, though. */
 	void *transparent_hash;
+	unsigned transparent_hash_size;
 
 	struct scatterlist *sg;
 	struct page **pages;
@@ -740,7 +741,7 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 				   && (ns->key->type == NCR_KEY_TYPE_PRIVATE
 				       || ns->key->type ==
 				       NCR_KEY_TYPE_PUBLIC)) {
-				const struct algo_properties_st *sign_hash;
+				const struct algo_properties_st *sign_hash = NULL;
 
 				if (old_session != NULL) {
 					err();
@@ -748,24 +749,54 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 					goto fail;
 				}
 
-				nla = tb[NCR_ATTR_SIGNATURE_HASH_ALGORITHM];
-				sign_hash = _ncr_nla_to_properties(nla);
-				if (sign_hash == NULL) {
-					err();
-					ret = -EINVAL;
-					goto fail;
-				}
+				nla = tb[NCR_ATTR_SIGNATURE_TRANSPARENT];
+				if (nla != NULL && nla_get_u32(nla) != 0) {
+					/* transparent hash has to be allowed by the key
+					 */
+					if (!
+					    (ns->key->
+					     flags & NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH))
+					{
+						err();
+						ret = -EPERM;
+						goto fail;
+					}
 
-				if (!sign_hash->can_digest) {
-					err();
-					ret = -EINVAL;
-					goto fail;
-				}
+					ns->transparent_hash =
+					    kzalloc(NCR_HASH_MAX_OUTPUT_SIZE, GFP_KERNEL);
+					if (ns->transparent_hash == NULL) {
+						err();
+						ret = -ENOMEM;
+						goto fail;
+					}
+				} else { /* digestsize is fixed */
+					nla = tb[NCR_ATTR_SIGNATURE_HASH_ALGORITHM];
+					sign_hash = _ncr_nla_to_properties(nla);
+					if (sign_hash == NULL) {
+						err();
+						ret = -EINVAL;
+						goto fail;
+					}
 
-				if (sign_hash->is_pk) {
-					err();
-					ret = -EINVAL;
-					goto fail;
+					if (!sign_hash->can_digest) {
+						err();
+						ret = -EINVAL;
+						goto fail;
+					}
+
+					if (sign_hash->is_pk) {
+						err();
+						ret = -EINVAL;
+						goto fail;
+					}
+
+					ret =
+						cryptodev_hash_init(&ns->hash,
+											sign_hash->kstr, NULL, 0);
+					if (ret < 0) {
+						err();
+						goto fail;
+					}
 				}
 
 				ret = ncr_pk_cipher_init(ns->algorithm, &ns->pk,
@@ -776,38 +807,6 @@ static struct session_item_st *_ncr_session_init(struct ncr_lists *lists,
 					goto fail;
 				}
 
-				ret =
-				    cryptodev_hash_init(&ns->hash,
-							sign_hash->kstr, NULL,
-							0);
-				if (ret < 0) {
-					err();
-					goto fail;
-				}
-
-				nla = tb[NCR_ATTR_SIGNATURE_TRANSPARENT];
-				if (nla != NULL && nla_get_u32(nla) != 0) {
-					/* transparent hash has to be allowed by the key
-					 */
-					if (!
-					    (ns->key->
-					     flags &
-					     NCR_KEY_FLAG_ALLOW_TRANSPARENT_HASH))
-					{
-						err();
-						ret = -EPERM;
-						goto fail;
-					}
-
-					ns->transparent_hash =
-					    kzalloc(ns->hash.digestsize,
-						    GFP_KERNEL);
-					if (ns->transparent_hash == NULL) {
-						err();
-						ret = -ENOMEM;
-						goto fail;
-					}
-				}
 			} else {
 				err();
 				ret = -EINVAL;
@@ -1148,19 +1147,21 @@ static int _ncr_session_update(struct session_item_st *sess,
 	case NCR_OP_SIGN:
 	case NCR_OP_VERIFY:
 		if (sess->transparent_hash) {
-			if (isg_size != sess->hash.digestsize) {
+			if (isg_size >= NCR_HASH_MAX_OUTPUT_SIZE) {
 				err();
 				ret = -EINVAL;
 				goto fail;
 			}
 			ret = sg_copy_to_buffer(isg, isg_cnt,
-						sess->transparent_hash,
-						isg_size);
+									sess->transparent_hash,
+									isg_size);
 			if (ret != isg_size) {
 				err();
 				ret = -EINVAL;
 				goto fail;
 			}
+			sess->transparent_hash_size = isg_size;
+
 		} else {
 			ret = cryptodev_hash_update(&sess->hash, isg, isg_size);
 			if (ret < 0) {
@@ -1240,6 +1241,7 @@ static int _ncr_session_final(struct ncr_lists *lists,
 				ret = -ENOMEM;
 				goto fail;
 			}
+
 			if (unlikely
 			    (copy_from_user(buffer, src.data, src.data_size))) {
 				err();
@@ -1247,16 +1249,25 @@ static int _ncr_session_final(struct ncr_lists *lists,
 				goto fail;
 			}
 
-			digest_size = sess->hash.digestsize;
-			if (digest_size == 0 || sizeof(digest) < digest_size) {
-				err();
-				ret = -EINVAL;
-				goto fail;
-			}
-			if (sess->transparent_hash)
+			
+			if (sess->transparent_hash) {
+				digest_size = sess->transparent_hash_size;
+				if (digest_size == 0 || sizeof(digest) < digest_size) {
+					err();
+					ret = -EINVAL;
+					goto fail;
+				}				
+				
 				memcpy(digest, sess->transparent_hash,
-				       digest_size);
-			else {
+				       sess->transparent_hash_size);
+			} else {
+				digest_size = sess->hash.digestsize;
+				if (digest_size == 0 || sizeof(digest) < digest_size) {
+					err();
+					ret = -EINVAL;
+					goto fail;
+				}				
+
 				ret = cryptodev_hash_final(&sess->hash, digest);
 				if (ret < 0) {
 					err();
@@ -1266,8 +1277,7 @@ static int _ncr_session_final(struct ncr_lists *lists,
 
 			if (!sess->algorithm->is_pk)
 				ret = (digest_size == src.data_size
-				       && memcmp(buffer, digest,
-						 digest_size) == 0);
+				       && memcmp(buffer, digest, digest_size) == 0);
 			else {
 				ret = ncr_pk_cipher_verify(&sess->pk, buffer,
 							   src.data_size,
@@ -1293,25 +1303,33 @@ static int _ncr_session_final(struct ncr_lists *lists,
 				goto fail;
 			}
 
-			digest_size = sess->hash.digestsize;
-			if (digest_size == 0) {
-				err();
-				ret = -EINVAL;
-				goto fail;
-			}
-
-			if (sess->transparent_hash)
+			if (sess->transparent_hash) {
+				digest_size = sess->transparent_hash_size;
+				if (digest_size == 0 || sizeof(digest) < digest_size) {
+					err();
+					ret = -EINVAL;
+					goto fail;
+				}				
+				
 				memcpy(digest, sess->transparent_hash,
-				       digest_size);
-			else {
+				       sess->transparent_hash_size);
+			} else {
+				digest_size = sess->hash.digestsize;
+				if (digest_size == 0 || sizeof(digest) < digest_size) {
+					err();
+					ret = -EINVAL;
+					goto fail;
+				}				
+
 				ret = cryptodev_hash_final(&sess->hash, digest);
 				if (ret < 0) {
 					err();
 					goto fail;
 				}
+
+				cryptodev_hash_deinit(&sess->hash);
 			}
 
-			cryptodev_hash_deinit(&sess->hash);
 
 			if (!sess->algorithm->is_pk) {
 				if (dst.buffer_size < digest_size) {

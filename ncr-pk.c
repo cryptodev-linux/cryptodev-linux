@@ -575,12 +575,13 @@ int ncr_pk_cipher_sign(const struct ncr_pk_ctx *ctx, const void *hash,
 	switch (ctx->algorithm->algo) {
 	case NCR_ALG_RSA:
 		if (ctx->sign_hash == NULL) {
-			err();
-			return -EINVAL;
-		}
-		cret = rsa_sign_hash_ex(hash, hash_size, sig, &osize,
+        		cret = rsa_sign_raw(hash, hash_size, sig, &osize,
+				            &ctx->key->key.pk.rsa);
+		} else {
+        		cret = rsa_sign_hash_ex(hash, hash_size, sig, &osize,
 					ctx->type, ctx->sign_hash,
 					ctx->salt_len, &ctx->key->key.pk.rsa);
+                }
 		if (cret != CRYPT_OK) {
 			err();
 			return _ncr_tomerr(cret);

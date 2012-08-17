@@ -125,6 +125,49 @@ int rsa_sign_hash_ex(const unsigned char *in, unsigned long inlen,
 	return rsa_exptmod(out, x, out, outlen, PK_PRIVATE, key);
 }
 
+/**
+  LTC_PKCS #1 1.5 sign without padding
+  @param in        The hash to sign
+  @param inlen     The length of the hash to sign (octets)
+  @param out       [out] The signature
+  @param outlen    [in/out] The max size and resulting size of the signature
+  @param key       The private RSA key to use
+  @return CRYPT_OK if successful
+*/
+int rsa_sign_raw(const unsigned char *in, unsigned long inlen,
+		     unsigned char *out, unsigned long *outlen,
+		     rsa_key * key)
+{
+	unsigned long modulus_bitlen, modulus_bytelen, x;
+	int err;
+
+	LTC_ARGCHK(in != NULL);
+	LTC_ARGCHK(out != NULL);
+	LTC_ARGCHK(outlen != NULL);
+	LTC_ARGCHK(key != NULL);
+
+	/* get modulus len in bits */
+	modulus_bitlen = mp_count_bits((&key->N));
+
+	/* outlen must be at least the size of the modulus */
+	modulus_bytelen = mp_unsigned_bin_size((&key->N));
+	if (modulus_bytelen > *outlen) {
+		*outlen = modulus_bytelen;
+		return CRYPT_BUFFER_OVERFLOW;
+	}
+
+	/* allocate memory for the encoding */
+	x = *outlen;
+	if ((err = pkcs_1_v1_5_encode(in, inlen, LTC_LTC_PKCS_1_EMSA,
+				      modulus_bitlen,
+				      out, &x)) != CRYPT_OK) {
+		return err;
+	}
+
+	/* RSA encode it */
+	return rsa_exptmod(out, x, out, outlen, PK_PRIVATE, key);
+}
+
 #endif /* LTC_MRSA */
 
 /* $Source: /cvs/libtom/libtomcrypt/src/pk/rsa/rsa_sign_hash.c,v $ */
