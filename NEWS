@@ -1,3 +1,8 @@
+Version 0.2 (released 2012-09-03)
+
+* Transparent flag now allows for arbitrary hash sizes.
+
+
 Version 0.1.1 (released 2010-09-20)
 
 * Added several helper functions to ncr.h to simplify API.
