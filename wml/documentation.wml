@@ -7,8 +7,8 @@ in these documents might not apply.
 </p>
 
 <p>
-The /dev/crypto ioctl API is roughly described by the <a href="http://repo.or.cz/w/cryptodev-linux.git/blob/HEAD:/crypto/cryptodev.h">cryptodev.h header
-file</a>, and by the <a href="http://repo.or.cz/w/cryptodev-linux.git/tree/HEAD:/examples">example files</a> included in the
+The /dev/crypto ioctl API is roughly described by the <a href="https://github.com/nmav/cryptodev-linux/blob/master/crypto/cryptodev.h">cryptodev.h header
+file</a>, and by the <a href="https://github.com/nmav/cryptodev-linux/tree/master/examples">example files</a> included in the
 distribution.
 </p>
 

@@ -37,13 +37,13 @@ all kinds of algorithms, and can be used in a way to prevent access to cryptogra
 
    <li><a name="devel"><b>Development</b></a>
     <p>
-    The source code is available at <a href="http://repo.or.cz/w/cryptodev-linux.git/tree/newapi">repo.or.cz</a>.
+    The source code is available at <a href="https://github.com/nmav/cryptodev-linux/tree/newapi">github</a>.
     </p>
   </li>
 
    <li><a name="examples"><b>Examples</b></a>
     <p>
-    Check how to use NCR by reading some <a href="http://repo.or.cz/w/cryptodev-linux.git/tree/newapi:/examples">example programs</a>.
+    Check how to use NCR by reading some <a href="https://github.com/nmav/cryptodev-linux/tree/newapi/examples">example programs</a>.
     </p>
   </li>
 
