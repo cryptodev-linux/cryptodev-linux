@@ -32,7 +32,7 @@
 
   <tr bgcolor="#e5d5e5">
     <td bgcolor="#e0d7d7">2011-08-29</td>
-    <td>Added a <a href="http://home.gna.org/cryptodev-linux/comparison.html">comparison with the AF_ALG</a> Linux kernel API.</td>
+    <td>Added a <a href="http://www.cryptodev-linux.org/comparison.html">comparison with the AF_ALG</a> Linux kernel API.</td>
   </tr>
 
   <tr bgcolor="#e5d5e5">
