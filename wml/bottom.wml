@@ -1,0 +1,27 @@
+<table width=100%>
+
+<tr height=20>
+</tr>
+
+<tr>
+ <td align=right>
+Updated:
+<!-- timestamp start -->
+Date: $(WML_SRC_ISOTIME)
+<!-- timestamp end -->
+ </td>
+</tr>
+
+<tr height=20>
+</tr>
+<!--
+<tr>
+ <td align=right>
+<a href="http://www.gna.org"><img src="icons/hostedbygna.png"></a>
+ </td>
+</tr>
+-->
+</table>
+
+</body>
+</html>

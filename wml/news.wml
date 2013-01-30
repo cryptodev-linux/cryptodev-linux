@@ -1,0 +1,99 @@
+#include 'common.wml' page="News"
+
+<center>
+
+<table border="0" cellspacing="1" width="70%">
+  <tr bgcolor=$(TABLE_HDCOLOR)><th>Date</th><th>Comment</th></tr>
+
+  <tr bgcolor="#e5d5e5">
+    <td bgcolor="#e0d7d7">2012-08-04</td>
+    <td><a href="https://mail.gna.org/public/cryptodev-linux-devel/2012-08/msg00003.html">Released v1.5 of linux-cryptodev</a>. This is a bug-fix release.</td>
+  </tr>
+
+  <tr bgcolor="#e5d5e5">
+    <td bgcolor="#e0d7d7">2012-03-15</td>
+    <td><a href="https://mail.gna.org/public/cryptodev-linux-devel/2012-03/msg00002.html">Released v1.4 of linux-cryptodev</a>. This is a bug-fix release.</td>
+  </tr>
+
+  <tr bgcolor="#e5d5e5">
+    <td bgcolor="#e0d7d7">2012-02-29</td>
+    <td><a href="https://mail.gna.org/public/cryptodev-linux-devel/2012-02/msg00019.html">Released v1.3 of linux-cryptodev</a>. This is a bug-fix release.</td>
+  </tr>
+
+  <tr bgcolor="#e5d5e5">
+    <td bgcolor="#e0d7d7">2012-02-24</td>
+    <td><a href="https://mail.gna.org/public/cryptodev-linux-devel/2012-02/msg00008.html">Released v1.2 of linux-cryptodev</a>. This is a bug-fix release.</td>
+  </tr>
+
+  <tr bgcolor="#e5d5e5">
+    <td bgcolor="#e0d7d7">2012-02-20</td>
+    <td><a href="https://mail.gna.org/public/cryptodev-linux-devel/2012-02/msg00002.html">Released v1.1 of linux-cryptodev</a>. This release adds new features to the API.</td>
+  </tr>
+
+  <tr bgcolor="#e5d5e5">
+    <td bgcolor="#e0d7d7">2011-08-29</td>
+    <td>Added a <a href="http://home.gna.org/cryptodev-linux/comparison.html">comparison with the AF_ALG</a> Linux kernel API.</td>
+  </tr>
+
+  <tr bgcolor="#e5d5e5">
+    <td bgcolor="#e0d7d7">2011-04-12</td>
+    <td><a href="https://mail.gna.org/public/cryptodev-linux-devel/2011-04/msg00000.html">Released v1.0 of linux-cryptodev</a>. This release includes several bug fixes in the example programs.</td>
+  </tr>
+
+  <tr bgcolor="#e5d5e5">
+    <td bgcolor="#e0d7d7">2010-11-06</td>
+    <td><a href="https://mail.gna.org/public/cryptodev-linux-devel/2010-11/msg00007.html">Released v0.8 of linux-cryptodev</a>. This release added asynchronous cipher support and other additions.</td>
+  </tr>
+
+  <tr bgcolor="#e5d5e5">
+    <td bgcolor="#e0d7d7">2010-10-08</td>
+    <td>Released v0.7 of linux-cryptodev. This release improves multi-update hash support API.</td>
+  </tr>
+
+  <tr bgcolor=$(TABLE_BGCOLOR)>
+    <td bgcolor=$(TABLE_BGCOLOR2)>2010-09-16</td>
+    <td>Released v0.1 of NCR framework. This is initial release.</td>
+  </tr>
+
+  <tr bgcolor=$(TABLE_BGCOLOR)>
+    <td bgcolor=$(TABLE_BGCOLOR2)>2010-09-16</td>
+    <td>Released v0.6 of linux-cryptodev. This release adds multi-update hash support and fixes some issues.</td>
+  </tr>
+
+  <tr bgcolor=$(TABLE_BGCOLOR)>
+    <td bgcolor=$(TABLE_BGCOLOR2)>2010-07-03</td>
+    <td>Released v0.5 of linux-cryptodev. This release fixes issues with zero copy operations in multiple pages on some systems.</td>
+  </tr>
+
+  <tr bgcolor=$(TABLE_BGCOLOR)>
+    <td bgcolor=$(TABLE_BGCOLOR2)>2010-07-03</td>
+    <td>Released v0.4 of linux-cryptodev. This version supports zero copy operations.</td>
+  </tr>
+
+  <tr bgcolor=$(TABLE_BGCOLOR)>
+    <td bgcolor=$(TABLE_BGCOLOR2)>2010-06-19</td>
+    <td>Released v0.3 of linux-cryptodev.</td>
+  </tr>
+
+  <tr bgcolor=$(TABLE_BGCOLOR)>
+    <td bgcolor=$(TABLE_BGCOLOR2)>2010-06-18</td>
+    <td>Released v0.2 of linux-cryptodev.</td>
+  </tr>
+
+  <tr bgcolor=$(TABLE_BGCOLOR)>
+    <td bgcolor=$(TABLE_BGCOLOR2)>2010-04-11</td>
+    <td>Initial website for linux-cryptodev.</td>
+  </tr>
+
+  <tr bgcolor=$(TABLE_BGCOLOR)>
+    <td bgcolor=$(TABLE_BGCOLOR2)>2010-04-11</td>
+    <td>Initial beta v0.1 release of linux cryptodev.</td>
+  </tr>
+
+
+</table>
+
+</center>
+
+#include 'bottom.wml'
+

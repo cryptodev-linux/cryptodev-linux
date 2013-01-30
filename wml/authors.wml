@@ -1,0 +1,27 @@
+#include 'common.wml' page="Contributors"
+
+<center>
+
+<p>  Cryptodev-linux is available because of the following people's efforts: 
+</p>
+
+<p>
+<table border="0" cellspacing="1" width=30%>
+  <tr bgcolor=$(TABLE_HDCOLOR)><th>Name</th></tr>
+
+  <tr bgcolor=$(TABLE_BGCOLOR)><td><a href="http://nikmav.blogspot.com">Nikos Mavrogiannopoulos</a> (Maintainer)</td>
+  </tr>
+
+  <tr bgcolor=$(TABLE_BGCOLOR)><td>Phil Sutter</td>
+  </tr>
+
+  <tr bgcolor=$(TABLE_BGCOLOR)><td>Michael Weiser</td>
+  </tr>
+
+  <tr bgcolor=$(TABLE_BGCOLOR)><td>Michal Ludvig</td>
+  </tr>
+</p>
+
+</center>
+
+#include 'bottom.wml'

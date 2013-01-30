@@ -1,0 +1,37 @@
+#include 'common.wml' page="Mailing Lists"
+
+<center>
+  <table border=0 cellspacing=1 width=70%>
+    <tbody>
+
+      <tr bgcolor=$(TABLE_HDCOLOR)>
+	<th>List:</th>
+	<th>Description:</th>
+	<th>Archives:</th>
+      </tr>
+
+      <tr bgcolor=$(TABLE_BGCOLOR)>
+	<td><a href="https://mail.gna.org/listinfo/cryptodev-linux-devel/">Cryptodev-linux-devel</a></td>
+	<td>General mailing list on the development of cryptodev-linux.</td>
+	<td><ul>
+	    <li><a href="https://mail.gna.org/public/cryptodev-linux-devel/">Official archives</a></li>
+	</ul></td>
+      </tr>
+
+      <tr bgcolor=$(TABLE_BGCOLOR)>
+	<td><a href="https://mail.gna.org/listinfo/cryptodev-linux-commit/">Cryptodev-linux-commit</a></td>
+	<td>Information about commits. Posting is prohibited.</td>
+	<td><ul>
+	    <li><a href="https://mail.gna.org/public/cryptodev-linux-commit/">Official archives</a></li>
+	</ul></td>
+      </tr>
+
+    </tbody>
+  </table>
+
+  <p><b>Bug reports should be addressed to <a
+      href="mailto:cryptodev-linux-devel@gna.org"> cryptodev-linux-devel@gna.org</a></b></p>
+
+</center>
+
+#include 'bottom.wml'

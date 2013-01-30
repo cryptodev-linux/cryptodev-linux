@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html
+     PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta http-equiv="content-type" content="text/html;charset=utf-8">
+  <title>Cryptodev-linux module</title>
+  <meta name="keywords" content="cryptodev linux">
+<!-- <link rel="stylesheet" type="text/css" href="/gnu.css"> -->
+<!-- <link rel="icon" type="image/png" href="graphics/cryptodev-logo-icon.png"> -->
+<!-- google analytics -->
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-25370435-1']);
+  _gaq.push(['_trackPageview']);
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+<!-- end of google analytics -->
+</head>
+<body bgcolor="#ffffff" text="#000000" link="#1f00ff" alink="#ff0000" vlink="#9900dd">
+<div align="center">
+<p> </p>
+<h1> Cryptodev-linux module <br> [Comparison]</h1>
+<p></p>
+<!-- <img alt="Cryptodev Logo" src="cryptodev-logo.png" align="Left" border="0"> -->
+<a href="index.html">[Overview]</a>
+&nbsp; <a href="comparison.html">[Comparison]</a>
+&nbsp; <a href="news.html">[News]</a>
+&nbsp; <a href="download.html">[Download]</a>
+&nbsp; <a href="lists.html">[Mailing lists]</a>
+&nbsp; <a href="documentation.html">[Documentation]</a>
+<!-- &nbsp; <a href="ncr.html">[NCR-API]</a>  -->
+&nbsp; <a href="authors.html">[Authors]</a>
+<br>
+</div>
+<p></p>
+<p>
+In this page we present a comparison of the Linux port of /dev/crypto against the
+Linux kernel AF_ALG API under Linux kernel 3.0.0. The benchmarks used for /dev/crypto are included <a href="download.html">in our source repository</a>
+and the benchmark for AF_ALG <a href="misc/af_alg.tar">is also available</a>. The benchmark checked the throughput of
+each interface on requests for encryption using AES and the NULL cipher on different chunk sizes. We performed the test on
+a desktop system with the NULL cipher to demonstrate the performance on a high throughput
+hardware-optimized cipher, and to an embedded system with the CESA engine. It showed that AF_ALG's performance is poor on small chunk sizes.
+Note that real-world protocols such as TLS use chunk sizes of less than 16kB. We also included a benchmark of the AF_ALG usage with
+the splice() system call. This interface, however, is limited to page-aligned data.
+</p>
+<p>
+The following tests benchmark the speed of initialization, encryption and deinitialization of
+the cipher.
+</p>
+<div align="center">
+<table summary="">
+<tr><td><img src="cesa-full.png" alt=""></td> <td> <img src="crypto-afalg-null.png" alt=""></td></tr>
+<tr>
+<td><div align="center">Throughput of the cbc(aes) cipher (CESA)</div></td>
+<td><div align="center">Throughput of the ecb(cipher-null) cipher</div></td></tr>
+</table>
+</div>
+<p>
+The following benchmarks show the speed of encryption of the cipher. This does not include the initialization phase of the cipher (key expansion), but only the
+time spent for encryption.
+</p>
+<div align="center">
+<table summary="">
+<tr><td><img src="cesa-enc-only.png" alt=""></td>  <td> <img src="enc-only-null.png" alt=""></td></tr>
+<tr>
+<td><div align="center">Throughput of the cbc(aes) cipher (CESA)</div></td>
+<td><div align="center">Throughput of the ecb(cipher-null) cipher</div></td></tr>
+</table>
+</div>
+<table width="100%" summary="">
+<tr height="20">
+</tr>
+<tr>
+ <td align="right">
+Updated:
+<!-- timestamp start -->
+Date: 2011-09-05 14:16:05
+<!-- timestamp end -->
+ </td>
+</tr>
+<tr height="20">
+</tr>
+<!--
+<tr>
+ <td align="right">
+<a href="http://www.gna.org"><img src="icons/hostedbygna.png" alt=""></a>
+ </td>
+</tr>
+-->
+</table>
+</body>
+</html>

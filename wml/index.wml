@@ -1,0 +1,65 @@
+#include 'common.wml' page="Overview"
+
+<center>
+  <p>
+    Welcome to <i>Cryptodev-linux</i> project pages
+  </p>
+</center>
+<ul>
+  <li><a name="overview"><b>Overview</b></a>
+<p>Cryptodev-linux is a device that allows access to Linux kernel cryptographic drivers; thus allowing
+of userspace applications to take advantage of hardware accelerators. Cryptodev-linux is implemented as a standalone 
+module that requires no dependencies other than a stock linux kernel.
+It's API is compatible with OpenBSD's cryptodev userspace API (/dev/crypto). 
+</p></li>
+
+  <li><a name="features"><b>Features</b></a>
+<p>
+    <ul>
+      <li>Self contained linux kernel module</li>
+      <li>Exact simulation of the /dev/crypto interface</li>
+      <li>Support for all major cipher algorithms</li>
+      <li>Support for all major hash algorithms</li>
+      <li>Support for additional features to optimize TLS and SRTP protocols</li>
+      <li>Support for AEAD ciphers</li>
+      <li>Asynchronous and synchronous interfaces</li>
+    </ul>
+</p>
+  </li>
+
+  <li><a name="why"><b>Why use /dev/crypto</b></a>
+    <p>Several small systems include a hardware crypto device that optimizes
+    cryptographic operations with a 100x factor or even more comparing to a
+    plain software implementation. Those systems usually provide kernel
+    space drivers for those accelerators but they are not accessible from
+    typical usespace programs and libraries such as <a href="http://www.gnutls.org">GnuTLS</a> or <a href="http://www.openssl.org">OpenSSL</a>. The
+    /dev/crypto device is a middleware allowing access to the hardware
+    cryptographic modules from user-space applications and thus providing
+    the advantage of using them.
+    </p>
+  </li>
+
+  <li><a name="alternatives"><b>Alternatives</b></a>
+   <p><ul><li><a href="ncr.html">NCR</a> a new Cryptographic Framework for Linux based on this one.</li>
+   <li><a href="http://ocf-linux.sourceforge.net/">OCF-linux</a> is a port of the OpenBSD Cryptographic
+Framework to Linux that also includes the /dev/crypto interface. This is different to cryptodev-linux
+in the sense that cryptodev-linux is based on the native Linux crypto interfaces rather than importing
+them from OCF or other sources.</li>
+<li><a href="http://www.logix.cz/michal/devel/cryptodev/">Cryptodev for Linux</a>. This is the old cryptodev
+for linux implementation that cryptodev-linux is based on.</li>
+<li><a href="http://lwn.net/Articles/410536/">Linux 2.6.38 AF_ALG</a>. Linux
+2.6.38 introduced a sockets protocol to perform cryptographic operations.
+We made a performance <a href="http://home.gna.org/cryptodev-linux/comparison.html">comparison with cryptodev-linux</a>.</li>
+
+</ul>
+ </p>
+
+  <li><a name="status"><b>Status:</b></a>
+    <p>
+    <u><i>Stable</i></u>
+    </p>
+  </li>
+
+</ul>
+
+#include 'bottom.wml'

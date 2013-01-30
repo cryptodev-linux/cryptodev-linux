@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html
+     PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+  <meta http-equiv="content-type" content="text/html;charset=utf-8">
+  <title>Cryptodev-linux module</title>
+  <meta name="keywords" content="cryptodev linux">
+<!-- <link rel="stylesheet" type="text/css" href="/gnu.css"> -->
+<!-- <link rel="icon" type="image/png" href="graphics/cryptodev-logo-icon.png"> -->
+<!-- google analytics -->
+<script type="text/javascript">
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-25370435-1']);
+  _gaq.push(['_trackPageview']);
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+</script>
+<!-- end of google analytics -->
+</head>
+<body bgcolor="#ffffff" text="#000000" link="#1f00ff" alink="#ff0000" vlink="#9900dd">
+<div align="center">
+<h1> NCR Linux-kernel module</h1>
+  <p>
+    Welcome to <i>NCR</i> project pages
+  </p>
+</div>
+<ul>
+  <li><a name="overview"><b>NCR Overview</b></a>
+<p>The NCR API is an alternative to the OpenBSD API to access crypto services. It is being described at "<a href="https://www.cosic.esat.kuleuven.be/publications/article-2001.pdf">A Linux-kernel cryptographic framework: Decoupling cryptographic keys from applications</a>", and its
+main difference with the OpenBSD framework is that it is a complete cryptographic framework supporting
+all kinds of algorithms, and can be used in a way to prevent access to cryptographic keys from user-space applications.
+</p></li>
+  <li><a name="features"><b>Features</b></a>
+<p>
+    <ul>
+      <li>Self contained linux kernel module</li>
+      <li>Separation of cryptographic keys from user-space applications (can operate as soft-HSM)</li>
+      <li>Support for RSA, DSA and Diffie Hellman public key algorithms</li>
+      <li>Support for all major cipher algorithms</li>
+      <li>Support for all major hash algorithms</li>
+      <li>Can be easily wrapped under a PKCS #11 module</li>
+    </ul>
+</p>
+  </li>
+  <li><a name="why"><b>Why use /dev/ncr</b></a>
+  <p>In addition to the performance benefits by using hardware accelerated ciphers,
+  the NCR framework can protect cryptographic keys from user-space access. That would mean that a worm, or another code
+  injection attack in a server will not compromise the available cryptographic keys.
+    </p>
+  </li>
+   <li><a name="devel"><b>Development</b></a>
+    <p>
+    The source code is available at <a href="http://repo.or.cz/w/cryptodev-linux.git/tree/newapi">repo.or.cz</a>.
+    </p>
+  </li>
+   <li><a name="examples"><b>Examples</b></a>
+    <p>
+    Check how to use NCR by reading some <a href="http://repo.or.cz/w/cryptodev-linux.git/tree/newapi:/examples">example programs</a>.
+    </p>
+  </li>
+  <li><a name="status"><b>Status</b></a>
+    <p>
+    <u><i>Alpha</i></u>
+    </p>
+  </li>
+</ul>
+<table width="100%" summary="">
+<tr height="20">
+</tr>
+<tr>
+ <td align="right">
+Updated:
+<!-- timestamp start -->
+Date: 2012-11-15 18:33:04
+<!-- timestamp end -->
+ </td>
+</tr>
+<tr height="20">
+</tr>
+<!--
+<tr>
+ <td align="right">
+<a href="http://www.gna.org"><img src="icons/hostedbygna.png" alt=""></a>
+ </td>
+</tr>
+-->
+</table>
+</body>
+</html>

@@ -1,0 +1,43 @@
+#include 'common.wml' page="Availability"
+
+<center>
+
+<hr>
+
+<p>
+
+<h2>Cryptodev module</h2>
+
+<table border=0 cellspacing=1 width=70%>
+
+  <tr bgcolor=$(TABLE_HDCOLOR)>
+    <th>Site:</th>
+    <th>Description:</th>
+    <th>Location:</th>
+    <th>Provider:</th>
+  </tr>
+
+  <tr bgcolor=$(TABLE_BGCOLOR)>
+    <td><a href="http://download.gna.org/cryptodev-linux/">
+	http://download.gna.org/cryptodev-linux/</a></td>
+    <td>gna.org HTTP server</td>
+    <td>Europe - France</td>
+    <td><a href="http://www.gna.org">GNA</a></td>
+  </tr>
+
+</table>
+</p>
+
+<p>
+  All the releases are signed
+  with <a href="http://members.hellug.gr/nmav/pgpkeys.asc">Nikos'</a>
+  OpenPGP key.
+</p>
+
+<p>
+ For the latest additions check <a href="http://repo.or.cz/w/cryptodev-linux.git">the git repository</a>.
+</p>
+
+</center>
+
+#include 'bottom.wml'

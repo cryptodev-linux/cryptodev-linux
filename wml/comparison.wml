@@ -1,0 +1,42 @@
+#include 'common.wml' page="Comparison"
+
+
+<p>
+In this page we present a comparison of the Linux port of /dev/crypto against the 
+Linux kernel AF_ALG API under Linux kernel 3.0.0. The benchmarks used for /dev/crypto are included <a href="download.html">in our source repository</a>
+and the benchmark for AF_ALG <a href="misc/af_alg.tar">is also available</a>. The benchmark checked the throughput of
+each interface on requests for encryption using AES and the NULL cipher on different chunk sizes. We performed the test on
+a desktop system with the NULL cipher to demonstrate the performance on a high throughput
+hardware-optimized cipher, and to an embedded system with the CESA engine. It showed that AF_ALG's performance is poor on small chunk sizes. 
+Note that real-world protocols such as TLS use chunk sizes of less than 16kB. We also included a benchmark of the AF_ALG usage with
+the splice() system call. This interface, however, is limited to page-aligned data.
+</p>
+<p>
+The following tests benchmark the speed of initialization, encryption and deinitialization of
+the cipher.
+</p>
+<center>
+<table>
+<tr><td><img src="cesa-full.png"></td> <td> <img src="crypto-afalg-null.png"></td></tr>
+<tr>
+<td><center>Throughput of the cbc(aes) cipher (CESA)</center></td>
+<td><center>Throughput of the ecb(cipher-null) cipher</center></td></tr>
+</table>
+
+</center>
+
+<p>
+The following benchmarks show the speed of encryption of the cipher. This does not include the initialization phase of the cipher (key expansion), but only the
+time spent for encryption.
+</p>
+<center>
+<table>
+<tr><td><img src="cesa-enc-only.png"></td>  <td> <img src="enc-only-null.png"></td></tr>
+<tr>
+<td><center>Throughput of the cbc(aes) cipher (CESA)</center></td>
+<td><center>Throughput of the ecb(cipher-null) cipher</center></td></tr>
+</table>
+
+</center>
+
+#include 'bottom.wml'

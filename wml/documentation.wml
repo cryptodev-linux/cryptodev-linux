@@ -1,0 +1,24 @@
+#include 'common.wml' page="Documentation"
+
+<p>This section lists resources related to /dev/crypto interface. Note that cryptodev-linux
+is a reimplementation of these ideas, on top of linux kernel's cryptographic API. Cryptodev-linux
+is not a port of the OpenBSD cryptographic framework, thus some information about internals discussed 
+in these documents might not apply.
+</p>
+
+<p>
+The /dev/crypto ioctl API is roughly described by the <a href="http://repo.or.cz/w/cryptodev-linux.git/blob/HEAD:/crypto/cryptodev.h">cryptodev.h header
+file</a>, and by the <a href="http://repo.or.cz/w/cryptodev-linux.git/tree/HEAD:/examples">example files</a> included in the
+distribution.
+</p>
+
+<p>
+Documents related to /dev/crypto and other kernel frameworks are listed below.
+<ul>
+  <li><a href="http://www.openbsd.org/papers/ocf.pdf">The Design of the OpenBSD Cryptographic Framework</a></li>
+  <li><a href="http://www.usenix.org/event/bsdcon03/tech/leffler_crypto/leffler_crypto.pdf">Cryptographic Device Support for FreeBSD</a></li>
+  <li><a href="http://www.paeps.cx/pubs/crypto_acceleration/slides.pdf">Crypto Acceleration on FreeBSD</a></li>
+  <li><a href="https://www.cosic.esat.kuleuven.be/publications/article-2001.pdf">A Linux-kernel cryptographic framework: Decoupling cryptographic keys from applications</a></li>
+</ul>
+</p>
+#include 'bottom.wml'
