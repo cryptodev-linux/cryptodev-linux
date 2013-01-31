@@ -18,14 +18,6 @@
 	</ul></td>
       </tr>
 
-      <tr bgcolor=$(TABLE_BGCOLOR)>
-	<td><a href="https://mail.gna.org/listinfo/cryptodev-linux-commit/">Cryptodev-linux-commit</a></td>
-	<td>Information about commits. Posting is prohibited.</td>
-	<td><ul>
-	    <li><a href="https://mail.gna.org/public/cryptodev-linux-commit/">Official archives</a></li>
-	</ul></td>
-      </tr>
-
     </tbody>
   </table>
 
