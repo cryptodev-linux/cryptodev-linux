@@ -40,16 +40,15 @@ It's API is compatible with OpenBSD's cryptodev userspace API (/dev/crypto).
   </li>
 
   <li><a name="alternatives"><b>Alternatives</b></a>
-   <p><ul><li><a href="ncr.html">NCR</a> a new Cryptographic Framework for Linux based on this one.</li>
+   <p><ul><li><a href="ncr.html">NCR</a> a Cryptographic Framework for Linux originally based on this one. Instead of simply providing cryptographic operations, it acts as a software security module.</li>
    <li><a href="http://ocf-linux.sourceforge.net/">OCF-linux</a> is a port of the OpenBSD Cryptographic
-Framework to Linux that also includes the /dev/crypto interface. This is different to cryptodev-linux
-in the sense that cryptodev-linux is based on the native Linux crypto interfaces rather than importing
-them from OCF or other sources.</li>
+Framework to Linux that also includes the /dev/crypto interface. This unlike
+cryptodev-linux does not use the native Linux crypto interfaces.</li>
 <li><a href="http://www.logix.cz/michal/devel/cryptodev/">Cryptodev for Linux</a>. This is the old cryptodev
 for linux implementation that cryptodev-linux is based on.</li>
 <li><a href="http://lwn.net/Articles/410536/">Linux 2.6.38 AF_ALG</a>. Linux
-2.6.38 introduced a sockets protocol to perform cryptographic operations.
-We made a performance <a href="comparison.html">comparison with cryptodev-linux</a>.</li>
+2.6.38 introduced a sockets-based protocol to perform cryptographic operations.
+It was proved to be pretty inefficient in modern hardware; we made a performance <a href="comparison.html">comparison with cryptodev-linux</a>.</li>
 
 </ul>
  </p>
