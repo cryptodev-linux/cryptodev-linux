@@ -6,6 +6,11 @@
   <tr bgcolor=$(TABLE_HDCOLOR)><th>Date</th><th>Comment</th></tr>
 
   <tr bgcolor="#e5d5e5">
+    <td bgcolor="#e0d7d7">2013-03-20</td>
+    <td><a href="https://mail.gna.org/public/cryptodev-linux-devel/2013-03/msg00002.html">Released v1.6 of linux-cryptodev</a>. This is a bug-fix release.</td>
+  </tr>
+
+  <tr bgcolor="#e5d5e5">
     <td bgcolor="#e0d7d7">2012-08-04</td>
     <td><a href="https://mail.gna.org/public/cryptodev-linux-devel/2012-08/msg00003.html">Released v1.5 of linux-cryptodev</a>. This is a bug-fix release.</td>
   </tr>
