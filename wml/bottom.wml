@@ -1,3 +1,4 @@
+<font size="-1">
 <table width=100%>
 
 <tr height=20>
@@ -14,14 +15,8 @@ Date: $(WML_SRC_ISOTIME)
 
 <tr height=20>
 </tr>
-<!--
-<tr>
- <td align=right>
-<a href="http://www.gna.org"><img src="icons/hostedbygna.png"></a>
- </td>
-</tr>
--->
 </table>
+</font>
 
 </body>
 </html>

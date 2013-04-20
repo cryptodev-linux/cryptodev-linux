@@ -1,13 +1,9 @@
 #include 'common.wml' page="Availability"
 
-<center>
+<ul>
 
-<hr>
-
+<li><b>Cryptodev module download sites</b>
 <p>
-
-<h2>Cryptodev module</h2>
-
 <table border=0 cellspacing=1 width=70%>
 
   <tr bgcolor=$(TABLE_HDCOLOR)>
@@ -27,17 +23,22 @@
 
 </table>
 </p>
-
 <p>
   All the releases are signed
   with <a href="http://members.hellug.gr/nmav/pgpkeys.asc">Nikos'</a>
   OpenPGP key.
 </p>
+</li>
 
+<li><b>Development releases</b>
 <p>
  For the latest additions check <a href="https://github.com/nmav/cryptodev-linux/">the git repository</a>.
 </p>
+</li>
 
-</center>
+  <li><a name="how"><b>How to install /dev/crypto</b></a>
+    <p>Check <a href="https://github.com/nmav/cryptodev-linux/blob/master/INSTALL">the installation instructions</a>.</p>
+  </li>
+</ul>
 
 #include 'bottom.wml'
