@@ -7,9 +7,8 @@ Linux kernel AF_ALG API under Linux kernel 3.0.0. The benchmarks used for /dev/c
 and the benchmark for AF_ALG <a href="misc/af_alg.tar">is also available</a>. The benchmark checked the throughput of
 each interface on requests for encryption using AES and the NULL cipher on different chunk sizes. We performed the test on
 a desktop system with the NULL cipher to demonstrate the performance on a high throughput
-hardware-optimized cipher, and to an embedded system with the CESA engine. It showed that AF_ALG's performance is poor on small chunk sizes. 
-Note that real-world protocols such as TLS use chunk sizes of less than 16kB. We also included a benchmark of the AF_ALG usage with
-the splice() system call. This interface, however, is limited to page-aligned data.
+hardware-optimized cipher, and to an embedded system with the CESA engine. It showed that AF_ALG's performance is
+poor on small chunk sizes (real-world protocols typically use small chunks), and doesn't scale, as the faster the hardware the worst AF_ALG is performing.
 </p>
 <p>
 The following tests benchmark the speed of initialization, encryption and deinitialization of
