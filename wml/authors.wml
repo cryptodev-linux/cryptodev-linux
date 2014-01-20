@@ -9,11 +9,12 @@
 <table border="0" cellspacing="1" width=30%>
   <tr bgcolor=$(TABLE_HDCOLOR)><th>Name</th></tr>
 
-  <tr bgcolor=$(TABLE_BGCOLOR)><td><a href="http://nikmav.blogspot.com">Nikos Mavrogiannopoulos</a> (Maintainer)</td>
+  <tr bgcolor=$(TABLE_BGCOLOR)><td>Phil Sutter (Maintainer)</td>
   </tr>
 
-  <tr bgcolor=$(TABLE_BGCOLOR)><td>Phil Sutter</td>
+  <tr bgcolor=$(TABLE_BGCOLOR)><td><a href="http://nikmav.blogspot.com">Nikos Mavrogiannopoulos</a></td>
   </tr>
+
 
   <tr bgcolor=$(TABLE_BGCOLOR)><td>Michael Weiser</td>
   </tr>
