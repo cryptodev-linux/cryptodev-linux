@@ -23,21 +23,16 @@
 
 </table>
 </p>
-<p>
-  All the releases are signed
-  with <a href="http://members.hellug.gr/nmav/pgpkeys.asc">Nikos'</a>
-  OpenPGP key.
-</p>
 </li>
 
 <li><b>Development releases</b>
 <p>
- For the latest additions check <a href="https://github.com/nmav/cryptodev-linux/">the git repository</a>.
+ For the latest additions check <a href="https://github.com/cryptodev-linux/cryptodev-linux">the git repository</a>.
 </p>
 </li>
 
   <li><a name="how"><b>How to install /dev/crypto</b></a>
-    <p>Check <a href="https://github.com/nmav/cryptodev-linux/blob/master/INSTALL">the installation instructions</a>.</p>
+    <p>Check <a href="https://github.com/cryptodev-linux/cryptodev-linux/blob/master/INSTALL">the installation instructions</a>.</p>
   </li>
 </ul>
 
