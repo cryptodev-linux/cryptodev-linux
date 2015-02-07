@@ -1,4 +1,4 @@
-Version 1.7 (unreleased)
+Version 1.7 (released 2014-02-07)
 
 * Added support for composite AEAD keys by Cristian Stoica.
 
@@ -8,6 +8,26 @@ Version 1.7 (unreleased)
 
 * When a driver requires aligned data but unaligned are provided, then
   zero copy is disabled to prevent driver failing to encrypt.
+
+* Compatibility to kernel version 3.13 and above by Cosmin Paraschiv.
+
+* Various checkpatch.pl fixes.
+
+* Introduced ddebug, dinfo, dwarning and derr macros wrapping dprintk.
+
+* Improved support for cross-compiling.
+
+* Hmac_comp test has become more picky when checking results.
+
+* Fixed allocated resource cleanup in error case, patch by Cristian Stoica.
+
+* Buffer size allocation fixup for AEAD modes by Nikos Mavrogiannopoulos.
+
+* Support for composite AEAD keys added by Cristian Stoica.
+
+* Fixed tag and dsl_len calculation for AEAD ciphers, patch by Cristian Stoica.
+
+* Documentation updates by Nikos Mavrogiannopoulos.
 
 
 Version 1.6 (released 2013-03-20)
