@@ -53,20 +53,14 @@ endif
 checkpatch:
 	$(KERNEL_DIR)/scripts/checkpatch.pl ${CPOPTS} --file *.c *.h
 
+VERSIONTAG = refs/tags/cryptodev-linux-$(VERSION)
 FILEBASE = cryptodev-linux-$(VERSION)
-TMPDIR ?= /tmp
 OUTPUT = $(FILEBASE).tar.gz
 
 dist: clean
 	@echo Packing
 	@rm -f *.tar.gz
-	@mkdir $(TMPDIR)/$(FILEBASE)
-	@cp -ar crypto extras tests examples Makefile *.c *.h README NEWS \
-		INSTALL AUTHORS COPYING $(TMPDIR)/$(FILEBASE)
-	@rm -rf $(TMPDIR)/$(FILEBASE)/.git* $(TMPDIR)/$(FILEBASE)/releases $(TMPDIR)/$(FILEBASE)/scripts
-	@tar -C /tmp -czf ./$(OUTPUT) $(FILEBASE)
-	@rm -rf $(TMPDIR)/$(FILEBASE)
+	@git archive --format=tar.gz --prefix=$(FILEBASE)/ --output=$(OUTPUT) $(VERSIONTAG)
 	@echo Signing $(OUTPUT)
 	@gpg --output $(OUTPUT).sig -sb $(OUTPUT)
 	@gpg --verify $(OUTPUT).sig $(OUTPUT)
-	@mv $(OUTPUT) $(OUTPUT).sig releases/
