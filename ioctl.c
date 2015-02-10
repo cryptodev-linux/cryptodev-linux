@@ -546,7 +546,7 @@ static int
 clonefd(struct file *filp)
 {
 	int ret;
-	ret = get_unused_fd();
+	ret = get_unused_fd_flags(0);
 	if (ret >= 0) {
 			get_file(filp);
 			fd_install(ret, filp);
