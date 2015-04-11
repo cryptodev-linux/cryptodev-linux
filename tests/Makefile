@@ -31,5 +31,5 @@ check: $(hostprogs)
 clean:
 	rm -f *.o *~ $(hostprogs)
 
-${comp_progs}: LDFLAGS += -lssl -lcrypto
+${comp_progs}: LDLIBS += -lssl -lcrypto
 ${comp_progs}: %: %.o openssl_wrapper.o
