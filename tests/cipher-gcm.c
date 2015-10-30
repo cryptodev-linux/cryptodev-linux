@@ -164,7 +164,7 @@ static int test_crypto(int cfd)
 				"AES-GCM test vector %d failed (tag)!\n",
 				i);
 
-			print_buf("Tag: ", tmp, cao.tag_len);
+			print_buf("Tag: ", &tmp[cao.len - cao.tag_len], cao.tag_len);
 			print_buf("Expected tag: ",
 				  aes_gcm_vectors[i].tag, 16);
 			return 1;
