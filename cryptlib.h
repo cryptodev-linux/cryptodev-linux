@@ -1,6 +1,8 @@
 #ifndef CRYPTLIB_H
 # define CRYPTLIB_H
 
+#include <linux/version.h>
+
 struct cipher_data {
 	int init; /* 0 uninitialized */
 	int blocksize;
@@ -40,7 +42,11 @@ static inline void cryptodev_cipher_auth(struct cipher_data *cdata,
 					 struct scatterlist *sg1, size_t len)
 {
 	/* for some reason we _have_ to call that even for zero length sgs */
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 3, 0))
 	aead_request_set_assoc(cdata->async.arequest, len ? sg1 : NULL, len);
+#else
+	aead_request_set_ad(cdata->async.arequest, len);
+#endif
 }
 
 static inline void cryptodev_cipher_set_tag_size(struct cipher_data *cdata, int size)
