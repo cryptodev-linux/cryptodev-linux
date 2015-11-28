@@ -1,3 +1,13 @@
+Version 1.8 (released 2015-11-28)
+
+* Fixed compilation against linux-3.19.
+
+* Tests: cixed arg passing to CC in implicit rule.
+
+* Fix tag printing in cipher-gcm test by Fridolin Pokorny.
+
+* Fix compilation against linux 4.3 by Gustavo Zacarias.
+
 Version 1.7 (released 2015-02-07)
 
 * Added support for composite AEAD keys by Cristian Stoica.
