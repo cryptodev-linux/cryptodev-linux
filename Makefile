@@ -14,11 +14,11 @@ cryptodev-objs = ioctl.o main.o cryptlib.o authenc.o zc.o util.o
 obj-m += cryptodev.o
 
 KERNEL_MAKE_OPTS := -C $(KERNEL_DIR) M=$(PWD)
-ifneq (${ARCH},)
-KERNEL_MAKE_OPTS += ARCH=${ARCH}
+ifneq ($(ARCH),)
+KERNEL_MAKE_OPTS += ARCH=$(ARCH)
 endif
-ifneq (${CROSS_COMPILE},)
-KERNEL_MAKE_OPTS += CROSS_COMPILE=${CROSS_COMPILE}
+ifneq ($(CROSS_COMPILE),)
+KERNEL_MAKE_OPTS += CROSS_COMPILE=$(CROSS_COMPILE)
 endif
 
 build: version.h
@@ -43,15 +43,15 @@ check:
 	CFLAGS=$(CRYPTODEV_CFLAGS) KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C tests check
 
 CPOPTS =
-ifneq (${SHOW_TYPES},)
+ifneq ($(SHOW_TYPES),)
 CPOPTS += --show-types
 endif
-ifneq (${IGNORE_TYPES},)
-CPOPTS += --ignore ${IGNORE_TYPES}
+ifneq ($(IGNORE_TYPES),)
+CPOPTS += --ignore $(IGNORE_TYPES)
 endif
 
 checkpatch:
-	$(KERNEL_DIR)/scripts/checkpatch.pl ${CPOPTS} --file *.c *.h
+	$(KERNEL_DIR)/scripts/checkpatch.pl $(CPOPTS) --file *.c *.h
 
 VERSIONTAG = refs/tags/cryptodev-linux-$(VERSION)
 FILEBASE = cryptodev-linux-$(VERSION)

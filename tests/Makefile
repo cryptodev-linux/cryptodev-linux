@@ -6,7 +6,7 @@ comp_progs := cipher_comp hash_comp hmac_comp
 
 hostprogs := cipher cipher-aead hmac speed async_cipher async_hmac \
 	async_speed sha_speed hashcrypt_speed fullspeed cipher-gcm \
-	cipher-aead-srtp ${comp_progs}
+	cipher-aead-srtp $(comp_progs)
 
 example-cipher-objs := cipher.o
 example-cipher-aead-objs := cipher-aead.o
