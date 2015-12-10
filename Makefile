@@ -22,7 +22,7 @@ KERNEL_MAKE_OPTS += CROSS_COMPILE=${CROSS_COMPILE}
 endif
 
 build: version.h
-	make ${KERNEL_MAKE_OPTS} modules
+	$(MAKE) $(KERNEL_MAKE_OPTS) modules
 
 version.h: Makefile
 	@echo "#define VERSION \"$(VERSION)\"" > version.h
@@ -30,17 +30,17 @@ version.h: Makefile
 install: modules_install
 
 modules_install:
-	make -C $(KERNEL_DIR) SUBDIRS=`pwd` modules_install
+	$(MAKE) -C $(KERNEL_DIR) SUBDIRS=`pwd` modules_install
 	@echo "Installing cryptodev.h in $(PREFIX)/usr/include/crypto ..."
 	@install -D crypto/cryptodev.h $(PREFIX)/usr/include/crypto/cryptodev.h
 
 clean:
-	make -C $(KERNEL_DIR) SUBDIRS=`pwd` clean
+	$(MAKE) -C $(KERNEL_DIR) SUBDIRS=`pwd` clean
 	rm -f $(hostprogs) *~
-	CFLAGS=$(CRYPTODEV_CFLAGS) KERNEL_DIR=$(KERNEL_DIR) make -C tests clean
+	CFLAGS=$(CRYPTODEV_CFLAGS) KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C tests clean
 
 check:
-	CFLAGS=$(CRYPTODEV_CFLAGS) KERNEL_DIR=$(KERNEL_DIR) make -C tests check
+	CFLAGS=$(CRYPTODEV_CFLAGS) KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C tests check
 
 CPOPTS =
 ifneq (${SHOW_TYPES},)
