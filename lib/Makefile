@@ -3,7 +3,7 @@ CFLAGS=-g -O2 -Wall
 all: benchmark
 
 benchmark: main.c libthreshold.a
-	gcc $(CFLAGS) -DDEBUG -o $@ $^ -lssl libthreshold.a
+	gcc $(CFLAGS) -DDEBUG -o $@ $^ -lssl -lcrypto libthreshold.a
 
 .o:
 	gcc $(CCFLAGS) -c $< -o $@
