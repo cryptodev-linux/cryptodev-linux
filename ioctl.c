@@ -278,6 +278,11 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 			ret = -EINVAL;
 			goto session_error;
 		}
+
+		ret = cryptodev_hash_reset(&ses_new->hdata);
+		if (ret != 0) {
+			goto session_error;
+		}
 	}
 
 	ses_new->alignmask = max(ses_new->cdata.alignmask,

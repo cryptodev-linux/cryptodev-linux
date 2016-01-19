@@ -370,18 +370,9 @@ int cryptodev_hash_init(struct hash_data *hdata, const char *alg_name,
 	ahash_request_set_callback(hdata->async.request,
 			CRYPTO_TFM_REQ_MAY_BACKLOG,
 			cryptodev_complete, hdata->async.result);
-
-	ret = crypto_ahash_init(hdata->async.request);
-	if (unlikely(ret)) {
-		derr(0, "error in crypto_hash_init()");
-		goto error_request;
-	}
-
 	hdata->init = 1;
 	return 0;
 
-error_request:
-	ahash_request_free(hdata->async.request);
 error:
 	kfree(hdata->async.result);
 	crypto_free_ahash(hdata->async.s);
