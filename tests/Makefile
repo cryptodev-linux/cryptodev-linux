@@ -19,6 +19,8 @@ example-async-hmac-objs := async_hmac.o
 example-async-speed-objs := async_speed.o
 example-hashcrypt-speed-objs := hashcrypt_speed.c
 
+all: $(hostprogs)
+
 check: $(hostprogs)
 	./cipher
 	./hmac
@@ -33,3 +35,5 @@ clean:
 
 ${comp_progs}: LDLIBS += -lssl -lcrypto
 ${comp_progs}: %: %.o openssl_wrapper.o
+
+.PHONY: all clean check
