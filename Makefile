@@ -7,7 +7,9 @@ CRYPTODEV_CFLAGS ?= #-DENABLE_ASYNC
 KBUILD_CFLAGS += -I$(src) $(CRYPTODEV_CFLAGS)
 KERNEL_DIR ?= /lib/modules/$(shell uname -r)/build
 VERSION = 1.8
-PREFIX ?=
+
+prefix ?= /usr/local
+includedir = $(prefix)/include
 
 cryptodev-objs = ioctl.o main.o cryptlib.o authenc.o zc.o util.o
 
@@ -31,8 +33,7 @@ install: modules_install
 
 modules_install:
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules_install
-	@echo "Installing cryptodev.h in $(PREFIX)/usr/include/crypto ..."
-	@install -D crypto/cryptodev.h $(PREFIX)/usr/include/crypto/cryptodev.h
+	install -m 644 -D crypto/cryptodev.h $(DESTDIR)/$(includedir)/crypto/cryptodev.h
 
 clean:
 	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) clean
