@@ -19,6 +19,10 @@ example-async-hmac-objs := async_hmac.o
 example-async-speed-objs := async_speed.o
 example-hashcrypt-speed-objs := hashcrypt_speed.c
 
+prefix ?= /usr/local
+execprefix ?= $(prefix)
+bindir = $(execprefix)/bin
+
 all: $(hostprogs)
 
 check: $(hostprogs)
@@ -30,10 +34,16 @@ check: $(hostprogs)
 	./cipher-gcm
 	./cipher-aead
 
+install:
+	install -d $(DESTDIR)/$(bindir)
+	for prog in $(hostprogs); do \
+		install -m 755 $$prog $(DESTDIR)/$(bindir); \
+	done
+
 clean:
 	rm -f *.o *~ $(hostprogs)
 
 ${comp_progs}: LDLIBS += -lssl -lcrypto
 ${comp_progs}: %: %.o openssl_wrapper.o
 
-.PHONY: all clean check
+.PHONY: all clean check install
