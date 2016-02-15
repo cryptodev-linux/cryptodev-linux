@@ -337,7 +337,7 @@ session_error:
 	return ret;
 }
 
-/* Everything that needs to be done when remowing a session. */
+/* Everything that needs to be done when removing a session. */
 static inline void
 crypto_destroy_session(struct csession *ses_ptr)
 {
