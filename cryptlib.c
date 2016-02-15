@@ -362,10 +362,8 @@ error:
 void cryptodev_hash_deinit(struct hash_data *hdata)
 {
 	if (hdata->init) {
-		if (hdata->async.request)
-			ahash_request_free(hdata->async.request);
-		if (hdata->async.s)
-			crypto_free_ahash(hdata->async.s);
+		ahash_request_free(hdata->async.request);
+		crypto_free_ahash(hdata->async.s);
 		hdata->init = 0;
 	}
 }
