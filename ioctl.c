@@ -1065,7 +1065,7 @@ cryptodev_compat_ioctl(struct file *file, unsigned int cmd, unsigned long arg_)
 static unsigned int cryptodev_poll(struct file *file, poll_table *wait)
 {
 	struct crypt_priv *pcr = file->private_data;
-	int ret = 0;
+	unsigned int ret = 0;
 
 	poll_wait(file, &pcr->user_waiter, wait);
 
