@@ -45,8 +45,8 @@ Its API is compatible with OpenBSD's cryptodev userspace API (/dev/crypto).
     <ul>
       <li>Self contained linux kernel module</li>
       <li>Exact simulation of the /dev/crypto interface</li>
-      <li>Support for all major cipher algorithms</li>
-      <li>Support for all major hash algorithms</li>
+      <li>Support for all major cipher and hash algorithms</li>
+      <li>Zero copy of data</li>
       <li>Support for additional features to optimize TLS and SRTP protocols</li>
       <li>Support for AEAD ciphers</li>
       <li>Asynchronous and synchronous interfaces</li>
@@ -67,7 +67,8 @@ Its API is compatible with OpenBSD's cryptodev userspace API (/dev/crypto).
   <li><a name="why2"><b>Why use cryptodev-linux</b></a>
     <p>
     <ul>
-    <li>It provides <a href="comparison.html">better performance</a> than any of the alternatives;</li>
+    <li>It provides <a href="comparison.html">better performance</a> than any of the alternatives
+    including AF_ALG;</li>
     <li>It has an API-compatible interface with FreeBSD and OpenBSD cryptodev;</li>
     <li>It uses the native Linux kernel crypto drivers.</li>
     </ul>
@@ -80,7 +81,7 @@ Framework to Linux that also includes the /dev/crypto interface. This unlike
 cryptodev-linux does not use the native Linux crypto interfaces.</li>
 <li><a href="http://lwn.net/Articles/410536/">Linux 2.6.38 AF_ALG</a>. Linux
 2.6.38 introduced a sockets-based protocol to perform cryptographic operations.
-It was proved to be pretty inefficient in modern hardware; we made a performance <a href="comparison.html">comparison with cryptodev-linux</a>.</li>
+It is very inefficient in modern hardware; we made a performance <a href="comparison.html">comparison with cryptodev-linux</a>.</li>
 </ul>
  </p>
 </ul>
