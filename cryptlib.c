@@ -23,7 +23,6 @@
  * 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
  */
 
-#include <linux/crypto.h>
 #include <linux/mm.h>
 #include <linux/highmem.h>
 #include <linux/ioctl.h>
@@ -37,6 +36,7 @@
 #include <linux/rtnetlink.h>
 #include <crypto/authenc.h>
 #include "cryptodev_int.h"
+#include "cipherapi.h"
 
 
 static void cryptodev_complete(struct crypto_async_request *req, int err)
@@ -128,15 +128,15 @@ int cryptodev_cipher_init(struct cipher_data *out, const char *alg_name,
 	int ret;
 
 	if (aead == 0) {
-		struct ablkcipher_alg *alg;
+		cryptodev_blkcipher_alg_t *alg;
 
-		out->async.s = crypto_alloc_ablkcipher(alg_name, 0, 0);
+		out->async.s = cryptodev_crypto_alloc_blkcipher(alg_name, 0, 0);
 		if (unlikely(IS_ERR(out->async.s))) {
 			ddebug(1, "Failed to load cipher %s", alg_name);
 				return -EINVAL;
 		}
 
-		alg = crypto_ablkcipher_alg(out->async.s);
+		alg = cryptodev_crypto_blkcipher_alg(out->async.s);
 		if (alg != NULL) {
 			/* Was correct key length supplied? */
 			if (alg->max_keysize > 0 &&
@@ -149,11 +149,11 @@ int cryptodev_cipher_init(struct cipher_data *out, const char *alg_name,
 			}
 		}
 
-		out->blocksize = crypto_ablkcipher_blocksize(out->async.s);
-		out->ivsize = crypto_ablkcipher_ivsize(out->async.s);
-		out->alignmask = crypto_ablkcipher_alignmask(out->async.s);
+		out->blocksize = cryptodev_crypto_blkcipher_blocksize(out->async.s);
+		out->ivsize = cryptodev_crypto_blkcipher_ivsize(out->async.s);
+		out->alignmask = cryptodev_crypto_blkcipher_alignmask(out->async.s);
 
-		ret = crypto_ablkcipher_setkey(out->async.s, keyp, keylen);
+		ret = cryptodev_crypto_blkcipher_setkey(out->async.s, keyp, keylen);
 	} else {
 		out->async.as = crypto_alloc_aead(alg_name, 0, 0);
 		if (unlikely(IS_ERR(out->async.as))) {
@@ -180,14 +180,14 @@ int cryptodev_cipher_init(struct cipher_data *out, const char *alg_name,
 	init_completion(&out->async.result.completion);
 
 	if (aead == 0) {
-		out->async.request = ablkcipher_request_alloc(out->async.s, GFP_KERNEL);
+		out->async.request = cryptodev_blkcipher_request_alloc(out->async.s, GFP_KERNEL);
 		if (unlikely(!out->async.request)) {
 			derr(1, "error allocating async crypto request");
 			ret = -ENOMEM;
 			goto error;
 		}
 
-		ablkcipher_request_set_callback(out->async.request,
+		cryptodev_blkcipher_request_set_callback(out->async.request,
 					CRYPTO_TFM_REQ_MAY_BACKLOG,
 					cryptodev_complete, &out->async.result);
 	} else {
@@ -207,10 +207,8 @@ int cryptodev_cipher_init(struct cipher_data *out, const char *alg_name,
 	return 0;
 error:
 	if (aead == 0) {
-		if (out->async.request)
-			ablkcipher_request_free(out->async.request);
-		if (out->async.s)
-			crypto_free_ablkcipher(out->async.s);
+		cryptodev_blkcipher_request_free(out->async.request);
+		cryptodev_crypto_free_blkcipher(out->async.s);
 	} else {
 		if (out->async.arequest)
 			aead_request_free(out->async.arequest);
@@ -225,10 +223,8 @@ void cryptodev_cipher_deinit(struct cipher_data *cdata)
 {
 	if (cdata->init) {
 		if (cdata->aead == 0) {
-			if (cdata->async.request)
-				ablkcipher_request_free(cdata->async.request);
-			if (cdata->async.s)
-				crypto_free_ablkcipher(cdata->async.s);
+			cryptodev_blkcipher_request_free(cdata->async.request);
+			cryptodev_crypto_free_blkcipher(cdata->async.s);
 		} else {
 			if (cdata->async.arequest)
 				aead_request_free(cdata->async.arequest);
@@ -276,10 +272,10 @@ ssize_t cryptodev_cipher_encrypt(struct cipher_data *cdata,
 	reinit_completion(&cdata->async.result.completion);
 
 	if (cdata->aead == 0) {
-		ablkcipher_request_set_crypt(cdata->async.request,
+		cryptodev_blkcipher_request_set_crypt(cdata->async.request,
 			(struct scatterlist *)src, dst,
 			len, cdata->async.iv);
-		ret = crypto_ablkcipher_encrypt(cdata->async.request);
+		ret = cryptodev_crypto_blkcipher_encrypt(cdata->async.request);
 	} else {
 		aead_request_set_crypt(cdata->async.arequest,
 			(struct scatterlist *)src, dst,
@@ -298,10 +294,10 @@ ssize_t cryptodev_cipher_decrypt(struct cipher_data *cdata,
 
 	reinit_completion(&cdata->async.result.completion);
 	if (cdata->aead == 0) {
-		ablkcipher_request_set_crypt(cdata->async.request,
+		cryptodev_blkcipher_request_set_crypt(cdata->async.request,
 			(struct scatterlist *)src, dst,
 			len, cdata->async.iv);
-		ret = crypto_ablkcipher_decrypt(cdata->async.request);
+		ret = cryptodev_crypto_blkcipher_decrypt(cdata->async.request);
 	} else {
 		aead_request_set_crypt(cdata->async.arequest,
 			(struct scatterlist *)src, dst,
