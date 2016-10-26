@@ -15,7 +15,7 @@ cryptodev-objs = ioctl.o main.o cryptlib.o authenc.o zc.o util.o
 
 obj-m += cryptodev.o
 
-KERNEL_MAKE_OPTS := -C $(KERNEL_DIR) M=$(PWD)
+KERNEL_MAKE_OPTS := -C $(KERNEL_DIR) M=$(CURDIR)
 ifneq ($(ARCH),)
 KERNEL_MAKE_OPTS += ARCH=$(ARCH)
 endif
@@ -32,11 +32,11 @@ version.h: Makefile
 install: modules_install
 
 modules_install:
-	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) modules_install
+	$(MAKE) $(KERNEL_MAKE_OPTS) modules_install
 	install -m 644 -D crypto/cryptodev.h $(DESTDIR)/$(includedir)/crypto/cryptodev.h
 
 clean:
-	$(MAKE) -C $(KERNEL_DIR) M=$(PWD) clean
+	$(MAKE) $(KERNEL_MAKE_OPTS) clean
 	rm -f $(hostprogs) *~
 	CFLAGS=$(CRYPTODEV_CFLAGS) KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C tests clean
 
