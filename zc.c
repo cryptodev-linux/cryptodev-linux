@@ -65,7 +65,13 @@ int __get_userbuf(uint8_t __user *addr, uint32_t len, int write,
 	ret = get_user_pages(
 #endif
 			task, mm,
-			(unsigned long)addr, pgcount, write, 0, pg, NULL);
+			(unsigned long)addr, pgcount,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 9, 0))
+			write ? FOLL_WRITE : 0,
+#else
+			write, 0,
+#endif
+			pg, NULL);
 	up_read(&mm->mmap_sem);
 	if (ret != pgcount)
 		return -EINVAL;
