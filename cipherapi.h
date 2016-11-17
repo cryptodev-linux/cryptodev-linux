@@ -6,12 +6,10 @@
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 8, 0))
 # include <linux/crypto.h>
 
-typedef struct ablkcipher_alg cryptodev_blkcipher_alg_t;
 typedef struct crypto_ablkcipher cryptodev_crypto_blkcipher_t;
 typedef struct ablkcipher_request cryptodev_blkcipher_request_t;
 
 # define cryptodev_crypto_alloc_blkcipher crypto_alloc_ablkcipher
-# define cryptodev_crypto_blkcipher_alg crypto_ablkcipher_alg
 # define cryptodev_crypto_blkcipher_blocksize crypto_ablkcipher_blocksize
 # define cryptodev_crypto_blkcipher_ivsize crypto_ablkcipher_ivsize
 # define cryptodev_crypto_blkcipher_alignmask crypto_ablkcipher_alignmask
@@ -37,12 +35,10 @@ static inline void cryptodev_blkcipher_request_free(cryptodev_blkcipher_request_
 #else
 #include <crypto/skcipher.h>
 
-typedef struct skcipher_alg cryptodev_blkcipher_alg_t;
 typedef struct crypto_skcipher cryptodev_crypto_blkcipher_t;
 typedef struct skcipher_request cryptodev_blkcipher_request_t;
 
 # define cryptodev_crypto_alloc_blkcipher crypto_alloc_skcipher
-# define cryptodev_crypto_blkcipher_alg crypto_skcipher_alg
 # define cryptodev_crypto_blkcipher_blocksize crypto_skcipher_blocksize
 # define cryptodev_crypto_blkcipher_ivsize crypto_skcipher_ivsize
 # define cryptodev_crypto_blkcipher_alignmask crypto_skcipher_alignmask

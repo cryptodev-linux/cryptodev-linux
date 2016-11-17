@@ -38,6 +38,7 @@
 #include "cryptodev_int.h"
 #include "cipherapi.h"
 
+extern const struct crypto_type crypto_givcipher_type;
 
 static void cryptodev_complete(struct crypto_async_request *req, int err)
 {
@@ -121,6 +122,19 @@ error:
 	return ret;
 }
 
+/* Was correct key length supplied? */
+static int check_key_size(size_t keylen, const char *alg_name,
+			  unsigned int min_keysize, unsigned int max_keysize)
+{
+	if (max_keysize > 0 && unlikely((keylen < min_keysize) ||
+					(keylen > max_keysize))) {
+		ddebug(1, "Wrong keylen '%zu' for algorithm '%s'. Use %u to %u.",
+		       keylen, alg_name, min_keysize, max_keysize);
+		return -EINVAL;
+	}
+
+	return 0;
+}
 
 int cryptodev_cipher_init(struct cipher_data *out, const char *alg_name,
 				uint8_t *keyp, size_t keylen, int stream, int aead)
@@ -128,7 +142,12 @@ int cryptodev_cipher_init(struct cipher_data *out, const char *alg_name,
 	int ret;
 
 	if (aead == 0) {
-		cryptodev_blkcipher_alg_t *alg;
+		unsigned int min_keysize, max_keysize;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0))
+		struct crypto_tfm *tfm;
+#else
+		struct ablkcipher_alg *alg;
+#endif
 
 		out->async.s = cryptodev_crypto_alloc_blkcipher(alg_name, 0, 0);
 		if (unlikely(IS_ERR(out->async.s))) {
@@ -136,18 +155,31 @@ int cryptodev_cipher_init(struct cipher_data *out, const char *alg_name,
 				return -EINVAL;
 		}
 
-		alg = cryptodev_crypto_blkcipher_alg(out->async.s);
-		if (alg != NULL) {
-			/* Was correct key length supplied? */
-			if (alg->max_keysize > 0 &&
-					unlikely((keylen < alg->min_keysize) ||
-					(keylen > alg->max_keysize))) {
-				ddebug(1, "Wrong keylen '%zu' for algorithm '%s'. Use %u to %u.",
-						keylen, alg_name, alg->min_keysize, alg->max_keysize);
-				ret = -EINVAL;
-				goto error;
-			}
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0))
+		tfm = crypto_skcipher_tfm(out->async.s);
+		if ((tfm->__crt_alg->cra_type == &crypto_ablkcipher_type) ||
+		    (tfm->__crt_alg->cra_type == &crypto_givcipher_type)) {
+			struct ablkcipher_alg *alg;
+
+			alg = &tfm->__crt_alg->cra_ablkcipher;
+			min_keysize = alg->min_keysize;
+			max_keysize = alg->max_keysize;
+		} else {
+			struct skcipher_alg *alg;
+
+			alg = crypto_skcipher_alg(out->async.s);
+			min_keysize = alg->min_keysize;
+			max_keysize = alg->max_keysize;
 		}
+#else
+		alg = crypto_ablkcipher_alg(out->async.s);
+		min_keysize = alg->min_keysize;
+		max_keysize = alg->max_keysize;
+#endif
+		ret = check_key_size(keylen, alg_name, min_keysize,
+				     max_keysize);
+		if (ret)
+			goto error;
 
 		out->blocksize = cryptodev_crypto_blkcipher_blocksize(out->async.s);
 		out->ivsize = cryptodev_crypto_blkcipher_ivsize(out->async.s);
