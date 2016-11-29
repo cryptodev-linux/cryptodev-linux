@@ -61,7 +61,7 @@ test_crypto(int cfd)
 
 	cryp.ses = sess.ses;
 	cryp.len = sizeof("what do ya want for nothing?")-1;
-	cryp.src = "what do ya want for nothing?";
+	cryp.src = (uint8_t *)"what do ya want for nothing?";
 	cryp.mac = mac;
 	cryp.op = COP_ENCRYPT;
 
@@ -88,7 +88,7 @@ test_crypto(int cfd)
 	memset(mac, 0, sizeof(mac));
 
 	sess.cipher = 0;
-	sess.mackey = (uint8_t*)"Jefe";
+	sess.mackey = (uint8_t *)"Jefe";
 	sess.mackeylen = 4;
 	sess.mac = CRYPTO_MD5_HMAC;
 	if (ioctl(cfd, CIOCGSESSION, &sess)) {
@@ -98,7 +98,7 @@ test_crypto(int cfd)
 
 	cryp.ses = sess.ses;
 	cryp.len = sizeof("what do ya want for nothing?")-1;
-	cryp.src = "what do ya want for nothing?";
+	cryp.src = (uint8_t *)"what do ya want for nothing?";
 	cryp.mac = mac;
 	cryp.op = COP_ENCRYPT;
 
@@ -127,7 +127,7 @@ test_crypto(int cfd)
 	sess.keylen = KEY_SIZE;
 	sess.key = data.key;
 	sess.mackeylen = 16;
-	sess.mackey = (uint8_t*)"\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b";
+	sess.mackey = (uint8_t *)"\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b";
 	if (ioctl(cfd, CIOCGSESSION, &sess)) {
 		perror("ioctl(CIOCGSESSION)");
 		return 1;
@@ -206,7 +206,7 @@ test_extras(int cfd)
 
 	cryp.ses = sess.ses;
 	cryp.len = sizeof("what do")-1;
-	cryp.src = "what do";
+	cryp.src = (uint8_t *)"what do";
 	cryp.mac = mac;
 	cryp.op = COP_ENCRYPT;
 	cryp.flags = COP_FLAG_UPDATE;
@@ -216,7 +216,7 @@ test_extras(int cfd)
 
 	cryp.ses = sess.ses;
 	cryp.len = sizeof(" ya want for nothing?")-1;
-	cryp.src = " ya want for nothing?";
+	cryp.src = (uint8_t *)" ya want for nothing?";
 	cryp.mac = mac;
 	cryp.op = COP_ENCRYPT;
 	cryp.flags = COP_FLAG_FINAL;

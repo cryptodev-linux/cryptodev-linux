@@ -24,12 +24,12 @@
 static int
 test_crypto(int cfd, struct session_op *sess, int datalen)
 {
-	char *data, *encrypted;
-	char *encrypted_comp;
+	uint8_t *data, *encrypted;
+	uint8_t *encrypted_comp;
 
-	char iv_in[BLOCK_SIZE];
-	char iv[BLOCK_SIZE];
-	char iv_comp[BLOCK_SIZE];
+	uint8_t iv_in[BLOCK_SIZE];
+	uint8_t iv[BLOCK_SIZE];
+	uint8_t iv_comp[BLOCK_SIZE];
 
 	struct crypt_op cryp;
 
@@ -90,7 +90,7 @@ main(int argc, char **argv)
 {
 	int fd;
 	struct session_op sess;
-	unsigned char key[KEY_SIZE];
+	uint8_t key[KEY_SIZE];
 	int datalen = BLOCK_SIZE;
 	int datalen_end = MAX_DATALEN;
 	int i;

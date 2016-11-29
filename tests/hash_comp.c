@@ -30,11 +30,9 @@ static void printhex(unsigned char *buf, int buflen)
 static int
 test_crypto(int cfd, struct session_op *sess, int datalen)
 {
-	unsigned char *data;
-
-	unsigned char mac[AALG_MAX_RESULT_LEN];
-
-	unsigned char mac_comp[AALG_MAX_RESULT_LEN];
+	uint8_t *data;
+	uint8_t mac[AALG_MAX_RESULT_LEN];
+	uint8_t mac_comp[AALG_MAX_RESULT_LEN];
 
 	struct crypt_op cryp;
 

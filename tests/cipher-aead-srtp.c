@@ -78,13 +78,13 @@ int i;
 static int
 test_crypto(int cfd)
 {
-	char plaintext_raw[DATA_SIZE + 63], *plaintext;
-	char ciphertext_raw[DATA_SIZE + 63], *ciphertext;
-	char iv[BLOCK_SIZE];
-	char key[KEY_SIZE];
-	unsigned char sha1mac[20];
-	unsigned char tag[20];
-	unsigned char mackey[] = "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b";
+	uint8_t plaintext_raw[DATA_SIZE + 63], *plaintext;
+	uint8_t ciphertext_raw[DATA_SIZE + 63], *ciphertext;
+	uint8_t iv[BLOCK_SIZE];
+	uint8_t key[KEY_SIZE];
+	uint8_t sha1mac[20];
+	uint8_t tag[20];
+	uint8_t mackey[] = "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b";
 	int mackey_len = 16;
 
 	struct session_op sess;
@@ -226,12 +226,12 @@ test_crypto(int cfd)
 static int
 test_encrypt_decrypt(int cfd)
 {
-	char plaintext_raw[DATA_SIZE + 63], *plaintext;
-	char ciphertext_raw[DATA_SIZE + 63], *ciphertext;
-	char iv[BLOCK_SIZE];
-	char key[KEY_SIZE];
-	unsigned char tag[20];
-	unsigned char mackey[] = "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b";
+	uint8_t plaintext_raw[DATA_SIZE + 63], *plaintext;
+	uint8_t ciphertext_raw[DATA_SIZE + 63], *ciphertext;
+	uint8_t iv[BLOCK_SIZE];
+	uint8_t key[KEY_SIZE];
+	uint8_t tag[20];
+	uint8_t mackey[] = "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b";
 	int mackey_len = 16;
 
 	struct session_op sess;
@@ -368,12 +368,12 @@ test_encrypt_decrypt(int cfd)
 static int
 test_encrypt_decrypt_error(int cfd, int err)
 {
-	char plaintext_raw[DATA_SIZE + 63], *plaintext;
-	char ciphertext_raw[DATA_SIZE + 63], *ciphertext;
-	char iv[BLOCK_SIZE];
-	char key[KEY_SIZE];
-	unsigned char tag[20];
-	unsigned char mackey[] = "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b";
+	uint8_t plaintext_raw[DATA_SIZE + 63], *plaintext;
+	uint8_t ciphertext_raw[DATA_SIZE + 63], *ciphertext;
+	uint8_t iv[BLOCK_SIZE];
+	uint8_t key[KEY_SIZE];
+	uint8_t tag[20];
+	uint8_t mackey[] = "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b";
 	int mackey_len = 16;
 
 	struct session_op sess;
