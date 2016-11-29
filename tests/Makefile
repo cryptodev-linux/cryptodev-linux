@@ -1,4 +1,4 @@
-CFLAGS += -I.. $(CRYPTODEV_CFLAGS)
+CFLAGS += -I.. $(CRYPTODEV_CFLAGS) -Wall -Werror
 
 comp_progs := cipher_comp hash_comp hmac_comp
 
