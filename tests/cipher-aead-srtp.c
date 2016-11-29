@@ -12,6 +12,7 @@
 
 #include <sys/ioctl.h>
 #include <crypto/cryptodev.h>
+#include "testhelper.h"
 
 #define	DATA_SIZE	(8*1024)
 #define HEADER_SIZE 193
@@ -122,8 +123,8 @@ test_crypto(int cfd)
 		printf("requested cipher CRYPTO_AES_CBC/HMAC-SHA1, got %s with driver %s\n",
 			siop.cipher_info.cra_name, siop.cipher_info.cra_driver_name);
 
-	plaintext = (char *)(((unsigned long)plaintext_raw + siop.alignmask) & ~siop.alignmask);
-	ciphertext = (char *)(((unsigned long)ciphertext_raw + siop.alignmask) & ~siop.alignmask);
+	plaintext = buf_align(plaintext_raw, siop.alignmask);
+	ciphertext = buf_align(ciphertext_raw, siop.alignmask);
 
 	memset(plaintext, 0x15, HEADER_SIZE); /* header */
 	memset(&plaintext[HEADER_SIZE], 0x17, PLAINTEXT_SIZE); /* payload */
@@ -265,8 +266,8 @@ test_encrypt_decrypt(int cfd)
 //	printf("requested cipher CRYPTO_AES_CBC/HMAC-SHA1, got %s with driver %s\n",
 //			siop.cipher_info.cra_name, siop.cipher_info.cra_driver_name);
 
-	plaintext = (char *)(((unsigned long)plaintext_raw + siop.alignmask) & ~siop.alignmask);
-	ciphertext = (char *)(((unsigned long)ciphertext_raw + siop.alignmask) & ~siop.alignmask);
+	plaintext = buf_align(plaintext_raw, siop.alignmask);
+	ciphertext = buf_align(ciphertext_raw, siop.alignmask);
 
 	memset(plaintext, 0x15, HEADER_SIZE); /* header */
 	memset(&plaintext[HEADER_SIZE], 0x17, PLAINTEXT_SIZE); /* payload */
@@ -407,8 +408,8 @@ test_encrypt_decrypt_error(int cfd, int err)
 //	printf("requested cipher CRYPTO_AES_CBC/HMAC-SHA1, got %s with driver %s\n",
 //			siop.cipher_info.cra_name, siop.cipher_info.cra_driver_name);
 
-	plaintext = (char *)(((unsigned long)plaintext_raw + siop.alignmask) & ~siop.alignmask);
-	ciphertext = (char *)(((unsigned long)ciphertext_raw + siop.alignmask) & ~siop.alignmask);
+	plaintext = buf_align(plaintext_raw, siop.alignmask);
+	ciphertext = buf_align(ciphertext_raw, siop.alignmask);
 
 	memset(plaintext, 0x15, HEADER_SIZE); /* header */
 	memset(&plaintext[HEADER_SIZE], 0x17, PLAINTEXT_SIZE); /* payload */
