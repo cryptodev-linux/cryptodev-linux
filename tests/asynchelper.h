@@ -1,8 +1,5 @@
-/*
- * Some helper stuff shared between the sample programs.
- */
-#ifndef _TESTHELPER_H
-#define _TESTHELPER_H
+#ifndef __ASYNCHELPER_H
+#define __ASYNCHELPER_H
 
 /* poll until POLLOUT, then call CIOCASYNCCRYPT */
 inline int do_async_crypt(int cfd, struct crypt_op *cryp)
@@ -54,4 +51,4 @@ inline int do_async_fetch(int cfd, struct crypt_op *cryp)
 	}                                                    \
 }
 
-#endif /* _TESTHELPER_H */
+#endif /* __ASYNCHELPER_H */

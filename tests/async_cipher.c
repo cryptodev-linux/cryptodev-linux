@@ -13,7 +13,7 @@
 #include <sys/ioctl.h>
 #include <crypto/cryptodev.h>
 
-#include "testhelper.h"
+#include "asynchelper.h"
 
 #ifdef ENABLE_ASYNC
 
