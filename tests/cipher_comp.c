@@ -33,7 +33,7 @@ test_crypto(int cfd, struct session_op *sess, int datalen)
 
 	struct crypt_op cryp;
 
-	int ret = 0, fail = 0;
+	int ret = 0;
 
 	data = malloc(datalen);
 	encrypted = malloc(datalen);

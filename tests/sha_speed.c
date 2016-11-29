@@ -131,7 +131,6 @@ int main(void)
 {
 	int fd, i, fdc = -1, alignmask = 0;
 	struct session_op sess;
-	char keybuf[32];
 #ifdef CIOCGSESSINFO
 	struct session_info_op siop;
 #endif

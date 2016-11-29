@@ -90,7 +90,6 @@ main(int argc, char **argv)
 	struct session_op sess;
 	int datalen = BLOCK_SIZE;
 	int datalen_end = MAX_DATALEN;
-	int i;
 
 	if (argc > 1) {
 		datalen = min(max(atoi(argv[1]), BLOCK_SIZE), MAX_DATALEN);
