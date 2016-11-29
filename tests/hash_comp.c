@@ -38,7 +38,7 @@ test_crypto(int cfd, struct session_op *sess, int datalen)
 
 	struct crypt_op cryp;
 
-	int ret = 0, fail = 0;
+	int ret = 0;
 
 	data = malloc(datalen);
 	memset(data, datalen & 0xff, datalen);
@@ -68,7 +68,7 @@ test_crypto(int cfd, struct session_op *sess, int datalen)
 
 	if (memcmp(mac, mac_comp, AALG_MAX_RESULT_LEN)) {
 		printf("fail for datalen %d, MACs do not match!\n", datalen);
-		fail = 1;
+		ret = 1;
 		printf("wrong mac: ");
 		printhex(mac, 20);
 		printf("right mac: ");
