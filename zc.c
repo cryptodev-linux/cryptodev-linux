@@ -62,21 +62,17 @@ int __get_userbuf(uint8_t __user *addr, uint32_t len, int write,
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0))
 	ret = get_user_pages(task, mm,
 			(unsigned long)addr, pgcount, write, 0, pg, NULL);
-#else
-#  if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0))
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0))
 	ret = get_user_pages_remote(task, mm,
 			(unsigned long)addr, pgcount, write, 0, pg, NULL);
-#  else
-#    if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0))
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4, 10, 0))
 	ret = get_user_pages_remote(task, mm,
 			(unsigned long)addr, pgcount, write ? FOLL_WRITE : 0,
 			pg, NULL);
-#    else
+#else
 	ret = get_user_pages_remote(task, mm,
 			(unsigned long)addr, pgcount, write ? FOLL_WRITE : 0,
 			pg, NULL, NULL);
-#    endif
-#  endif
 #endif
 	up_read(&mm->mmap_sem);
 	if (ret != pgcount)
@@ -222,4 +218,3 @@ int get_userbuf(struct csession *ses,
 	}
 	return 0;
 }
-
