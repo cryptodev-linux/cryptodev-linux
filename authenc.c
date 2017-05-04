@@ -609,96 +609,151 @@ auth_n_crypt(struct csession *ses_ptr, struct kernel_crypt_auth_op *kcaop,
 	return 0;
 }
 
-/* This is the main crypto function - zero-copy edition */
-static int
-__crypto_auth_run_zc(struct csession *ses_ptr, struct kernel_crypt_auth_op *kcaop)
+static int crypto_auth_zc_srtp(struct csession *ses_ptr, struct kernel_crypt_auth_op *kcaop)
+{
+	struct scatterlist *dst_sg, *auth_sg;
+	struct crypt_auth_op *caop = &kcaop->caop;
+	int ret;
+
+	if (unlikely(ses_ptr->cdata.init != 0 &&
+		(ses_ptr->cdata.stream == 0 || ses_ptr->cdata.aead != 0))) {
+		derr(0, "Only stream modes are allowed in SRTP mode (but not AEAD)");
+		return -EINVAL;
+	}
+
+	ret = get_userbuf_srtp(ses_ptr, kcaop, &auth_sg, &dst_sg);
+	if (unlikely(ret)) {
+		derr(1, "get_userbuf_srtp(): Error getting user pages.");
+		return ret;
+	}
+
+	ret = srtp_auth_n_crypt(ses_ptr, kcaop, auth_sg, caop->auth_len,
+			dst_sg, caop->len);
+
+	release_user_pages(ses_ptr);
+
+	return ret;
+}
+
+static int crypto_auth_zc_tls(struct csession *ses_ptr, struct kernel_crypt_auth_op *kcaop)
+{
+	struct crypt_auth_op *caop = &kcaop->caop;
+	struct scatterlist *dst_sg, *auth_sg;
+	unsigned char *auth_buf = NULL;
+	struct scatterlist tmp;
+	int ret;
+
+	if (unlikely(ses_ptr->cdata.aead != 0)) {
+		return -EINVAL;
+	}
+
+	if (unlikely(caop->auth_len > PAGE_SIZE)) {
+		derr(1, "auth data len is excessive.");
+		return -EINVAL;
+	}
+
+	auth_buf = (char *)__get_free_page(GFP_KERNEL);
+	if (unlikely(!auth_buf)) {
+		derr(1, "unable to get a free page.");
+		return -ENOMEM;
+	}
+
+	if (caop->auth_src && caop->auth_len > 0) {
+		if (unlikely(copy_from_user(auth_buf, caop->auth_src, caop->auth_len))) {
+			derr(1, "unable to copy auth data from userspace.");
+			ret = -EFAULT;
+			goto free_auth_buf;
+		}
+
+		sg_init_one(&tmp, auth_buf, caop->auth_len);
+		auth_sg = &tmp;
+	} else {
+		auth_sg = NULL;
+	}
+
+	ret = get_userbuf_tls(ses_ptr, kcaop, &dst_sg);
+	if (unlikely(ret)) {
+		derr(1, "get_userbuf_tls(): Error getting user pages.");
+		goto free_auth_buf;
+	}
+
+	ret = tls_auth_n_crypt(ses_ptr, kcaop, auth_sg, caop->auth_len,
+			dst_sg, caop->len);
+	release_user_pages(ses_ptr);
+
+free_auth_buf:
+	free_page((unsigned long)auth_buf);
+	return ret;
+}
+
+static int crypto_auth_zc_aead(struct csession *ses_ptr, struct kernel_crypt_auth_op *kcaop)
 {
 	struct scatterlist *dst_sg, *auth_sg, *src_sg;
 	struct crypt_auth_op *caop = &kcaop->caop;
-	int ret = 0;
+	unsigned char *auth_buf = NULL;
+	struct scatterlist tmp;
+	int ret;
 
-	if (caop->flags & COP_FLAG_AEAD_SRTP_TYPE) {
-		if (unlikely(ses_ptr->cdata.init != 0 &&
-		             (ses_ptr->cdata.stream == 0 ||
-			      ses_ptr->cdata.aead != 0))) {
-			derr(0, "Only stream modes are allowed in SRTP mode (but not AEAD)");
-			return -EINVAL;
+	if (unlikely(ses_ptr->cdata.init == 0 ||
+		(ses_ptr->cdata.stream == 0 && ses_ptr->cdata.aead == 0))) {
+		derr(0, "Only stream and AEAD ciphers are allowed for authenc");
+		return -EINVAL;
+	}
+
+	if (unlikely(caop->auth_len > PAGE_SIZE)) {
+		derr(1, "auth data len is excessive.");
+		return -EINVAL;
+	}
+
+	auth_buf = (char *)__get_free_page(GFP_KERNEL);
+	if (unlikely(!auth_buf)) {
+		derr(1, "unable to get a free page.");
+		return -ENOMEM;
+	}
+
+	if (caop->auth_src && caop->auth_len > 0) {
+		if (unlikely(copy_from_user(auth_buf, caop->auth_src, caop->auth_len))) {
+			derr(1, "unable to copy auth data from userspace.");
+			ret = -EFAULT;
+			goto free_auth_buf;
 		}
 
-		ret = get_userbuf_srtp(ses_ptr, kcaop, &auth_sg, &dst_sg);
-		if (unlikely(ret)) {
-			derr(1, "get_userbuf_srtp(): Error getting user pages.");
-			return ret;
-		}
+		sg_init_one(&tmp, auth_buf, caop->auth_len);
+		auth_sg = &tmp;
+	} else {
+		auth_sg = NULL;
+	}
 
-		ret = srtp_auth_n_crypt(ses_ptr, kcaop, auth_sg, caop->auth_len,
-			   dst_sg, caop->len);
+	ret = get_userbuf(ses_ptr, caop->src, caop->len, caop->dst, kcaop->dst_len,
+			kcaop->task, kcaop->mm, &src_sg, &dst_sg);
+	if (unlikely(ret)) {
+		derr(1, "get_userbuf(): Error getting user pages.");
+		goto free_auth_buf;
+	}
 
-		release_user_pages(ses_ptr);
-	} else { /* TLS and normal cases. Here auth data are usually small
-	          * so we just copy them to a free page, instead of trying
-	          * to map them.
-	          */
-		unsigned char *auth_buf = NULL;
-		struct scatterlist tmp;
+	ret = auth_n_crypt(ses_ptr, kcaop, auth_sg, caop->auth_len,
+			src_sg, dst_sg, caop->len);
 
-		if (unlikely(caop->auth_len > PAGE_SIZE)) {
-			derr(1, "auth data len is excessive.");
-			return -EINVAL;
-		}
-
-		auth_buf = (char *)__get_free_page(GFP_KERNEL);
-		if (unlikely(!auth_buf)) {
-			derr(1, "unable to get a free page.");
-			return -ENOMEM;
-		}
-
-		if (caop->auth_src && caop->auth_len > 0) {
-			if (unlikely(copy_from_user(auth_buf, caop->auth_src, caop->auth_len))) {
-				derr(1, "unable to copy auth data from userspace.");
-				ret = -EFAULT;
-				goto free_auth_buf;
-			}
-
-			sg_init_one(&tmp, auth_buf, caop->auth_len);
-			auth_sg = &tmp;
-		} else {
-			auth_sg = NULL;
-		}
-
-		if (caop->flags & COP_FLAG_AEAD_TLS_TYPE && ses_ptr->cdata.aead == 0) {
-			ret = get_userbuf_tls(ses_ptr, kcaop, &dst_sg);
-			if (unlikely(ret)) {
-				derr(1, "get_userbuf_tls(): Error getting user pages.");
-				goto free_auth_buf;
-			}
-
-			ret = tls_auth_n_crypt(ses_ptr, kcaop, auth_sg, caop->auth_len,
-				   dst_sg, caop->len);
-		} else {
-			if (unlikely(ses_ptr->cdata.init == 0 ||
-			             (ses_ptr->cdata.stream == 0 &&
-				      ses_ptr->cdata.aead == 0))) {
-				derr(0, "Only stream and AEAD ciphers are allowed for authenc");
-				ret = -EINVAL;
-				goto free_auth_buf;
-			}
-
-			ret = get_userbuf(ses_ptr, caop->src, caop->len, caop->dst, kcaop->dst_len,
-					  kcaop->task, kcaop->mm, &src_sg, &dst_sg);
-			if (unlikely(ret)) {
-				derr(1, "get_userbuf(): Error getting user pages.");
-				goto free_auth_buf;
-			}
-
-			ret = auth_n_crypt(ses_ptr, kcaop, auth_sg, caop->auth_len,
-					   src_sg, dst_sg, caop->len);
-		}
-
-		release_user_pages(ses_ptr);
+	release_user_pages(ses_ptr);
 
 free_auth_buf:
-		free_page((unsigned long)auth_buf);
+	free_page((unsigned long)auth_buf);
+
+	return ret;
+}
+
+static int
+__crypto_auth_run_zc(struct csession *ses_ptr, struct kernel_crypt_auth_op *kcaop)
+{
+	struct crypt_auth_op *caop = &kcaop->caop;
+	int ret;
+
+	if (caop->flags & COP_FLAG_AEAD_SRTP_TYPE) {
+		ret = crypto_auth_zc_srtp(ses_ptr, kcaop);
+	} else if (caop->flags & COP_FLAG_AEAD_TLS_TYPE) {
+		ret = crypto_auth_zc_tls(ses_ptr, kcaop);
+	} else {
+		ret = crypto_auth_zc_aead(ses_ptr, kcaop);
 	}
 
 	return ret;
