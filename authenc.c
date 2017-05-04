@@ -711,11 +711,18 @@ static int crypto_auth_zc_aead(struct csession *ses_ptr, struct kernel_crypt_aut
 		return -ENOMEM;
 	}
 
+	ret = get_userbuf(ses_ptr, caop->src, caop->len, caop->dst, kcaop->dst_len,
+			kcaop->task, kcaop->mm, &src_sg, &dst_sg);
+	if (unlikely(ret)) {
+		derr(1, "get_userbuf(): Error getting user pages.");
+		goto free_auth_buf;
+	}
+
 	if (caop->auth_src && caop->auth_len > 0) {
 		if (unlikely(copy_from_user(auth_buf, caop->auth_src, caop->auth_len))) {
 			derr(1, "unable to copy auth data from userspace.");
 			ret = -EFAULT;
-			goto free_auth_buf;
+			goto free_pages;
 		}
 
 		sg_init_one(&tmp, auth_buf, caop->auth_len);
@@ -724,16 +731,10 @@ static int crypto_auth_zc_aead(struct csession *ses_ptr, struct kernel_crypt_aut
 		auth_sg = NULL;
 	}
 
-	ret = get_userbuf(ses_ptr, caop->src, caop->len, caop->dst, kcaop->dst_len,
-			kcaop->task, kcaop->mm, &src_sg, &dst_sg);
-	if (unlikely(ret)) {
-		derr(1, "get_userbuf(): Error getting user pages.");
-		goto free_auth_buf;
-	}
-
 	ret = auth_n_crypt(ses_ptr, kcaop, auth_sg, caop->auth_len,
 			src_sg, dst_sg, caop->len);
 
+free_pages:
 	release_user_pages(ses_ptr);
 
 free_auth_buf:
