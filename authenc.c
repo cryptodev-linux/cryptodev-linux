@@ -41,6 +41,7 @@
 #include <crypto/cryptodev.h>
 #include <crypto/scatterwalk.h>
 #include <linux/scatterlist.h>
+#include <linux/version.h>
 #include "cryptodev_int.h"
 #include "zc.h"
 #include "util.h"
@@ -568,10 +569,15 @@ auth_n_crypt(struct csession *ses_ptr, struct kernel_crypt_auth_op *kcaop,
 		  struct scatterlist *src_sg,
 		  struct scatterlist *dst_sg, uint32_t len)
 {
-	int ret;
+	int ret =0;
 	struct crypt_auth_op *caop = &kcaop->caop;
 	int max_tag_len;
-
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0))
+    struct scatterlist  *cloned_src = 0, *cloned_dst = 0,*tmpsg;
+    uint32_t auth_nents, src_nents, dst_nents;
+    bool enc = (caop->op == COP_ENCRYPT);
+    uint32_t i=0;
+#endif
 	max_tag_len = cryptodev_cipher_get_tag_size(&ses_ptr->cdata);
 	if (unlikely(caop->tag_len > max_tag_len)) {
 		derr(0, "Illegal tag length: %d", caop->tag_len);
@@ -584,29 +590,101 @@ auth_n_crypt(struct csession *ses_ptr, struct kernel_crypt_auth_op *kcaop,
 		caop->tag_len = max_tag_len;
 
 	cryptodev_cipher_auth(&ses_ptr->cdata, auth_sg, auth_len);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0))//starting linux kernel 4.3, the auth data contains the iv as well
+    auth_nents = sg_nents_for_len(auth_sg,auth_len);
+    src_nents = sg_nents_for_len(src_sg,len);
+	cloned_src =  kmalloc((auth_nents+src_nents ) * sizeof(struct scatterlist), GFP_KERNEL);
+    sg_init_table(cloned_src, auth_nents+src_nents );
+    if (cloned_src == NULL) {
+        derr(0, "failed to clone src");
+		return -EINVAL;
+    }
+    if(auth_sg){
+        for_each_sg(auth_sg,tmpsg,auth_nents,i) {
+            sg_set_buf(&cloned_src[i],sg_virt(tmpsg),tmpsg->length);
+        }
+    }
+    if(src_sg) {
+        for_each_sg(src_sg,tmpsg,src_nents,i) {
+            if (sg_last(src_sg,src_nents)==tmpsg && enc)
+            {   
+                sg_set_buf(&cloned_src[auth_nents+i],sg_virt(tmpsg),tmpsg->length+caop->tag_len);
+            }
+            else
+            {
+                sg_set_buf(&cloned_src[auth_nents+i],sg_virt(tmpsg),tmpsg->length);
+            }
+        }
+    }
+    dst_nents = sg_nents_for_len(dst_sg,len);
+	cloned_dst =   kmalloc((auth_nents + dst_nents  ) * sizeof(struct scatterlist), GFP_KERNEL);
+    if (cloned_dst == NULL){
+        derr(0, "failed to clone dst");
+        kfree(cloned_src);
+		return -EINVAL;
+    }
+    sg_init_table(cloned_dst, auth_nents + dst_nents );
+    if(auth_sg) {
+        for_each_sg(auth_sg,tmpsg,auth_nents,i) {
+            sg_set_buf(&cloned_dst[i],sg_virt(tmpsg),tmpsg->length);
+        }
+    }
+#endif
 
 	if (caop->op == COP_ENCRYPT) {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 3, 0))
 		ret = cryptodev_cipher_encrypt(&ses_ptr->cdata,
 						src_sg, dst_sg, len);
+#else
+    if(dst_sg){
+        for_each_sg(dst_sg,tmpsg,dst_nents,i) {
+            if (sg_last(dst_sg,dst_nents)==tmpsg && !enc)
+            {   
+                sg_set_buf(&cloned_dst[auth_nents+i],sg_virt(tmpsg),tmpsg->length+caop->tag_len);
+            }
+            else
+            {
+                sg_set_buf(&cloned_dst[auth_nents+i],sg_virt(tmpsg),tmpsg->length);
+            }
+        }
+    }
+		ret = cryptodev_cipher_encrypt(&ses_ptr->cdata,
+				cloned_src, cloned_dst, len);
+#endif
 		if (unlikely(ret)) {
 			derr(0, "cryptodev_cipher_encrypt: %d", ret);
-			return ret;
+            goto free_clone_sg;
 		}
 		kcaop->dst_len = len + caop->tag_len;
 		caop->tag = caop->dst + len;
 	} else {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 3, 0))
 		ret = cryptodev_cipher_decrypt(&ses_ptr->cdata,
 						src_sg, dst_sg, len);
-
-		if (unlikely(ret)) {
+#else
+    if(dst_sg){
+        for_each_sg(dst_sg,tmpsg,dst_nents,i)
+        {
+            sg_set_buf(&cloned_dst[auth_nents+i],sg_virt(tmpsg),tmpsg->length);
+        }
+    }
+		ret = cryptodev_cipher_decrypt(&ses_ptr->cdata,
+				cloned_src, cloned_dst, len);
+#endif
+		if (unlikely(ret)){
 			derr(0, "cryptodev_cipher_decrypt: %d", ret);
-			return ret;
+            goto free_clone_sg;
 		}
 		kcaop->dst_len = len - caop->tag_len;
 		caop->tag = caop->dst + len - caop->tag_len;
 	}
+free_clone_sg:
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 3, 0))
+	kfree(cloned_src);
+	kfree(cloned_dst);
+#endif
 
-	return 0;
+	return ret;
 }
 
 static int crypto_auth_zc_srtp(struct csession *ses_ptr, struct kernel_crypt_auth_op *kcaop)
