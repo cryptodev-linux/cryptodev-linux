@@ -643,10 +643,6 @@ static int crypto_auth_zc_tls(struct csession *ses_ptr, struct kernel_crypt_auth
 	struct scatterlist tmp;
 	int ret;
 
-	if (unlikely(ses_ptr->cdata.aead != 0)) {
-		return -EINVAL;
-	}
-
 	if (unlikely(caop->auth_len > PAGE_SIZE)) {
 		derr(1, "auth data len is excessive.");
 		return -EINVAL;
@@ -787,10 +783,13 @@ __crypto_auth_run_zc(struct csession *ses_ptr, struct kernel_crypt_auth_op *kcao
 
 	if (caop->flags & COP_FLAG_AEAD_SRTP_TYPE) {
 		ret = crypto_auth_zc_srtp(ses_ptr, kcaop);
-	} else if (caop->flags & COP_FLAG_AEAD_TLS_TYPE) {
+	} else if (caop->flags & COP_FLAG_AEAD_TLS_TYPE &&
+		   ses_ptr->cdata.aead == 0) {
 		ret = crypto_auth_zc_tls(ses_ptr, kcaop);
-	} else {
+	} else if (ses_ptr->cdata.aead) {
 		ret = crypto_auth_zc_aead(ses_ptr, kcaop);
+	} else {
+		ret = -EINVAL;
 	}
 
 	return ret;
