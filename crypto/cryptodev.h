@@ -43,6 +43,7 @@ enum cryptodev_crypto_op_t {
 	CRYPTO_AES_ECB = 23,
 	CRYPTO_AES_GCM = 50,
 	CRYPTO_842 = 65,
+	CRYPTO_LZO = 66,
 
 	CRYPTO_CAMELLIA_CBC = 101,
 	CRYPTO_RIPEMD160,
