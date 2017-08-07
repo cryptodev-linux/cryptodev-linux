@@ -52,6 +52,7 @@ struct compat_session_op {
 	 */
 	uint32_t	cipher;		/* cryptodev_crypto_op_t */
 	uint32_t	mac;		/* cryptodev_crypto_op_t */
+	uint32_t	compr;		/* cryptodev_crypto_op_t */
 
 	uint32_t	keylen;
 	compat_uptr_t	key;		/* pointer to key data */
@@ -123,6 +124,7 @@ struct csession {
 	struct mutex sem;
 	struct cipher_data cdata;
 	struct hash_data hdata;
+	struct compr_data comprdata;
 	uint32_t sid;
 	uint32_t alignmask;
 

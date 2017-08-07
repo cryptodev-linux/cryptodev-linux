@@ -101,6 +101,27 @@ int cryptodev_hash_reset(struct hash_data *hdata);
 void cryptodev_hash_deinit(struct hash_data *hdata);
 int cryptodev_hash_init(struct hash_data *hdata, const char *alg_name,
 			int hmac_mode, void *mackey, size_t mackeylen);
+			
+/* Compression */
+struct compr_data {
+	int init; /* 0 uninitialized */
+	int alignmask;
+	struct {
+		/* block ciphers */
+		struct crypto_acomp *s;
+		struct acomp_req *request;
+		struct cryptodev_result result;
+	} async;
+};
+
+void cryptodev_compr_deinit(struct compr_data *cdata);
+int cryptodev_compr_init(struct compr_data *cdata, const char *alg_name);
+ssize_t cryptodev_compr_compress(struct compr_data *cdata,
+		const struct scatterlist *src, struct scatterlist *dst,
+		size_t len);
+ssize_t cryptodev_compr_decompress(struct compr_data *cdata,
+		const struct scatterlist *src, struct scatterlist *dst,
+		size_t len)
 
 
 #endif

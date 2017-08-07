@@ -31,6 +31,7 @@
 #include <linux/uaccess.h>
 #include <crypto/algapi.h>
 #include <crypto/hash.h>
+#include <crypto/acompress.h>
 #include <crypto/cryptodev.h>
 #include <crypto/aead.h>
 #include <linux/rtnetlink.h>
@@ -435,3 +436,76 @@ int cryptodev_hash_final(struct hash_data *hdata, void *output)
 	return waitfor(&hdata->async.result, ret);
 }
 
+int cryptodev_compr_init(struct compr_data *cdata, const char *alg_name)
+{
+	int ret;
+	struct crypto_tfm *tfm;
+	
+	cdata->async.s = crypto_alloc_acomp(alg_name, 0, 0);
+	if (unlikely(IS_ERR(cdata->async.s))) {
+		ddebug(1, "Failed to load transform for %s", alg_name);
+			return -EINVAL;
+	}
+	
+	cdata->alignmask = crypto_tfm_alg_alignmask(crypto_acomp_tfm(out->async.s)); 
+	
+	init_completion(&cdata->async.result.completion);
+	
+	cdata->async.request = acomp_request_alloc(cdata->async.s);
+	if (unlikely(!cdata->async.request)) {
+		derr(0, "error allocating async crypto request");
+		ret = -ENOMEM;
+		goto error;
+	}
+	
+	
+	acomp_request_set_callback(cdata->async.request,
+			CRYPTO_TFM_REQ_MAY_BACKLOG,
+			cryptodev_complete, &cdata->async.result)
+
+	cdata->init = 1;
+	return 0;
+	
+error:
+	acomp_request_free(cdata->async.request);
+	crypto_free_acomp(cdata->async.s);
+
+	return ret;
+}
+
+void cryptodev_compr_deinit(struct compr_data *cdata)
+{
+	if (cdata->init) {
+		acomp_request_free(cdata->async.request);
+		crypto_free_acomp(cdata->async.s);
+		cdata->init = 0;
+	}
+}
+
+ssize_t cryptodev_compr_compress(struct compr_data *cdata,
+		const struct scatterlist *src, struct scatterlist *dst,
+		size_t len)
+{
+	int ret;
+
+	reinit_completion(&cdata->async.result.completion);
+
+	acomp_request_set_params(cdata->async.request, (struct scatterlist *)src, dst, len, len);
+	ret = crypto_acomp_compress(cdata->async.request);
+
+	return waitfor(&cdata->async.result, ret);
+}
+
+ssize_t cryptodev_compr_decompress(struct compr_data *cdata,
+		const struct scatterlist *src, struct scatterlist *dst,
+		size_t len)
+{
+	int ret;
+
+	reinit_completion(&cdata->async.result.completion);
+
+	acomp_request_set_params(cdata->async.request, (struct scatterlist *)src, dst, len, len);
+	ret = crypto_acomp_decompress(cdata->async.request);
+
+	return waitfor(&cdata->async.result, ret);
+}

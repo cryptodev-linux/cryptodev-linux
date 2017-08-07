@@ -42,6 +42,7 @@ enum cryptodev_crypto_op_t {
 	CRYPTO_AES_XTS = 22,
 	CRYPTO_AES_ECB = 23,
 	CRYPTO_AES_GCM = 50,
+	CRYPTO_842 = 65,
 
 	CRYPTO_CAMELLIA_CBC = 101,
 	CRYPTO_RIPEMD160,
@@ -78,10 +79,11 @@ enum cryptodev_crypto_op_t {
 
 /* input of CIOCGSESSION */
 struct session_op {
-	/* Specify either cipher or mac
+	/* Specify cipher, mac or compr
 	 */
 	__u32	cipher;		/* cryptodev_crypto_op_t */
 	__u32	mac;		/* cryptodev_crypto_op_t */
+	__u32	compr;		/* cryptodev_crypto_op_t */
 
 	__u32	keylen;
 	__u8	__user *key;

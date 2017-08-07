@@ -77,6 +77,13 @@ hash_n_crypt(struct csession *ses_ptr, struct crypt_op *cop,
 			if (unlikely(ret))
 				goto out_err;
 		}
+		if (ses_ptr->comprdata.init != 0) {
+			ret = cryptodev_compr_compress(&ses_ptr->comprdata,
+							src_sg, dst_sg, len);
+
+			if (unlikely(ret))
+				goto out_err;
+		}
 	} else {
 		if (ses_ptr->cdata.init != 0) {
 			ret = cryptodev_cipher_decrypt(&ses_ptr->cdata,
@@ -89,6 +96,13 @@ hash_n_crypt(struct csession *ses_ptr, struct crypt_op *cop,
 		if (ses_ptr->hdata.init != 0) {
 			ret = cryptodev_hash_update(&ses_ptr->hdata,
 								dst_sg, len);
+			if (unlikely(ret))
+				goto out_err;
+		}
+		if (ses_ptr->comprdata.init != 0) {
+			ret = cryptodev_compr_decompress(&ses_ptr->comprdata,
+							src_sg, dst_sg, len);
+
 			if (unlikely(ret))
 				goto out_err;
 		}

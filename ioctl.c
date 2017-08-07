@@ -110,6 +110,7 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 	int ret = 0;
 	const char *alg_name = NULL;
 	const char *hash_name = NULL;
+	const char *compr_name = NULL;
 	int hmac_mode = 1, stream = 0, aead = 0;
 	/*
 	 * With composite aead ciphers, only ckey is used and it can cover all the
@@ -124,8 +125,8 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 	} keys;
 
 	/* Does the request make sense? */
-	if (unlikely(!sop->cipher && !sop->mac)) {
-		ddebug(1, "Both 'cipher' and 'mac' unset.");
+	if (unlikely(!sop->cipher && !sop->mac && !sop->compr)) {
+		ddebug(1, "All, 'cipher', 'mac' and 'compr' are unset.");
 		return -EINVAL;
 	}
 
@@ -227,6 +228,15 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 		ddebug(1, "bad mac: %d", sop->mac);
 		return -EINVAL;
 	}
+	
+	switch (sop->compr) {
+		case CRYPTO_842:
+			compr_name = "842";
+			break;	
+		default:
+			ddebug(1, "bad mac: %d", sop->mac);
+			return -EINVAL;
+	}
 
 	/* Create a session and put it to the list. Zeroing the structure helps
 	 * also with a single exit point in case of errors */
@@ -284,9 +294,18 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 			goto session_error;
 		}
 	}
+	
+	if (compr_name) {
+		ret = cryptodev_compr_init(&ses_new->comprdata, alg_name);
+		if (ret < 0) {
+			ddebug(1, "Failed to load compressor for %s", alg_name);
+			ret = -EINVAL;
+			goto session_error;
+		}
+	}
 
-	ses_new->alignmask = max(ses_new->cdata.alignmask,
-	                                          ses_new->hdata.alignmask);
+	ses_new->alignmask = max(max(ses_new->cdata.alignmask,
+	                                          ses_new->hdata.alignmask),ses_new->comprdata.alignmask);
 	ddebug(2, "got alignmask %d", ses_new->alignmask);
 
 	ses_new->array_size = DEFAULT_PREALLOC_PAGES;
@@ -331,6 +350,7 @@ restart:
 session_error:
 	cryptodev_hash_deinit(&ses_new->hdata);
 	cryptodev_cipher_deinit(&ses_new->cdata);
+	cryptodev_compr_deinit(&ses_new->comprdata);
 	kfree(ses_new->sg);
 	kfree(ses_new->pages);
 	kfree(ses_new);
@@ -348,6 +368,7 @@ crypto_destroy_session(struct csession *ses_ptr)
 	ddebug(2, "Removed session 0x%08X", ses_ptr->sid);
 	cryptodev_cipher_deinit(&ses_ptr->cdata);
 	cryptodev_hash_deinit(&ses_ptr->hdata);
+	cryptodev_compr_deinit(&ses_new->comprdata);
 	ddebug(2, "freeing space for %d user pages", ses_ptr->array_size);
 	kfree(ses_ptr->pages);
 	kfree(ses_ptr->sg);
@@ -749,6 +770,7 @@ static unsigned int is_known_accelerated(struct crypto_tfm *tfm)
 	    strstr(name, "-s5p")	||
 	    strstr(name, "-ppc4xx")	||
 	    strstr(name, "-caam")	||
+		strstr(name, "-nx")		||
 	    strstr(name, "-n2"))
 		return 1;
 
@@ -910,6 +932,7 @@ compat_to_session_op(struct compat_session_op *compat, struct session_op *sop)
 {
 	sop->cipher = compat->cipher;
 	sop->mac = compat->mac;
+	sop->compr = compat->compr;
 	sop->keylen = compat->keylen;
 
 	sop->key       = compat_ptr(compat->key);
@@ -923,6 +946,7 @@ session_op_to_compat(struct session_op *sop, struct compat_session_op *compat)
 {
 	compat->cipher = sop->cipher;
 	compat->mac = sop->mac;
+	compat->compr = sop->compr;
 	compat->keylen = sop->keylen;
 
 	compat->key       = ptr_to_compat(sop->key);
