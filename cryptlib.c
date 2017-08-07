@@ -439,7 +439,6 @@ int cryptodev_hash_final(struct hash_data *hdata, void *output)
 int cryptodev_compr_init(struct compr_data *cdata, const char *alg_name)
 {
 	int ret;
-	struct crypto_tfm *tfm;
 	
 	cdata->async.s = crypto_alloc_acomp(alg_name, 0, 0);
 	if (unlikely(IS_ERR(cdata->async.s))) {
@@ -447,7 +446,7 @@ int cryptodev_compr_init(struct compr_data *cdata, const char *alg_name)
 			return -EINVAL;
 	}
 	
-	cdata->alignmask = crypto_tfm_alg_alignmask(crypto_acomp_tfm(out->async.s)); 
+	cdata->alignmask = crypto_tfm_alg_alignmask(crypto_acomp_tfm(cdata->async.s)); 
 	
 	init_completion(&cdata->async.result.completion);
 	
@@ -461,7 +460,7 @@ int cryptodev_compr_init(struct compr_data *cdata, const char *alg_name)
 	
 	acomp_request_set_callback(cdata->async.request,
 			CRYPTO_TFM_REQ_MAY_BACKLOG,
-			cryptodev_complete, &cdata->async.result)
+			cryptodev_complete, &cdata->async.result);
 
 	cdata->init = 1;
 	return 0;

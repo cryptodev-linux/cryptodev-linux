@@ -121,7 +121,7 @@ ssize_t cryptodev_compr_compress(struct compr_data *cdata,
 		size_t len);
 ssize_t cryptodev_compr_decompress(struct compr_data *cdata,
 		const struct scatterlist *src, struct scatterlist *dst,
-		size_t len)
+		size_t len);
 
 
 #endif

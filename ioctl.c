@@ -368,7 +368,7 @@ crypto_destroy_session(struct csession *ses_ptr)
 	ddebug(2, "Removed session 0x%08X", ses_ptr->sid);
 	cryptodev_cipher_deinit(&ses_ptr->cdata);
 	cryptodev_hash_deinit(&ses_ptr->hdata);
-	cryptodev_compr_deinit(&ses_new->comprdata);
+	cryptodev_compr_deinit(&ses_ptr->comprdata);
 	ddebug(2, "freeing space for %d user pages", ses_ptr->array_size);
 	kfree(ses_ptr->pages);
 	kfree(ses_ptr->sg);
