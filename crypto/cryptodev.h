@@ -101,7 +101,7 @@ struct session_info_op {
 	struct alg_info {
 		char cra_name[CRYPTODEV_MAX_ALG_NAME];
 		char cra_driver_name[CRYPTODEV_MAX_ALG_NAME];
-	} cipher_info, hash_info;
+	} cipher_info, hash_info, compr_info;
 
 	__u16	alignmask;	/* alignment constraints */
 	__u32   flags;          /* SIOP_FLAGS_* */

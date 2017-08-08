@@ -34,6 +34,7 @@
  */
 
 #include <crypto/hash.h>
+#include <crypto/acompress.h>
 #include <linux/mm.h>
 #include <linux/highmem.h>
 #include <linux/ioctl.h>
@@ -230,11 +231,16 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 	}
 	
 	switch (sop->compr) {
+		case 0:
+			break;
 		case CRYPTO_842:
 			compr_name = "842";
+			break;
+		case CRYPTO_LZO:
+			compr_name = "lzo";
 			break;	
 		default:
-			ddebug(1, "bad mac: %d", sop->mac);
+			ddebug(1, "bad compr: %d", sop->compr);
 			return -EINVAL;
 	}
 
@@ -296,9 +302,9 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 	}
 	
 	if (compr_name) {
-		ret = cryptodev_compr_init(&ses_new->comprdata, alg_name);
+		ret = cryptodev_compr_init(&ses_new->comprdata, compr_name);
 		if (ret < 0) {
-			ddebug(1, "Failed to load compressor for %s", alg_name);
+			ddebug(1, "Failed to load compressor for %s", compr_name);
 			ret = -EINVAL;
 			goto session_error;
 		}
@@ -817,6 +823,17 @@ static int get_session_info(struct fcrypt *fcr, struct session_info_op *siop)
 			siop->flags |= SIOP_FLAG_KERNEL_DRIVER_ONLY;
 #endif
 	}
+		if (ses_ptr->comprdata.init) {
+		tfm = crypto_acomp_tfm(ses_ptr->comprdata.async.s);
+		tfm_info_to_alg_info(&siop->compr_info, tfm);
+#ifdef CRYPTO_ALG_KERN_DRIVER_ONLY
+		if (tfm->__crt_alg->cra_flags & CRYPTO_ALG_KERN_DRIVER_ONLY)
+			siop->flags |= SIOP_FLAG_KERNEL_DRIVER_ONLY;
+#else
+		if (is_known_accelerated(tfm))
+			siop->flags |= SIOP_FLAG_KERNEL_DRIVER_ONLY;
+#endif
+	}
 
 	siop->alignmask = ses_ptr->alignmask;
 
@@ -886,7 +903,6 @@ cryptodev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg_)
 			dwarning(1, "Error copying from user");
 			return ret;
 		}
-
 		ret = crypto_run(fcr, &kcop);
 		if (unlikely(ret)) {
 			dwarning(1, "Error in crypto_run");
