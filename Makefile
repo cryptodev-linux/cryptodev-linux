@@ -33,7 +33,7 @@ install: modules_install
 
 modules_install:
 	$(MAKE) $(KERNEL_MAKE_OPTS) modules_install
-	insmod /lib/modules/4.11.0-13-generic/extra/cryptodev.ko
+	insmod /lib/modules/$(shell uname -r)/extra/cryptodev.ko
 	install -m 644 -D crypto/cryptodev.h $(DESTDIR)/$(includedir)/crypto/cryptodev.h
 
 clean:
