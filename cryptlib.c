@@ -483,13 +483,13 @@ void cryptodev_compr_deinit(struct compr_data *cdata)
 
 ssize_t cryptodev_compr_compress(struct compr_data *cdata,
 		const struct scatterlist *src, struct scatterlist *dst,
-		size_t len)
+		size_t slen, size_t dlen)
 {
 	int ret;
 
 	reinit_completion(&cdata->async.result.completion);
 
-	acomp_request_set_params(cdata->async.request, (struct scatterlist *)src, dst, len, len);
+	acomp_request_set_params(cdata->async.request, (struct scatterlist *)src, dst, slen, dlen);
 	ret = crypto_acomp_compress(cdata->async.request);
 
 	return waitfor(&cdata->async.result, ret);
@@ -497,13 +497,13 @@ ssize_t cryptodev_compr_compress(struct compr_data *cdata,
 
 ssize_t cryptodev_compr_decompress(struct compr_data *cdata,
 		const struct scatterlist *src, struct scatterlist *dst,
-		size_t len)
+		size_t slen, size_t dlen)
 {
 	int ret;
 
 	reinit_completion(&cdata->async.result.completion);
 
-	acomp_request_set_params(cdata->async.request, (struct scatterlist *)src, dst, len, len);
+	acomp_request_set_params(cdata->async.request, (struct scatterlist *)src, dst, slen, dlen);
 	ret = crypto_acomp_decompress(cdata->async.request);
 
 	return waitfor(&cdata->async.result, ret);

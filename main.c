@@ -56,7 +56,7 @@
 static int
 hash_n_crypt(struct csession *ses_ptr, struct crypt_op *cop,
 		struct scatterlist *src_sg, struct scatterlist *dst_sg,
-		uint32_t len)
+		uint32_t slen, uint32_t dlen)
 {
 	int ret;
 
@@ -66,20 +66,20 @@ hash_n_crypt(struct csession *ses_ptr, struct crypt_op *cop,
 	if (cop->op == COP_ENCRYPT) {
 		if (ses_ptr->hdata.init != 0) {
 			ret = cryptodev_hash_update(&ses_ptr->hdata,
-							src_sg, len);
+							src_sg, slen);
 			if (unlikely(ret))
 				goto out_err;
 		}
 		if (ses_ptr->cdata.init != 0) {
 			ret = cryptodev_cipher_encrypt(&ses_ptr->cdata,
-							src_sg, dst_sg, len);
+							src_sg, dst_sg, slen);
 
 			if (unlikely(ret))
 				goto out_err;
 		}
 		if (ses_ptr->comprdata.init != 0) {
 			ret = cryptodev_compr_compress(&ses_ptr->comprdata,
-							src_sg, dst_sg, len);
+							src_sg, dst_sg, slen, dlen);
 
 			if (unlikely(ret))
 				goto out_err;
@@ -87,7 +87,7 @@ hash_n_crypt(struct csession *ses_ptr, struct crypt_op *cop,
 	} else {
 		if (ses_ptr->cdata.init != 0) {
 			ret = cryptodev_cipher_decrypt(&ses_ptr->cdata,
-							src_sg, dst_sg, len);
+							src_sg, dst_sg, slen);
 
 			if (unlikely(ret))
 				goto out_err;
@@ -95,13 +95,13 @@ hash_n_crypt(struct csession *ses_ptr, struct crypt_op *cop,
 
 		if (ses_ptr->hdata.init != 0) {
 			ret = cryptodev_hash_update(&ses_ptr->hdata,
-								dst_sg, len);
+								dst_sg, slen);
 			if (unlikely(ret))
 				goto out_err;
 		}
 		if (ses_ptr->comprdata.init != 0) {
 			ret = cryptodev_compr_decompress(&ses_ptr->comprdata,
-							src_sg, dst_sg, len);
+							src_sg, dst_sg, slen, dlen);
 
 			if (unlikely(ret))
 				goto out_err;
@@ -182,14 +182,21 @@ __crypto_run_zc(struct csession *ses_ptr, struct kernel_crypt_op *kcop)
 	struct crypt_op *cop = &kcop->cop;
 	int ret = 0;
 
-	ret = get_userbuf(ses_ptr, cop->src, cop->len, cop->dst, cop->len,
-	                  kcop->task, kcop->mm, &src_sg, &dst_sg);
+	if (ses_ptr->comprdata.init != 0) {
+		ret = get_userbuf(ses_ptr, cop->src, cop->len, cop->dst, cop->dlen,
+		                  kcop->task, kcop->mm, &src_sg, &dst_sg);	
+	
+	} else {
+		ret = get_userbuf(ses_ptr, cop->src, cop->len, cop->dst, cop->len,
+		                  kcop->task, kcop->mm, &src_sg, &dst_sg);	
+	}
+
 	if (unlikely(ret)) {
 		derr(1, "Error getting user pages. Falling back to non zero copy.");
 		return __crypto_run_std(ses_ptr, cop);
 	}
 
-	ret = hash_n_crypt(ses_ptr, cop, src_sg, dst_sg, cop->len);
+	ret = hash_n_crypt(ses_ptr, cop, src_sg, dst_sg, cop->len, cop->dlen);
 
 	release_user_pages(ses_ptr);
 	return ret;

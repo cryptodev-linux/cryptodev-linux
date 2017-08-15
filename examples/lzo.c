@@ -79,6 +79,7 @@ int lzo_compress(struct cryptodev_ctx* ctx, const void* input, void* output, siz
 	/* Encrypt data.in to data.encrypted */
 	cryp.ses = ctx->sess.ses;
 	cryp.len = size;
+	cryp.dlen = size + 8;
 	cryp.src = (void*)input;
 	cryp.dst = output;
 	cryp.op = COP_ENCRYPT;
