@@ -10,9 +10,9 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <crypto/cryptodev.h>
-#include "lzo.h"
+#include "842.h"
 
-int lzo_ctx_init(struct cryptodev_ctx* ctx, int cfd)
+int c842_ctx_init(struct cryptodev_ctx* ctx, int cfd)
 {
 #ifdef CIOCGSESSINFO
 	struct session_info_op siop;
@@ -21,7 +21,7 @@ int lzo_ctx_init(struct cryptodev_ctx* ctx, int cfd)
 	memset(ctx, 0, sizeof(*ctx));
 	ctx->cfd = cfd;
 
-	ctx->sess.compr = CRYPTO_LZO;
+	ctx->sess.compr = CRYPTO_842;
 
 	if (ioctl(ctx->cfd, CIOCGSESSION, &ctx->sess)) {
 		perror("ioctl(CIOCGSESSION)");
@@ -37,21 +37,21 @@ int lzo_ctx_init(struct cryptodev_ctx* ctx, int cfd)
 	printf("Got %s with driver %s\n",
 			siop.compr_info.cra_name, siop.compr_info.cra_driver_name);
 	if (!(siop.flags & SIOP_FLAG_KERNEL_DRIVER_ONLY)) {
-		printf("Note: This is not an accelerated cipher\n");
+		printf("Note: This is not an accelerated compressor\n");
 	}
 	ctx->alignmask = siop.alignmask;
 #endif
 	return 0;
 }
 
-void lzo_ctx_deinit(struct cryptodev_ctx* ctx) 
+void c842_ctx_deinit(struct cryptodev_ctx* ctx) 
 {
 	if (ioctl(ctx->cfd, CIOCFSESSION, &ctx->sess.ses)) {
 		perror("ioctl(CIOCFSESSION)");
 	}
 }
 
-int lzo_compress(struct cryptodev_ctx* ctx, const void* input, void* output, size_t size)
+int c842_compress(struct cryptodev_ctx* ctx, const void* input, void* output, size_t size)
 {
 	struct crypt_op cryp;
 	void* p;
@@ -93,10 +93,10 @@ main()
 {
 	int cfd = -1, i;
 	struct cryptodev_ctx ctx;
-	uint8_t output[64];
-	char input[] = "The quick brown fox jumps over the lazy dog";
+	uint8_t output[16];
+	char input[] = "0011223\x0a";
 
-	memset (output, 0, 64);
+	memset (output, 0, 16);
 
 	/* Open the crypto device */
 	cfd = open("/dev/crypto", O_RDWR, 0);
@@ -111,14 +111,14 @@ main()
 		return 1;
 	}
 
-	lzo_ctx_init(&ctx, cfd);
+	c842_ctx_init(&ctx, cfd);
 	
-	lzo_compress(&ctx, input, output, strlen(input));
+	c842_compress(&ctx, input, output, 8);
 	
-	lzo_ctx_deinit(&ctx);
+	c842_ctx_deinit(&ctx);
 
 	printf("Compressed result:\n");
-	for (i = 0; i < 64; i++) {
+	for (i = 0; i < 16; i++) {
 		printf("%02x:", output[i]);
 	}
 	printf("\n");
