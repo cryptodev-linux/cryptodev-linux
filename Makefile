@@ -33,14 +33,12 @@ install: modules_install
 
 modules_install:
 	$(MAKE) $(KERNEL_MAKE_OPTS) modules_install
-	insmod /lib/modules/$(shell uname -r)/extra/cryptodev.ko
 	install -m 644 -D crypto/cryptodev.h $(DESTDIR)/$(includedir)/crypto/cryptodev.h
 
 clean:
 	$(MAKE) $(KERNEL_MAKE_OPTS) clean
 	rm -f $(hostprogs) *~
 	CFLAGS=$(CRYPTODEV_CFLAGS) KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C tests clean
-	rmmod cryptodev
 
 check:
 	CFLAGS=$(CRYPTODEV_CFLAGS) KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C tests check
