@@ -257,14 +257,15 @@ int crypto_run(struct fcrypt *fcr, struct kernel_crypt_op *kcop)
 			}
 		}
 
-		if (cop->flags & COP_FLAG_NO_ZC)
+		if (cop->flags & COP_FLAG_NO_ZC) {
 			if (unlikely(ses_ptr->comprdata.init != 0)) {
-				derr(0, "Compression algorithms are only supported through the zero-copy API", ret);
+				derr(0, "Compression algorithms are only supported through the zero-copy API");
 				goto out_unlock;
 			}
 			ret = __crypto_run_std(ses_ptr, &kcop->cop);
-		else
+		} else {
 			ret = __crypto_run_zc(ses_ptr, kcop);
+		}
 		if (unlikely(ret))
 			goto out_unlock;
 	}

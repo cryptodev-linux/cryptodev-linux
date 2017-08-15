@@ -117,6 +117,13 @@ main()
 	
 	c842_ctx_deinit(&ctx);
 
+	printf("Raw data:\n");
+	for (i = 0; i < 8; i++) {
+		printf("%02x:", input[i]);
+	}
+	printf("\n");
+
+
 	printf("Compressed result:\n");
 	for (i = 0; i < 16; i++) {
 		printf("%02x:", output[i]);

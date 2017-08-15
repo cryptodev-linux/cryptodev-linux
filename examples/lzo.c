@@ -117,6 +117,13 @@ main()
 	
 	lzo_ctx_deinit(&ctx);
 
+	printf("Raw data:\n");
+	for (i = 0; i < strlen(input); i++) {
+		printf("%02x:", input[i]);
+	}
+	printf("\n");
+
+
 	printf("Compressed result:\n");
 	for (i = 0; i < 64; i++) {
 		printf("%02x:", output[i]);
