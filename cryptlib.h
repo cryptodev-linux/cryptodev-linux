@@ -118,10 +118,10 @@ void cryptodev_compr_deinit(struct compr_data *cdata);
 int cryptodev_compr_init(struct compr_data *cdata, const char *alg_name);
 ssize_t cryptodev_compr_compress(struct compr_data *cdata,
 		const struct scatterlist *src, struct scatterlist *dst,
-		size_t len);
+		size_t slen, size_t dlen);
 ssize_t cryptodev_compr_decompress(struct compr_data *cdata,
 		const struct scatterlist *src, struct scatterlist *dst,
-		size_t len);
+		size_t slen, size_t dlen);
 
 
 #endif

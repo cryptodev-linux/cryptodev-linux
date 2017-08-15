@@ -148,7 +148,7 @@ __crypto_run_std(struct csession *ses_ptr, struct crypt_op *cop)
 
 		sg_init_one(&sg, data, current_len);
 
-		ret = hash_n_crypt(ses_ptr, cop, &sg, &sg, current_len);
+		ret = hash_n_crypt(ses_ptr, cop, &sg, &sg, current_len, current_len);
 
 		if (unlikely(ret)) {
 		        derr(1, "hash_n_crypt failed.");
