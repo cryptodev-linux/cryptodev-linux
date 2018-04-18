@@ -62,7 +62,7 @@ static int get_userbuf_tls(struct csession *ses, struct kernel_crypt_auth_op *kc
 		return -EINVAL;
 
 	if (ses->alignmask) {
-		if (!IS_ALIGNED((unsigned long)caop->dst, ses->alignmask))
+		if (!IS_ALIGNED((unsigned long)caop->dst, ses->alignmask + 1))
 			dwarning(2, "careful - source address %p is not %d byte aligned",
 					caop->dst, ses->alignmask + 1);
 	}
@@ -116,10 +116,10 @@ static int get_userbuf_srtp(struct csession *ses, struct kernel_crypt_auth_op *k
 	}
 
 	if (ses->alignmask) {
-		if (!IS_ALIGNED((unsigned long)caop->dst, ses->alignmask))
+		if (!IS_ALIGNED((unsigned long)caop->dst, ses->alignmask + 1))
 			dwarning(2, "careful - source address %p is not %d byte aligned",
 					caop->dst, ses->alignmask + 1);
-		if (!IS_ALIGNED((unsigned long)caop->auth_src, ses->alignmask))
+		if (!IS_ALIGNED((unsigned long)caop->auth_src, ses->alignmask + 1))
 			dwarning(2, "careful - source address %p is not %d byte aligned",
 					caop->auth_src, ses->alignmask + 1);
 	}
