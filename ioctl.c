@@ -828,7 +828,11 @@ cryptodev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg_)
 		fd = clonefd(filp);
 		ret = put_user(fd, p);
 		if (unlikely(ret)) {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 17, 0))
 			sys_close(fd);
+#else
+			ksys_close(fd);
+#endif
 			return ret;
 		}
 		return ret;
