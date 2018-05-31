@@ -406,6 +406,8 @@ int cryptodev_hash_reset(struct hash_data *hdata)
 		return ret;
 	}
 
+	hdata->reset = 1;
+
 	return 0;
 
 }

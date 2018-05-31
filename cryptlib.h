@@ -85,6 +85,7 @@ static inline void cryptodev_cipher_get_iv(struct cipher_data *cdata,
 /* Hash */
 struct hash_data {
 	int init; /* 0 uninitialized */
+	int reset; /* 0 was not reset */
 	int digestsize;
 	int alignmask;
 	struct {

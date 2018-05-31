@@ -64,6 +64,12 @@ hash_n_crypt(struct csession *ses_ptr, struct crypt_op *cop,
 	 * we should introduce a flag to switch... TBD later on.
 	 */
 	if (cop->op == COP_ENCRYPT) {
+		if (ses_ptr->hdata.init != 0 && ses_ptr->hdata.reset == 0) {
+			ret = cryptodev_hash_reset(&ses_ptr->hdata);
+			if (unlikely(ret))
+				goto out_err;
+		}
+
 		if (ses_ptr->hdata.init != 0) {
 			ret = cryptodev_hash_update(&ses_ptr->hdata,
 							src_sg, len);
