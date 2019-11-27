@@ -159,6 +159,7 @@ int cryptodev_cipher_init(struct cipher_data *out, const char *alg_name,
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0))
 		tfm = crypto_skcipher_tfm(out->async.s);
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(5, 4, 0))
 		if ((tfm->__crt_alg->cra_type == &crypto_ablkcipher_type)
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0))
 		    || (tfm->__crt_alg->cra_type == &crypto_givcipher_type)
@@ -169,7 +170,9 @@ int cryptodev_cipher_init(struct cipher_data *out, const char *alg_name,
 			alg = &tfm->__crt_alg->cra_ablkcipher;
 			min_keysize = alg->min_keysize;
 			max_keysize = alg->max_keysize;
-		} else {
+		} else
+#endif
+		{
 			struct skcipher_alg *alg;
 
 			alg = crypto_skcipher_alg(out->async.s);
