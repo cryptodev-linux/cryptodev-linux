@@ -51,6 +51,8 @@ enum cryptodev_crypto_op_t {
 	CRYPTO_SHA2_384,
 	CRYPTO_SHA2_512,
 	CRYPTO_SHA2_224_HMAC,
+	CRYPTO_TLS11_AES_CBC_HMAC_SHA1,
+	CRYPTO_TLS12_AES_CBC_HMAC_SHA256,
 	CRYPTO_ALGORITHM_ALL, /* Keep updated - see below */
 };
 
