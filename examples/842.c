@@ -36,6 +36,8 @@ int c842_ctx_init(struct cryptodev_ctx* ctx, int cfd)
 	}
 	printf("Got %s with driver %s\n",
 			siop.compr_info.cra_name, siop.compr_info.cra_driver_name);
+	printf("SIOP_FLAG_KERNEL_DRIVER_ONLY: %d", SIOP_FLAG_KERNEL_DRIVER_ONLY);
+	printf("siop.flags %02x\n", siop.flags);
 	if (!(siop.flags & SIOP_FLAG_KERNEL_DRIVER_ONLY)) {
 		printf("Note: This is not an accelerated compressor\n");
 	}
@@ -133,7 +135,7 @@ main()
 	uint8_t output[16];
 	char input[8];
 	char decompressed[32];
-	char tmp[] = "0011223\x0a";
+	uint8_t tmp[] = {0x30, 0x30, 0x31, 0x31, 0x32, 0x32, 0x33, 0x33};
 
 	memset(input, 0, 8);
 	memset(output, 0, 16);
