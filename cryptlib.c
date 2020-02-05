@@ -39,7 +39,9 @@
 #include "cryptodev_int.h"
 #include "cipherapi.h"
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0))
 extern const struct crypto_type crypto_givcipher_type;
+#endif
 
 static void cryptodev_complete(struct crypto_async_request *req, int err)
 {
@@ -158,14 +160,20 @@ int cryptodev_cipher_init(struct cipher_data *out, const char *alg_name,
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(4, 8, 0))
 		tfm = crypto_skcipher_tfm(out->async.s);
-		if ((tfm->__crt_alg->cra_type == &crypto_ablkcipher_type) ||
-		    (tfm->__crt_alg->cra_type == &crypto_givcipher_type)) {
+#if (LINUX_VERSION_CODE <= KERNEL_VERSION(5, 4, 0))
+		if ((tfm->__crt_alg->cra_type == &crypto_ablkcipher_type)
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0))
+		    || (tfm->__crt_alg->cra_type == &crypto_givcipher_type)
+#endif
+							) {
 			struct ablkcipher_alg *alg;
 
 			alg = &tfm->__crt_alg->cra_ablkcipher;
 			min_keysize = alg->min_keysize;
 			max_keysize = alg->max_keysize;
-		} else {
+		} else
+#endif
+		{
 			struct skcipher_alg *alg;
 
 			alg = crypto_skcipher_alg(out->async.s);
@@ -465,7 +473,7 @@ int cryptodev_compr_init(struct compr_data *cdata, const char *alg_name)
 	cdata->init = 1;
 	return 0;
 	
-error:
+	error:
 	acomp_request_free(cdata->async.request);
 	crypto_free_acomp(cdata->async.s);
 
@@ -508,3 +516,50 @@ ssize_t cryptodev_compr_decompress(struct compr_data *cdata,
 
 	return waitfor(&cdata->async.result, ret);
 }
+#ifdef CIOCCPHASH
+/* import the current hash state of src to dst */
+int cryptodev_hash_copy(struct hash_data *dst, struct hash_data *src)
+{
+	int ret, statesize;
+	void *statedata = NULL;
+	struct crypto_tfm *tfm;
+
+	if (unlikely(src == NULL || dst == NULL)) {
+		return -EINVAL;
+	}
+
+	reinit_completion(&src->async.result.completion);
+
+	statesize = crypto_ahash_statesize(src->async.s);
+	if (unlikely(statesize <= 0)) {
+		return -EINVAL;
+	}
+
+	statedata = kzalloc(statesize, GFP_KERNEL);
+	if (unlikely(statedata == NULL)) {
+		return -ENOMEM;
+	}
+
+	ret = crypto_ahash_export(src->async.request, statedata);
+	if (unlikely(ret < 0)) {
+		if (unlikely(ret == -ENOSYS)) {
+			tfm = crypto_ahash_tfm(src->async.s);
+			derr(0, "cryptodev_hash_copy: crypto_ahash_export not implemented for "
+				"alg='%s', driver='%s'", crypto_tfm_alg_name(tfm),
+				crypto_tfm_alg_driver_name(tfm));
+		}
+		goto out;
+	}
+
+	ret = crypto_ahash_import(dst->async.request, statedata);
+	if (unlikely(ret == -ENOSYS)) {
+		tfm = crypto_ahash_tfm(dst->async.s);
+		derr(0, "cryptodev_hash_copy: crypto_ahash_import not implemented for "
+			"alg='%s', driver='%s'", crypto_tfm_alg_name(tfm),
+			crypto_tfm_alg_driver_name(tfm));
+	}
+out:
+	kfree(statedata);
+	return ret;
+}
+#endif /* CIOCCPHASH */

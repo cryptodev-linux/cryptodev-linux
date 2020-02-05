@@ -80,12 +80,14 @@ test_crypto(int cfd)
 {
 	uint8_t plaintext_raw[DATA_SIZE + 63], *plaintext;
 	uint8_t ciphertext_raw[DATA_SIZE + 63], *ciphertext;
+	uint8_t *payload_plain, *payload_cipher;
 	uint8_t iv[BLOCK_SIZE];
 	uint8_t key[KEY_SIZE];
 	uint8_t sha1mac[20];
 	uint8_t tag[20];
 	uint8_t mackey[] = "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b";
 	int mackey_len = 16;
+	unsigned int data_size;
 
 	struct session_op sess;
 	struct crypt_op co;
@@ -118,26 +120,31 @@ test_crypto(int cfd)
 		perror("ioctl(CIOCGSESSINFO)");
 		return 1;
 	}
-	
+
 	if (debug)
 		printf("requested cipher CRYPTO_AES_CBC/HMAC-SHA1, got %s with driver %s\n",
 			siop.cipher_info.cra_name, siop.cipher_info.cra_driver_name);
 
 	plaintext = buf_align(plaintext_raw, siop.alignmask);
 	ciphertext = buf_align(ciphertext_raw, siop.alignmask);
+	payload_plain = buf_align(plaintext + HEADER_SIZE, siop.alignmask);
+	payload_cipher = buf_align(ciphertext + HEADER_SIZE, siop.alignmask);
 
 	memset(plaintext, 0x15, HEADER_SIZE); /* header */
-	memset(&plaintext[HEADER_SIZE], 0x17, PLAINTEXT_SIZE); /* payload */
-	memset(&plaintext[HEADER_SIZE+PLAINTEXT_SIZE], 0x22, FOOTER_SIZE);
+	memset(payload_plain, 0x17, PLAINTEXT_SIZE); /* payload */
+	memset(payload_plain+PLAINTEXT_SIZE, 0x22, FOOTER_SIZE);
 
 	memcpy(ciphertext, plaintext, DATA_SIZE);
+
+	/* (HEADER_SIZE + payload alignment) + PLAINTEXT_SIZE + FOOTER_SIZE */
+	data_size = (payload_plain - plaintext) + PLAINTEXT_SIZE + FOOTER_SIZE;
 
 	/* Encrypt data.in to data.encrypted */
 	cao.ses = sess.ses;
 	cao.len = PLAINTEXT_SIZE;
-	cao.auth_len = HEADER_SIZE+PLAINTEXT_SIZE+FOOTER_SIZE;
+	cao.auth_len = data_size;
 	cao.auth_src = ciphertext;
-	cao.src = ciphertext+HEADER_SIZE;
+	cao.src = payload_cipher;
 	cao.dst = cao.src;
 	cao.iv = iv;
 	cao.op = COP_ENCRYPT;
@@ -167,7 +174,7 @@ test_crypto(int cfd)
 		return 1;
 	}
 
-	if (get_sha1_hmac(cfd, mackey, mackey_len, ciphertext, HEADER_SIZE + PLAINTEXT_SIZE + FOOTER_SIZE, sha1mac) != 0) {
+	if (get_sha1_hmac(cfd, mackey, mackey_len, ciphertext, data_size, sha1mac) != 0) {
 		fprintf(stderr, "SHA1 MAC failed\n");
 		return 1;
 	}
@@ -182,8 +189,8 @@ test_crypto(int cfd)
 	/* Decrypt data.encrypted to data.decrypted */
 	co.ses = sess.ses;
 	co.len = PLAINTEXT_SIZE;
-	co.src = ciphertext+HEADER_SIZE;
-	co.dst = ciphertext+HEADER_SIZE;
+	co.src = payload_cipher;
+	co.dst = payload_cipher;
 	co.iv = iv;
 	co.op = COP_DECRYPT;
 	if (ioctl(cfd, CIOCCRYPT, &co)) {
@@ -192,7 +199,7 @@ test_crypto(int cfd)
 	}
 
 	/* Verify the result */
-	if (memcmp(plaintext+HEADER_SIZE, ciphertext+HEADER_SIZE, PLAINTEXT_SIZE) != 0) {
+	if (memcmp(payload_plain, payload_cipher, PLAINTEXT_SIZE) != 0) {
 		int i;
 		fprintf(stderr,
 			"FAIL: Decrypted data are different from the input data.\n");
@@ -228,11 +235,13 @@ test_encrypt_decrypt(int cfd)
 {
 	uint8_t plaintext_raw[DATA_SIZE + 63], *plaintext;
 	uint8_t ciphertext_raw[DATA_SIZE + 63], *ciphertext;
+	uint8_t *payload_plain, *payload_cipher;
 	uint8_t iv[BLOCK_SIZE];
 	uint8_t key[KEY_SIZE];
 	uint8_t tag[20];
 	uint8_t mackey[] = "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b";
 	int mackey_len = 16;
+	unsigned int data_size;
 
 	struct session_op sess;
 	struct crypt_auth_op cao;
@@ -268,19 +277,24 @@ test_encrypt_decrypt(int cfd)
 
 	plaintext = buf_align(plaintext_raw, siop.alignmask);
 	ciphertext = buf_align(ciphertext_raw, siop.alignmask);
+	payload_plain = buf_align(plaintext + HEADER_SIZE, siop.alignmask);
+	payload_cipher = buf_align(ciphertext + HEADER_SIZE, siop.alignmask);
 
 	memset(plaintext, 0x15, HEADER_SIZE); /* header */
-	memset(&plaintext[HEADER_SIZE], 0x17, PLAINTEXT_SIZE); /* payload */
-	memset(&plaintext[HEADER_SIZE+PLAINTEXT_SIZE], 0x22, FOOTER_SIZE);
+	memset(payload_plain, 0x17, PLAINTEXT_SIZE); /* payload */
+	memset(payload_plain+PLAINTEXT_SIZE, 0x22, FOOTER_SIZE);
 
 	memcpy(ciphertext, plaintext, DATA_SIZE);
+
+	/* (HEADER_SIZE + payload alignment) + PLAINTEXT_SIZE + FOOTER_SIZE */
+	data_size = (payload_plain - plaintext) + PLAINTEXT_SIZE + FOOTER_SIZE;
 
 	/* Encrypt data.in to data.encrypted */
 	cao.ses = sess.ses;
 	cao.len = PLAINTEXT_SIZE;
-	cao.auth_len = HEADER_SIZE+PLAINTEXT_SIZE+FOOTER_SIZE;
+	cao.auth_len = data_size;
 	cao.auth_src = ciphertext;
-	cao.src = ciphertext+HEADER_SIZE;
+	cao.src = payload_cipher;
 	cao.dst = cao.src;
 	cao.iv = iv;
 	cao.op = COP_ENCRYPT;
@@ -318,9 +332,9 @@ test_encrypt_decrypt(int cfd)
 	/* Encrypt data.in to data.encrypted */
 	cao.ses = sess.ses;
 	cao.len = PLAINTEXT_SIZE;
-	cao.auth_len = HEADER_SIZE+PLAINTEXT_SIZE+FOOTER_SIZE;
+	cao.auth_len = data_size;
 	cao.auth_src = ciphertext;
-	cao.src = ciphertext+HEADER_SIZE;
+	cao.src = payload_cipher;
 	cao.dst = cao.src;
 	cao.iv = iv;
 	cao.op = COP_DECRYPT;
@@ -333,7 +347,7 @@ test_encrypt_decrypt(int cfd)
 	}
 
 	/* Verify the result */
-	if (memcmp(plaintext+HEADER_SIZE, ciphertext+HEADER_SIZE, PLAINTEXT_SIZE) != 0) {
+	if (memcmp(payload_plain, payload_cipher, PLAINTEXT_SIZE) != 0) {
 		int i;
 		fprintf(stderr,
 			"FAIL: Decrypted data are different from the input data.\n");
@@ -370,11 +384,13 @@ test_encrypt_decrypt_error(int cfd, int err)
 {
 	uint8_t plaintext_raw[DATA_SIZE + 63], *plaintext;
 	uint8_t ciphertext_raw[DATA_SIZE + 63], *ciphertext;
+	uint8_t *payload_plain, *payload_cipher;
 	uint8_t iv[BLOCK_SIZE];
 	uint8_t key[KEY_SIZE];
 	uint8_t tag[20];
 	uint8_t mackey[] = "\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b\x0b";
 	int mackey_len = 16;
+	unsigned int data_size;
 
 	struct session_op sess;
 	struct crypt_auth_op cao;
@@ -410,19 +426,24 @@ test_encrypt_decrypt_error(int cfd, int err)
 
 	plaintext = buf_align(plaintext_raw, siop.alignmask);
 	ciphertext = buf_align(ciphertext_raw, siop.alignmask);
+	payload_plain = buf_align(plaintext + HEADER_SIZE, siop.alignmask);
+	payload_cipher = buf_align(ciphertext + HEADER_SIZE, siop.alignmask);
 
 	memset(plaintext, 0x15, HEADER_SIZE); /* header */
-	memset(&plaintext[HEADER_SIZE], 0x17, PLAINTEXT_SIZE); /* payload */
-	memset(&plaintext[HEADER_SIZE+PLAINTEXT_SIZE], 0x22, FOOTER_SIZE);
+	memset(payload_plain, 0x17, PLAINTEXT_SIZE); /* payload */
+	memset(payload_plain + PLAINTEXT_SIZE, 0x22, FOOTER_SIZE);
 
 	memcpy(ciphertext, plaintext, DATA_SIZE);
+
+	/* (HEADER_SIZE + payload alignment) + PLAINTEXT_SIZE + FOOTER_SIZE */
+	data_size = (payload_plain - plaintext) + PLAINTEXT_SIZE + FOOTER_SIZE;
 
 	/* Encrypt data.in to data.encrypted */
 	cao.ses = sess.ses;
 	cao.len = PLAINTEXT_SIZE;
-	cao.auth_len = HEADER_SIZE+PLAINTEXT_SIZE+FOOTER_SIZE;
+	cao.auth_len = data_size;
 	cao.auth_src = ciphertext;
-	cao.src = ciphertext+HEADER_SIZE;
+	cao.src = payload_cipher;
 	cao.dst = cao.src;
 	cao.iv = iv;
 	cao.op = COP_ENCRYPT;
@@ -461,18 +482,19 @@ test_encrypt_decrypt_error(int cfd, int err)
 	if (err == 0)
 		ciphertext[1]++;
 	else
-		ciphertext[HEADER_SIZE+3]++;
+		payload_cipher[3]++;
 	cao.ses = sess.ses;
 	cao.len = PLAINTEXT_SIZE;
-	cao.auth_len = HEADER_SIZE+PLAINTEXT_SIZE+FOOTER_SIZE;
+	cao.auth_len = data_size;
 	cao.auth_src = ciphertext;
-	cao.src = ciphertext+HEADER_SIZE;
+	cao.src = payload_cipher;
 	cao.dst = cao.src;
 	cao.iv = iv;
 	cao.op = COP_DECRYPT;
 	cao.flags = COP_FLAG_AEAD_SRTP_TYPE;
 	cao.tag = tag;
 	cao.tag_len = 20;
+
 	if (ioctl(cfd, CIOCAUTHCRYPT, &cao)) {
 		if (ioctl(cfd, CIOCFSESSION, &sess.ses)) {
 			perror("ioctl(CIOCFSESSION)");
@@ -484,7 +506,7 @@ test_encrypt_decrypt_error(int cfd, int err)
 	}
 
 	/* Verify the result */
-	if (memcmp(plaintext+HEADER_SIZE, ciphertext+HEADER_SIZE, PLAINTEXT_SIZE) != 0) {
+	if (memcmp(payload_plain, payload_cipher, PLAINTEXT_SIZE) != 0) {
 		int i;
 		fprintf(stderr,
 			"FAIL: Decrypted data are different from the input data.\n");

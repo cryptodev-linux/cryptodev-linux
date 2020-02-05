@@ -122,6 +122,9 @@ ssize_t cryptodev_compr_compress(struct compr_data *cdata,
 ssize_t cryptodev_compr_decompress(struct compr_data *cdata,
 		const struct scatterlist *src, struct scatterlist *dst,
 		size_t slen, size_t dlen);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 29))
+int cryptodev_hash_copy(struct hash_data *dst, struct hash_data *src);
+#endif
 
 
 #endif

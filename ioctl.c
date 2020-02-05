@@ -161,6 +161,16 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 		stream = 1;
 		aead = 1;
 		break;
+	case CRYPTO_TLS11_AES_CBC_HMAC_SHA1:
+		alg_name = "tls11(hmac(sha1),cbc(aes))";
+		stream = 0;
+		aead = 1;
+		break;
+	case CRYPTO_TLS12_AES_CBC_HMAC_SHA256:
+		alg_name = "tls12(hmac(sha256),cbc(aes))";
+		stream = 0;
+		aead = 1;
+		break;
 	case CRYPTO_NULL:
 		alg_name = "ecb(cipher_null)";
 		stream = 1;
@@ -450,6 +460,34 @@ crypto_get_session_by_sid(struct fcrypt *fcr, uint32_t sid)
 
 	return retval;
 }
+
+#ifdef CIOCCPHASH
+/* Copy the hash state from one session to another */
+static int
+crypto_copy_hash_state(struct fcrypt *fcr, uint32_t dst_sid, uint32_t src_sid)
+{
+	struct csession *src_ses, *dst_ses;
+	int ret;
+
+	src_ses = crypto_get_session_by_sid(fcr, src_sid);
+	if (unlikely(src_ses == NULL)) {
+		derr(1, "Session with sid=0x%08X not found!", src_sid);
+		return -ENOENT;
+	}
+
+	dst_ses = crypto_get_session_by_sid(fcr, dst_sid);
+	if (unlikely(dst_ses == NULL)) {
+		derr(1, "Session with sid=0x%08X not found!", dst_sid);
+		crypto_put_session(src_ses);
+		return -ENOENT;
+	}
+
+	ret = cryptodev_hash_copy(&dst_ses->hdata, &src_ses->hdata);
+	crypto_put_session(src_ses);
+	crypto_put_session(dst_ses);
+	return ret;
+}
+#endif /* CIOCCPHASH */
 
 static void cryptask_routine(struct work_struct *work)
 {
@@ -852,6 +890,9 @@ cryptodev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg_)
 	struct crypt_priv *pcr = filp->private_data;
 	struct fcrypt *fcr;
 	struct session_info_op siop;
+#ifdef CIOCCPHASH
+	struct cphash_op cphop;
+#endif
 	uint32_t ses;
 	int ret, fd;
 
@@ -867,7 +908,11 @@ cryptodev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg_)
 		fd = clonefd(filp);
 		ret = put_user(fd, p);
 		if (unlikely(ret)) {
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 17, 0))
 			sys_close(fd);
+#else
+			ksys_close(fd);
+#endif
 			return ret;
 		}
 		return ret;
@@ -898,6 +943,12 @@ cryptodev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg_)
 		if (unlikely(ret))
 			return ret;
 		return copy_to_user(arg, &siop, sizeof(siop));
+#ifdef CIOCCPHASH
+	case CIOCCPHASH:
+		if (unlikely(copy_from_user(&cphop, arg, sizeof(cphop))))
+			return -EFAULT;
+		return crypto_copy_hash_state(fcr, cphop.dst_ses, cphop.src_ses);
+#endif /* CIOCPHASH */
 	case CIOCCRYPT:
 		if (unlikely(ret = kcop_from_user(&kcop, fcr, arg))) {
 			dwarning(1, "Error copying from user");
