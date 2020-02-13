@@ -862,7 +862,7 @@ static int get_session_info(struct fcrypt *fcr, struct session_info_op *siop)
 #endif
 	}
 		if (ses_ptr->comprdata.init) {
-		tfm = crypto_acomp_tfm(ses_ptr->comprdata.async.s);
+		tfm = crypto_comp_tfm(ses_ptr->comprdata.tfm);
 		tfm_info_to_alg_info(&siop->compr_info, tfm);
 #ifdef CRYPTO_ALG_KERN_DRIVER_ONLY
 		if (tfm->__crt_alg->cra_flags & CRYPTO_ALG_KERN_DRIVER_ONLY)

@@ -56,7 +56,7 @@
 static int
 hash_n_crypt(struct csession *ses_ptr, struct crypt_op *cop,
 		struct scatterlist *src_sg, struct scatterlist *dst_sg,
-		uint32_t slen, uint32_t dlen)
+		unsigned int slen, unsigned int dlen)
 {
 	int ret;
 

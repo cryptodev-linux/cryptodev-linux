@@ -43,6 +43,9 @@
 extern const struct crypto_type crypto_givcipher_type;
 #endif
 
+static unsigned int compr_buffer_order = 1;
+#define COMPR_BUFFER_SIZE	(PAGE_SIZE << compr_buffer_order)
+
 static void cryptodev_complete(struct crypto_async_request *req, int err)
 {
 	struct cryptodev_result *res = req->data;
@@ -444,77 +447,80 @@ int cryptodev_hash_final(struct hash_data *hdata, void *output)
 	return waitfor(&hdata->async.result, ret);
 }
 
-int cryptodev_compr_init(struct compr_data *cdata, const char *alg_name)
+int cryptodev_compr_init(struct compr_data *comprdata, const char *alg_name)
 {
-	int ret;
+	int ret = 0;
 	
-	cdata->async.s = crypto_alloc_acomp(alg_name, 0, 0);
-	if (unlikely(IS_ERR(cdata->async.s))) {
-		ddebug(1, "Failed to load transform for %s", alg_name);
-			return -EINVAL;
+	comprdata->tfm = crypto_alloc_comp(alg_name, 0, 0);
+	if (IS_ERR(comprdata->tfm)) {
+		pr_err("could not create compressor %s : %ld\n",
+			 alg_name, PTR_ERR(comprdata->tfm));
+		ret = PTR_ERR(comprdata->tfm);
 	}
-	
-	cdata->alignmask = crypto_tfm_alg_alignmask(crypto_acomp_tfm(cdata->async.s)); 
-	
-	init_completion(&cdata->async.result.completion);
-	
-	cdata->async.request = acomp_request_alloc(cdata->async.s);
-	if (unlikely(!cdata->async.request)) {
-		derr(0, "error allocating async crypto request");
-		ret = -ENOMEM;
-		goto error;
-	}
-	
-	
-	acomp_request_set_callback(cdata->async.request,
-			CRYPTO_TFM_REQ_MAY_BACKLOG,
-			cryptodev_complete, &cdata->async.result);
 
-	cdata->init = 1;
-	return 0;
-	
-	error:
-	acomp_request_free(cdata->async.request);
-	crypto_free_acomp(cdata->async.s);
+	comprdata->srcBuffer = (u8 *)__get_free_pages(GFP_KERNEL, compr_buffer_order);
+	comprdata->dstBuffer = (u8 *)__get_free_pages(GFP_KERNEL, compr_buffer_order);
+	memset(comprdata->srcBuffer, 0, COMPR_BUFFER_SIZE);
+	memset(comprdata->dstBuffer, 0, COMPR_BUFFER_SIZE);
+
+	if (!comprdata->srcBuffer || !comprdata->dstBuffer) {
+		pr_err("could not allocate buffer\n");
+		ret = -ENOMEM;
+	}
+
+	if(!ret) {
+		comprdata->alignmask = crypto_tfm_alg_alignmask(crypto_comp_tfm(comprdata->tfm));
+		comprdata->init = 1;
+	}
 
 	return ret;
 }
 
-void cryptodev_compr_deinit(struct compr_data *cdata)
+void cryptodev_compr_deinit(struct compr_data *comprdata)
 {
-	if (cdata->init) {
-		acomp_request_free(cdata->async.request);
-		crypto_free_acomp(cdata->async.s);
-		cdata->init = 0;
+	if (comprdata->init == 1  && comprdata->tfm && !IS_ERR(comprdata->tfm))
+		crypto_free_comp(comprdata->tfm);
+	
+	comprdata->tfm = NULL;
+	comprdata->init = 0;
+}
+
+ssize_t cryptodev_compr_compress(struct compr_data *comprdata,
+		const struct scatterlist *src, struct scatterlist *dst,
+		unsigned int slen, unsigned int dlen)
+{
+	int ret;
+
+	if (slen * 2 > COMPR_BUFFER_SIZE) {
+		return -EINVAL;
 	}
+
+	if (sg_copy_to_buffer((struct scatterlist *) src, sg_nents_for_len((struct scatterlist *) src, slen), comprdata->srcBuffer, slen) != slen)
+		return -EINVAL;
+
+	ret = crypto_comp_compress(comprdata->tfm, comprdata->srcBuffer, slen, comprdata->dstBuffer, &dlen);
+
+	if (sg_copy_from_buffer(dst, sg_nents_for_len(dst, dlen), comprdata->dstBuffer, dlen) != dlen)
+		return -EINVAL;
+
+	return ret;
 }
 
-ssize_t cryptodev_compr_compress(struct compr_data *cdata,
+ssize_t cryptodev_compr_decompress(struct compr_data *comprdata,
 		const struct scatterlist *src, struct scatterlist *dst,
-		size_t slen, size_t dlen)
+		unsigned int slen, unsigned int dlen)
 {
 	int ret;
 
-	reinit_completion(&cdata->async.result.completion);
+	if (sg_copy_to_buffer((struct scatterlist *) src, sg_nents_for_len((struct scatterlist *) src, slen), comprdata->srcBuffer, slen) != slen)
+		return -EINVAL;
 
-	acomp_request_set_params(cdata->async.request, (struct scatterlist *)src, dst, slen, dlen);
-	ret = crypto_acomp_compress(cdata->async.request);
+	ret = crypto_comp_decompress(comprdata->tfm, comprdata->srcBuffer, slen, comprdata->dstBuffer, &dlen);
 
-	return waitfor(&cdata->async.result, ret);
-}
+	if (sg_copy_from_buffer(dst, sg_nents_for_len(dst, dlen), comprdata->dstBuffer, dlen) != dlen)
+		return -EINVAL;
 
-ssize_t cryptodev_compr_decompress(struct compr_data *cdata,
-		const struct scatterlist *src, struct scatterlist *dst,
-		size_t slen, size_t dlen)
-{
-	int ret;
-
-	reinit_completion(&cdata->async.result.completion);
-
-	acomp_request_set_params(cdata->async.request, (struct scatterlist *)src, dst, slen, dlen);
-	ret = crypto_acomp_decompress(cdata->async.request);
-
-	return waitfor(&cdata->async.result, ret);
+	return ret;
 }
 #ifdef CIOCCPHASH
 /* import the current hash state of src to dst */
