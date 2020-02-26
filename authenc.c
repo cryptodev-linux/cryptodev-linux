@@ -314,7 +314,8 @@ static void read_tls_hash(struct scatterlist *dst_sg, int len, void *hash, int h
 
 static int pad_record(struct scatterlist *dst_sg, int len, int block_size)
 {
-	uint8_t pad[block_size];
+	uint8_t *pad;
+	pad = kmalloc_array(block_size,sizeof(*pad),GFP_KERNEL);
 	int pad_size = block_size - (len % block_size);
 
 	memset(pad, pad_size - 1, pad_size);
