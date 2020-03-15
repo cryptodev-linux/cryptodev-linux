@@ -460,15 +460,15 @@ int cryptodev_compr_init(struct compr_data *comprdata, const char *alg_name)
 
 	comprdata->srcBuffer = (u8 *)__get_free_pages(GFP_KERNEL, compr_buffer_order);
 	comprdata->dstBuffer = (u8 *)__get_free_pages(GFP_KERNEL, compr_buffer_order);
-	memset(comprdata->srcBuffer, 0, COMPR_BUFFER_SIZE);
-	memset(comprdata->dstBuffer, 0, COMPR_BUFFER_SIZE);
-
 	if (!comprdata->srcBuffer || !comprdata->dstBuffer) {
 		pr_err("could not allocate buffer\n");
 		ret = -ENOMEM;
 	}
 
 	if(!ret) {
+		memset(comprdata->srcBuffer, 0, COMPR_BUFFER_SIZE);
+		memset(comprdata->dstBuffer, 0, COMPR_BUFFER_SIZE);
+
 		comprdata->alignmask = crypto_tfm_alg_alignmask(crypto_comp_tfm(comprdata->tfm));
 		comprdata->init = 1;
 	}
