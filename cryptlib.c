@@ -478,8 +478,11 @@ int cryptodev_compr_init(struct compr_data *comprdata, const char *alg_name)
 
 void cryptodev_compr_deinit(struct compr_data *comprdata)
 {
-	if (comprdata->init == 1  && comprdata->tfm && !IS_ERR(comprdata->tfm))
+	if (comprdata->init == 1  && comprdata->tfm && !IS_ERR(comprdata->tfm)) {
+		free_pages((unsigned long)comprdata->srcBuffer, compr_buffer_order);
+		free_pages((unsigned long)comprdata->dstBuffer, compr_buffer_order);
 		crypto_free_comp(comprdata->tfm);
+	}
 	
 	comprdata->tfm = NULL;
 	comprdata->init = 0;
