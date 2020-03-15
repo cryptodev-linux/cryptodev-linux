@@ -43,7 +43,7 @@
 extern const struct crypto_type crypto_givcipher_type;
 #endif
 
-static unsigned int compr_buffer_order = 1;
+static const unsigned int compr_buffer_order = 1;
 #define COMPR_BUFFER_SIZE	(PAGE_SIZE << compr_buffer_order)
 
 static void cryptodev_complete(struct crypto_async_request *req, int err)
