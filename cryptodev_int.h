@@ -92,6 +92,8 @@ struct kernel_crypt_op {
 	int digestsize;
 	uint8_t hash_output[AALG_MAX_RESULT_LEN];
 
+	uint32_t useddlen;
+
 	struct task_struct *task;
 	struct mm_struct *mm;
 };

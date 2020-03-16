@@ -469,6 +469,7 @@ int cryptodev_compr_init(struct compr_data *comprdata, const char *alg_name)
 		memset(comprdata->srcBuffer, 0, COMPR_BUFFER_SIZE);
 		memset(comprdata->dstBuffer, 0, COMPR_BUFFER_SIZE);
 
+		comprdata->useddlen = 0;
 		comprdata->alignmask = crypto_tfm_alg_alignmask(crypto_comp_tfm(comprdata->tfm));
 		comprdata->init = 1;
 	}
@@ -502,6 +503,7 @@ ssize_t cryptodev_compr_compress(struct compr_data *comprdata,
 		return -EINVAL;
 
 	ret = crypto_comp_compress(comprdata->tfm, comprdata->srcBuffer, slen, comprdata->dstBuffer, &dlen);
+	comprdata->useddlen = dlen;
 
 	if (sg_copy_from_buffer(dst, sg_nents_for_len(dst, dlen), comprdata->dstBuffer, dlen) != dlen)
 		return -EINVAL;
@@ -519,6 +521,7 @@ ssize_t cryptodev_compr_decompress(struct compr_data *comprdata,
 		return -EINVAL;
 
 	ret = crypto_comp_decompress(comprdata->tfm, comprdata->srcBuffer, slen, comprdata->dstBuffer, &dlen);
+	comprdata->useddlen = dlen;
 
 	if (sg_copy_from_buffer(dst, sg_nents_for_len(dst, dlen), comprdata->dstBuffer, dlen) != dlen)
 		return -EINVAL;

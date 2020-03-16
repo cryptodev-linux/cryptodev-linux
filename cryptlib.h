@@ -113,6 +113,7 @@ struct compr_data {
 	struct crypto_comp *tfm;
 	u8 *srcBuffer;
 	u8 *dstBuffer;
+	uint32_t useddlen;
 };
 
 void cryptodev_compr_deinit(struct compr_data *cdata);

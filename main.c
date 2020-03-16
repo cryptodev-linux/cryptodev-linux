@@ -286,6 +286,9 @@ int crypto_run(struct fcrypt *fcr, struct kernel_crypt_op *kcop)
 		}
 		kcop->digestsize = ses_ptr->hdata.digestsize;
 	}
+	if (ses_ptr->comprdata.init != 0) {
+		kcop->useddlen = ses_ptr->comprdata.useddlen;
+	}
 
 out_unlock:
 	crypto_put_session(ses_ptr);

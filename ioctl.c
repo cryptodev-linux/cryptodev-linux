@@ -721,6 +721,7 @@ static int fill_kcop_from_cop(struct kernel_crypt_op *kcop, struct fcrypt *fcr)
 	}
 	kcop->ivlen = cop->iv ? ses_ptr->cdata.ivsize : 0;
 	kcop->digestsize = 0; /* will be updated during operation */
+	kcop->useddlen = 0; /* will be updated during operation */
 
 	crypto_put_session(ses_ptr);
 
@@ -755,6 +756,13 @@ static int fill_cop_from_kcop(struct kernel_crypt_op *kcop, struct fcrypt *fcr)
 				kcop->iv, kcop->ivlen);
 		if (unlikely(ret))
 			return -EFAULT;
+	}
+	if (kcop->useddlen) {
+		ret = copy_to_user(kcop->cop.iv,
+				&kcop->useddlen, sizeof(kcop->useddlen));
+		if (unlikely(ret)) {
+			return -EFAULT;
+		}
 	}
 	return 0;
 }
