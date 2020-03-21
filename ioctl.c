@@ -758,11 +758,7 @@ static int fill_cop_from_kcop(struct kernel_crypt_op *kcop, struct fcrypt *fcr)
 			return -EFAULT;
 	}
 	if (kcop->useddlen) {
-		ret = copy_to_user(kcop->cop.iv,
-				&kcop->useddlen, sizeof(kcop->useddlen));
-		if (unlikely(ret)) {
-			return -EFAULT;
-		}
+		kcop->cop.dlen = kcop->useddlen;
 	}
 	return 0;
 }
