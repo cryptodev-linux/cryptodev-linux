@@ -242,7 +242,7 @@ int crypto_run(struct fcrypt *fcr, struct kernel_crypt_op *kcop)
 				min(ses_ptr->cdata.ivsize, kcop->ivlen));
 	}
 
-	if (likely(cop->len)) {
+	if (likely(cop->len || ses_ptr->comprdata.init != 0)) {
 		if (!(cop->flags & COP_FLAG_NO_ZC)) {
 			if (unlikely(ses_ptr->alignmask && !IS_ALIGNED((unsigned long)cop->src, ses_ptr->alignmask + 1))) {
 				dwarning(2, "source address %p is not %d byte aligned - disabling zero copy",
