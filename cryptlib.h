@@ -113,6 +113,7 @@ struct compr_data {
 	struct crypto_comp *tfm;
 	u8 *srcBuffer;
 	u8 *dstBuffer;
+	int have_useddlen; // Necessary since useddlen can be any value in its range
 	uint32_t useddlen;
 };
 
