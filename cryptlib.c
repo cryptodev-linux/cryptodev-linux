@@ -493,9 +493,8 @@ ssize_t cryptodev_compr_compress(struct compr_data *comprdata,
 {
 	int ret;
 
-	if (slen * 2 > COMPR_BUFFER_SIZE) {
+	if (slen > COMPR_BUFFER_SIZE || dlen > COMPR_BUFFER_SIZE)
 		return -EINVAL;
-	}
 
 	if (sg_copy_to_buffer((struct scatterlist *) src, sg_nents_for_len((struct scatterlist *) src, slen), comprdata->srcBuffer, slen) != slen)
 		return -EINVAL;
@@ -515,6 +514,9 @@ ssize_t cryptodev_compr_decompress(struct compr_data *comprdata,
 		unsigned int slen, unsigned int dlen)
 {
 	int ret;
+
+	if (slen > COMPR_BUFFER_SIZE || dlen > COMPR_BUFFER_SIZE)
+		return -EINVAL;
 
 	if (sg_copy_to_buffer((struct scatterlist *) src, sg_nents_for_len((struct scatterlist *) src, slen), comprdata->srcBuffer, slen) != slen)
 		return -EINVAL;
