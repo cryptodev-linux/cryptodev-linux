@@ -46,7 +46,7 @@ int c842_ctx_init(struct cryptodev_ctx* ctx, int cfd)
 	return 0;
 }
 
-void c842_ctx_deinit(struct cryptodev_ctx* ctx) 
+void c842_ctx_deinit(struct cryptodev_ctx* ctx)
 {
 	if (ioctl(ctx->cfd, CIOCFSESSION, &ctx->sess.ses)) {
 		perror("ioctl(CIOCFSESSION)");
@@ -57,7 +57,7 @@ int c842_compress(struct cryptodev_ctx* ctx, const void* input, void* output, si
 {
 	struct crypt_op cryp;
 	void* p;
-	
+
 	/* check input and output alignment */
 	if (ctx->alignmask) {
 		p = (void*)(((unsigned long)input + ctx->alignmask) & ~ctx->alignmask);
@@ -94,7 +94,7 @@ int c842_decompress(struct cryptodev_ctx* ctx, const void* input, void* output, 
 {
 	struct crypt_op cryp;
 	void* p;
-	
+
 	/* check input and output alignment */
 	if (ctx->alignmask) {
 		p = (void*)(((unsigned long)input + ctx->alignmask) & ~ctx->alignmask);
@@ -156,7 +156,6 @@ main()
 	}
 
 	c842_ctx_init(&ctx, cfd);
-	
 
 	printf("Raw data:\n");
 	for (i = 0; i < 8; i++) {

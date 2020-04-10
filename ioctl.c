@@ -239,19 +239,19 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 		ddebug(1, "bad mac: %d", sop->mac);
 		return -EINVAL;
 	}
-	
+
 	switch (sop->compr) {
-		case 0:
-			break;
-		case CRYPTO_842:
-			compr_name = "842";
-			break;
-		case CRYPTO_LZO:
-			compr_name = "lzo";
-			break;	
-		default:
-			ddebug(1, "bad compr: %d", sop->compr);
-			return -EINVAL;
+	case 0:
+		break;
+	case CRYPTO_842:
+		compr_name = "842";
+		break;
+	case CRYPTO_LZO:
+		compr_name = "lzo";
+		break;
+	default:
+		ddebug(1, "bad compr: %d", sop->compr);
+		return -EINVAL;
 	}
 
 	/* Create a session and put it to the list. Zeroing the structure helps
@@ -310,7 +310,7 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 			goto session_error;
 		}
 	}
-	
+
 	if (compr_name) {
 		ret = cryptodev_compr_init(&ses_new->comprdata, compr_name);
 		if (ret < 0) {
@@ -819,7 +819,7 @@ static unsigned int is_known_accelerated(struct crypto_tfm *tfm)
 	    strstr(name, "-s5p")	||
 	    strstr(name, "-ppc4xx")	||
 	    strstr(name, "-caam")	||
-		strstr(name, "-nx")		||
+	    strstr(name, "-nx")		||
 	    strstr(name, "-n2"))
 		return 1;
 
@@ -866,7 +866,7 @@ static int get_session_info(struct fcrypt *fcr, struct session_info_op *siop)
 			siop->flags |= SIOP_FLAG_KERNEL_DRIVER_ONLY;
 #endif
 	}
-		if (ses_ptr->comprdata.init) {
+	if (ses_ptr->comprdata.init) {
 		tfm = crypto_comp_tfm(ses_ptr->comprdata.tfm);
 		tfm_info_to_alg_info(&siop->compr_info, tfm);
 #ifdef CRYPTO_ALG_KERN_DRIVER_ONLY

@@ -56,7 +56,7 @@
 static int
 hash_n_crypt(struct csession *ses_ptr, struct crypt_op *cop,
 		struct scatterlist *src_sg, struct scatterlist *dst_sg,
-		unsigned int slen, unsigned int dlen)
+		uint32_t slen, uint32_t dlen)
 {
 	int ret;
 
@@ -184,11 +184,10 @@ __crypto_run_zc(struct csession *ses_ptr, struct kernel_crypt_op *kcop)
 
 	if (ses_ptr->comprdata.init != 0) {
 		ret = get_userbuf(ses_ptr, cop->src, cop->len, cop->dst, cop->dlen,
-		                  kcop->task, kcop->mm, &src_sg, &dst_sg);	
-	
+		                  kcop->task, kcop->mm, &src_sg, &dst_sg);
 	} else {
 		ret = get_userbuf(ses_ptr, cop->src, cop->len, cop->dst, cop->len,
-		                  kcop->task, kcop->mm, &src_sg, &dst_sg);	
+		                  kcop->task, kcop->mm, &src_sg, &dst_sg);
 	}
 
 	if (unlikely(ret)) {

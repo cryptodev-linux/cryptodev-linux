@@ -44,7 +44,7 @@ int lzo_ctx_init(struct cryptodev_ctx* ctx, int cfd)
 	return 0;
 }
 
-void lzo_ctx_deinit(struct cryptodev_ctx* ctx) 
+void lzo_ctx_deinit(struct cryptodev_ctx* ctx)
 {
 	if (ioctl(ctx->cfd, CIOCFSESSION, &ctx->sess.ses)) {
 		perror("ioctl(CIOCFSESSION)");
@@ -55,7 +55,7 @@ int lzo_compress(struct cryptodev_ctx* ctx, const void* input, void* output, siz
 {
 	struct crypt_op cryp;
 	void* p;
-	
+
 	/* check input and output alignment */
 	if (ctx->alignmask) {
 		p = (void*)(((unsigned long)input + ctx->alignmask) & ~ctx->alignmask);
@@ -92,7 +92,7 @@ int lzo_decompress(struct cryptodev_ctx* ctx, const void* input, void* output, s
 {
 	struct crypt_op cryp;
 	void* p;
-	
+
 	/* check input and output alignment */
 	if (ctx->alignmask) {
 		p = (void*)(((unsigned long)input + ctx->alignmask) & ~ctx->alignmask);

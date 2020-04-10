@@ -450,7 +450,7 @@ int cryptodev_hash_final(struct hash_data *hdata, void *output)
 int cryptodev_compr_init(struct compr_data *comprdata, const char *alg_name)
 {
 	int ret = 0;
-	
+
 	comprdata->tfm = crypto_alloc_comp(alg_name, 0, 0);
 	if (IS_ERR(comprdata->tfm)) {
 		pr_err("could not create compressor %s : %ld\n",
@@ -458,9 +458,9 @@ int cryptodev_compr_init(struct compr_data *comprdata, const char *alg_name)
 		ret = PTR_ERR(comprdata->tfm);
 	}
 
-	comprdata->srcBuffer = (u8 *)__get_free_pages(GFP_KERNEL, compr_buffer_order);
-	comprdata->dstBuffer = (u8 *)__get_free_pages(GFP_KERNEL, compr_buffer_order);
-	if (!comprdata->srcBuffer || !comprdata->dstBuffer) {
+	comprdata->srcbuf = (u8 *)__get_free_pages(GFP_KERNEL, compr_buffer_order);
+	comprdata->dstbuf = (u8 *)__get_free_pages(GFP_KERNEL, compr_buffer_order);
+	if (!comprdata->srcbuf || !comprdata->dstbuf) {
 		pr_err("could not allocate buffer\n");
 		ret = -ENOMEM;
 	}
@@ -478,11 +478,11 @@ int cryptodev_compr_init(struct compr_data *comprdata, const char *alg_name)
 void cryptodev_compr_deinit(struct compr_data *comprdata)
 {
 	if (comprdata->init == 1  && comprdata->tfm && !IS_ERR(comprdata->tfm)) {
-		free_pages((unsigned long)comprdata->srcBuffer, compr_buffer_order);
-		free_pages((unsigned long)comprdata->dstBuffer, compr_buffer_order);
+		free_pages((unsigned long)comprdata->srcbuf, compr_buffer_order);
+		free_pages((unsigned long)comprdata->dstbuf, compr_buffer_order);
 		crypto_free_comp(comprdata->tfm);
 	}
-	
+
 	comprdata->tfm = NULL;
 	comprdata->init = 0;
 }
@@ -496,14 +496,14 @@ ssize_t cryptodev_compr_compress(struct compr_data *comprdata,
 	if (slen > COMPR_BUFFER_SIZE || dlen > COMPR_BUFFER_SIZE)
 		return -EINVAL;
 
-	if (sg_copy_to_buffer((struct scatterlist *) src, sg_nents_for_len((struct scatterlist *) src, slen), comprdata->srcBuffer, slen) != slen)
+	if (sg_copy_to_buffer((struct scatterlist *) src, sg_nents_for_len((struct scatterlist *) src, slen), comprdata->srcbuf, slen) != slen)
 		return -EINVAL;
 
-	ret = crypto_comp_compress(comprdata->tfm, comprdata->srcBuffer, slen, comprdata->dstBuffer, &dlen);
+	ret = crypto_comp_compress(comprdata->tfm, comprdata->srcbuf, slen, comprdata->dstbuf, &dlen);
 	comprdata->have_useddlen = 1;
 	comprdata->useddlen = dlen;
 
-	if (sg_copy_from_buffer(dst, sg_nents_for_len(dst, dlen), comprdata->dstBuffer, dlen) != dlen)
+	if (sg_copy_from_buffer(dst, sg_nents_for_len(dst, dlen), comprdata->dstbuf, dlen) != dlen)
 		return -EINVAL;
 
 	return ret;
@@ -518,14 +518,14 @@ ssize_t cryptodev_compr_decompress(struct compr_data *comprdata,
 	if (slen > COMPR_BUFFER_SIZE || dlen > COMPR_BUFFER_SIZE)
 		return -EINVAL;
 
-	if (sg_copy_to_buffer((struct scatterlist *) src, sg_nents_for_len((struct scatterlist *) src, slen), comprdata->srcBuffer, slen) != slen)
+	if (sg_copy_to_buffer((struct scatterlist *) src, sg_nents_for_len((struct scatterlist *) src, slen), comprdata->srcbuf, slen) != slen)
 		return -EINVAL;
 
-	ret = crypto_comp_decompress(comprdata->tfm, comprdata->srcBuffer, slen, comprdata->dstBuffer, &dlen);
+	ret = crypto_comp_decompress(comprdata->tfm, comprdata->srcbuf, slen, comprdata->dstbuf, &dlen);
 	comprdata->have_useddlen = 1;
 	comprdata->useddlen = dlen;
 
-	if (sg_copy_from_buffer(dst, sg_nents_for_len(dst, dlen), comprdata->dstBuffer, dlen) != dlen)
+	if (sg_copy_from_buffer(dst, sg_nents_for_len(dst, dlen), comprdata->dstbuf, dlen) != dlen)
 		return -EINVAL;
 
 	return ret;

@@ -105,14 +105,13 @@ int cryptodev_hash_init(struct hash_data *hdata, const char *alg_name,
 int cryptodev_hash_copy(struct hash_data *dst, struct hash_data *src);
 #endif
 
-			
 /* Compression */
 struct compr_data {
 	int init; /* 0 uninitialized */
 	int alignmask;
 	struct crypto_comp *tfm;
-	u8 *srcBuffer;
-	u8 *dstBuffer;
+	u8 *srcbuf;
+	u8 *dstbuf;
 	int have_useddlen; // Necessary since useddlen can be any value in its range
 	uint32_t useddlen;
 };
