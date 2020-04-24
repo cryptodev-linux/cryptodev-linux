@@ -1,5 +1,7 @@
 === cryptodev-linux with compression support ===
 
+Build status: https://travis-ci.org/github/joanbm/cryptodev-linux
+
 This repository contains a fork of cryptodev-linux ( http://cryptodev-linux.org/ ) with compression support, which allows accessing hardware compressors from userspace.
 
 The main aim of this fork is allowing access to the 842 hardware compressor available on Intel POWER7+ machines. For more complete information, you can visit the lib842 repository ( https://github.com/joanbm/lib842 ).
