@@ -1,0 +1,34 @@
+---
+language: c
+matrix:
+  include:
+    # Ubuntu 18.04 + gcc
+    - os: linux
+      dist: bionic
+      compiler: gcc
+    # Ubuntu 18.04 + clang
+    - os: linux
+      dist: bionic
+      compiler: clang
+    # Ubuntu 16.04 + gcc
+    - os: linux
+      dist: xenial
+      compiler: gcc
+    # Ubuntu 16.04 + clang
+    - os: linux
+      dist: xenial
+      compiler: clang
+before_install:
+  - |
+    sudo apt-get -y install gcc make "linux-headers-$(uname -r)"
+script:
+  - |
+    make
+    sudo make install
+    sudo depmod -a
+    sudo modprobe cryptodev
+    for example_name in 842 aes lzo sha; do
+      echo **EXAMPLE ${example_name}**
+      gcc -o examples/${example_name} examples/${example_name}.c
+      examples/${example_name}
+    done
