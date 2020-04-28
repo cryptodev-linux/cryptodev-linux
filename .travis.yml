@@ -23,7 +23,7 @@ before_install:
     sudo apt-get -y install gcc make "linux-headers-$(uname -r)"
 script:
   - |
-    make
+    make -j"$(nproc)"
     sudo make install
     sudo depmod -a
     sudo modprobe cryptodev
