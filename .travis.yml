@@ -20,7 +20,7 @@ matrix:
       compiler: clang
 before_install:
   - |
-    sudo apt-get -y install gcc make "linux-headers-$(uname -r)"
+    sudo apt-get -y install "linux-headers-$(uname -r)"
 script:
   - |
     make -j"$(nproc)"
