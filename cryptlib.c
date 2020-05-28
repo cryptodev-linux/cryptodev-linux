@@ -458,13 +458,13 @@ int cryptodev_compr_init(struct compr_data *comprdata, const char *alg_name)
 
 	comprdata->srcbuf = (u8 *)__get_free_pages(GFP_KERNEL, compr_buffer_order);
 	if (!comprdata->srcbuf) {
-		pr_err("could not allocate buffer\n");
+		pr_err("could not allocate temporary compression source buffer\n");
 		goto allocerr_free_tfm;
 	}
 
 	comprdata->dstbuf = (u8 *)__get_free_pages(GFP_KERNEL, compr_buffer_order);
 	if (!comprdata->dstbuf) {
-		pr_err("could not allocate buffer\n");
+		pr_err("could not allocate temporary compression destination buffer\n");
 		goto allocerr_free_srcbuf;
 	}
 
