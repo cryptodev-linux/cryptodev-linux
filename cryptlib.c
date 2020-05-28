@@ -449,30 +449,37 @@ int cryptodev_hash_final(struct hash_data *hdata, void *output)
 
 int cryptodev_compr_init(struct compr_data *comprdata, const char *alg_name)
 {
-	int ret = 0;
-
 	comprdata->tfm = crypto_alloc_comp(alg_name, 0, 0);
 	if (IS_ERR(comprdata->tfm)) {
 		pr_err("could not create compressor %s : %ld\n",
 			 alg_name, PTR_ERR(comprdata->tfm));
-		ret = PTR_ERR(comprdata->tfm);
+		return PTR_ERR(comprdata->tfm);
 	}
 
 	comprdata->srcbuf = (u8 *)__get_free_pages(GFP_KERNEL, compr_buffer_order);
-	comprdata->dstbuf = (u8 *)__get_free_pages(GFP_KERNEL, compr_buffer_order);
-	if (!comprdata->srcbuf || !comprdata->dstbuf) {
+	if (!comprdata->srcbuf) {
 		pr_err("could not allocate buffer\n");
-		ret = -ENOMEM;
+		goto allocerr_free_tfm;
 	}
 
-	if(!ret) {
-		comprdata->have_useddlen = 0;
-		comprdata->useddlen = 0;
-		comprdata->alignmask = crypto_tfm_alg_alignmask(crypto_comp_tfm(comprdata->tfm));
-		comprdata->init = 1;
+	comprdata->dstbuf = (u8 *)__get_free_pages(GFP_KERNEL, compr_buffer_order);
+	if (!comprdata->dstbuf) {
+		pr_err("could not allocate buffer\n");
+		goto allocerr_free_srcbuf;
 	}
 
-	return ret;
+	comprdata->have_useddlen = 0;
+	comprdata->useddlen = 0;
+	comprdata->alignmask = crypto_tfm_alg_alignmask(crypto_comp_tfm(comprdata->tfm));
+	comprdata->init = 1;
+
+	return 0;
+
+allocerr_free_srcbuf:
+	free_pages((unsigned long)comprdata->srcbuf, compr_buffer_order);
+allocerr_free_tfm:
+	crypto_free_comp(comprdata->tfm);
+	return -ENOMEM;
 }
 
 void cryptodev_compr_deinit(struct compr_data *comprdata)
