@@ -29,6 +29,7 @@
 #include <linux/random.h>
 #include <linux/scatterlist.h>
 #include <linux/uaccess.h>
+#include <linux/log2.h>
 #include <crypto/algapi.h>
 #include <crypto/hash.h>
 #include <crypto/acompress.h>
@@ -43,8 +44,9 @@
 extern const struct crypto_type crypto_givcipher_type;
 #endif
 
-static const unsigned int compr_buffer_order = 1;
-#define COMPR_BUFFER_SIZE	(PAGE_SIZE << compr_buffer_order)
+#define COMPR_BUFFER_SIZE (65536*2)
+static const unsigned int compr_buffer_order =
+	order_base_2((COMPR_BUFFER_SIZE + PAGE_SIZE - 1) / PAGE_SIZE);
 
 static void cryptodev_complete(struct crypto_async_request *req, int err)
 {
