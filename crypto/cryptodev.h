@@ -81,6 +81,8 @@ enum cryptodev_crypto_op_t {
 
 #define HASH_MAX_LEN 64
 
+#define CRYPTODEV_COMP_MAX_CHUNKS	64
+
 /* input of CIOCGSESSION */
 struct session_op {
 	/* Specify cipher, mac or compr
@@ -135,6 +137,13 @@ struct crypt_op {
 	__u8	__user *mac;
 	/* initialization vector for encryption operations */
 	__u8	__user *iv;
+
+	/* number of chunks to compress or decompress */
+	__u32 numchunks;
+	/* length of every source chunk to compress or decompress */
+	__u32	__user *chunklens;
+	/* length of every output chunk that is compressed or decompressed */
+	__u32	__user *chunkdlens;
 };
 
 /* input of CIOCAUTHCRYPT */

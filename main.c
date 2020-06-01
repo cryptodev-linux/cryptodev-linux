@@ -241,6 +241,11 @@ int crypto_run(struct fcrypt *fcr, struct kernel_crypt_op *kcop)
 				min(ses_ptr->cdata.ivsize, kcop->ivlen));
 	}
 
+	if (ses_ptr->comprdata.init != 0) {
+		cryptodev_compr_set_chunks(&ses_ptr->comprdata,
+			kcop->numchunks, kcop->chunklens, kcop->chunkdlens);
+	}
+
 	if (likely(cop->len || ses_ptr->comprdata.init != 0)) {
 		if (!(cop->flags & COP_FLAG_NO_ZC)) {
 			if (unlikely(ses_ptr->alignmask && !IS_ALIGNED((unsigned long)cop->src, ses_ptr->alignmask + 1))) {
@@ -285,9 +290,10 @@ int crypto_run(struct fcrypt *fcr, struct kernel_crypt_op *kcop)
 		}
 		kcop->digestsize = ses_ptr->hdata.digestsize;
 	}
+
 	if (ses_ptr->comprdata.init != 0) {
-		kcop->have_useddlen = ses_ptr->comprdata.have_useddlen;
-		kcop->useddlen = ses_ptr->comprdata.useddlen;
+		cryptodev_compr_get_chunkdlens(&ses_ptr->comprdata,
+			kcop->chunkdlens);
 	}
 
 out_unlock:

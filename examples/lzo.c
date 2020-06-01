@@ -83,12 +83,13 @@ int lzo_compress(struct cryptodev_ctx* ctx, const void* in, unsigned int ilen,
 	cryp.dlen = *olen;
 	cryp.src = (void*)in;
 	cryp.dst = out;
+	cryp.numchunks = 1;
+	cryp.chunklens = &ilen;
+	cryp.chunkdlens = olen;
 	if (ioctl(ctx->cfd, CIOCCRYPT, &cryp)) {
 		perror("ioctl(CIOCCRYPT)");
 		return -1;
 	}
-
-	*olen = cryp.dlen;
 
 	return 0;
 }
@@ -123,12 +124,13 @@ int lzo_decompress(struct cryptodev_ctx* ctx, const void* in, unsigned int ilen,
 	cryp.dlen = *olen;
 	cryp.src = (void*)in;
 	cryp.dst = out;
+	cryp.numchunks = 1;
+	cryp.chunklens = &ilen;
+	cryp.chunkdlens = olen;
 	if (ioctl(ctx->cfd, CIOCCRYPT, &cryp)) {
 		perror("ioctl(CIOCCRYPT)");
 		return -1;
 	}
-
-	*olen = cryp.dlen;
 
 	return 0;
 }

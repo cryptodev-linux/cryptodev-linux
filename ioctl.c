@@ -721,8 +721,6 @@ static int fill_kcop_from_cop(struct kernel_crypt_op *kcop, struct fcrypt *fcr)
 	}
 	kcop->ivlen = cop->iv ? ses_ptr->cdata.ivsize : 0;
 	kcop->digestsize = 0; /* will be updated during operation */
-	kcop->have_useddlen = 0; /* will be updated during operation */
-	kcop->useddlen = 0; /* will be updated during operation */
 
 	crypto_put_session(ses_ptr);
 
@@ -734,6 +732,34 @@ static int fill_kcop_from_cop(struct kernel_crypt_op *kcop, struct fcrypt *fcr)
 		if (unlikely(rc)) {
 			derr(1, "error copying IV (%d bytes), copy_from_user returned %d for address %p",
 					kcop->ivlen, rc, cop->iv);
+			return -EFAULT;
+		}
+	}
+
+	if (cop->numchunks > CRYPTODEV_COMP_MAX_CHUNKS) {
+		derr(1, "got numchunks=%u but maximum is %u", cop->numchunks,
+			(unsigned)CRYPTODEV_COMP_MAX_CHUNKS);
+		return -EINVAL;
+	}
+
+	if (cop->numchunks && (!cop->chunklens || !cop->chunkdlens)) {
+		derr(1, "got numchunks=%u but chunklens or chunkdlens is NULL", cop->numchunks);
+		return -EINVAL;
+	}
+
+	kcop->numchunks = cop->numchunks;
+	if (kcop->numchunks) {
+		rc = copy_from_user(kcop->chunklens, cop->chunklens, kcop->numchunks * sizeof(__u32));
+		if (unlikely(rc)) {
+			derr(1, "error copying chunklens (%zu bytes), copy_from_user returned %d for address %p",
+					kcop->numchunks * sizeof(__u32), rc, cop->chunklens);
+			return -EFAULT;
+		}
+
+		rc = copy_from_user(kcop->chunkdlens, cop->chunkdlens, kcop->numchunks * sizeof(__u32));
+		if (unlikely(rc)) {
+			derr(1, "error copying chunkdlens (%zu bytes), copy_from_user returned %d for address %p",
+					kcop->numchunks * sizeof(__u32), rc, cop->chunkdlens);
 			return -EFAULT;
 		}
 	}
@@ -758,9 +784,13 @@ static int fill_cop_from_kcop(struct kernel_crypt_op *kcop, struct fcrypt *fcr)
 		if (unlikely(ret))
 			return -EFAULT;
 	}
-	if (kcop->have_useddlen) {
-		kcop->cop.dlen = kcop->useddlen;
+	if (kcop->numchunks) {
+		ret = copy_to_user(kcop->cop.chunkdlens,
+				kcop->chunkdlens, kcop->numchunks * sizeof(__u32));
+		if (unlikely(ret))
+			return -EFAULT;
 	}
+
 	return 0;
 }
 

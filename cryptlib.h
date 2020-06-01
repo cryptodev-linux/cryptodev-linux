@@ -112,8 +112,10 @@ struct compr_data {
 	struct crypto_comp *tfm;
 	u8 *srcbuf;
 	u8 *dstbuf;
-	int have_useddlen; // Necessary since useddlen can be any value in its range
-	uint32_t useddlen;
+
+	uint32_t numchunks;
+	uint32_t chunklens[CRYPTODEV_COMP_MAX_CHUNKS];
+	uint32_t chunkdlens[CRYPTODEV_COMP_MAX_CHUNKS];
 };
 
 void cryptodev_compr_deinit(struct compr_data *cdata);
@@ -124,5 +126,19 @@ ssize_t cryptodev_compr_compress(struct compr_data *cdata,
 ssize_t cryptodev_compr_decompress(struct compr_data *cdata,
 		const struct scatterlist *src, struct scatterlist *dst,
 		unsigned int slen, unsigned int dlen);
+
+static inline void cryptodev_compr_set_chunks(struct compr_data *comprdata,
+	size_t numchunks, const uint32_t *chunklens, const uint32_t *chunkdlens)
+{
+	comprdata->numchunks = numchunks;
+	memcpy(comprdata->chunklens, chunklens, numchunks * sizeof(uint32_t));
+	memcpy(comprdata->chunkdlens, chunkdlens, numchunks * sizeof(uint32_t));
+}
+
+static inline void cryptodev_compr_get_chunkdlens(
+	const struct compr_data *comprdata, uint32_t *chunkdlens)
+{
+	memcpy(chunkdlens, comprdata->chunkdlens, comprdata->numchunks * sizeof(uint32_t));
+}
 
 #endif

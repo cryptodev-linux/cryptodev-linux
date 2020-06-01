@@ -470,8 +470,6 @@ int cryptodev_compr_init(struct compr_data *comprdata, const char *alg_name)
 		goto allocerr_free_srcbuf;
 	}
 
-	comprdata->have_useddlen = 0;
-	comprdata->useddlen = 0;
 	comprdata->alignmask = crypto_tfm_alg_alignmask(crypto_comp_tfm(comprdata->tfm));
 	comprdata->init = 1;
 
@@ -500,44 +498,66 @@ ssize_t cryptodev_compr_compress(struct compr_data *comprdata,
 		const struct scatterlist *src, struct scatterlist *dst,
 		unsigned int slen, unsigned int dlen)
 {
-	int ret;
+	unsigned i, soffset, doffset;
+	unsigned int sstride = slen / comprdata->numchunks;
+	unsigned int dstride = dlen / comprdata->numchunks;
 
 	if (slen > COMPR_BUFFER_SIZE || dlen > COMPR_BUFFER_SIZE)
+		return -EINVAL;
+
+	if ((slen % comprdata->numchunks) || (dlen % comprdata->numchunks))
 		return -EINVAL;
 
 	if (sg_copy_to_buffer((struct scatterlist *) src, sg_nents_for_len((struct scatterlist *) src, slen), comprdata->srcbuf, slen) != slen)
 		return -EINVAL;
 
-	ret = crypto_comp_compress(comprdata->tfm, comprdata->srcbuf, slen, comprdata->dstbuf, &dlen);
-	comprdata->have_useddlen = 1;
-	comprdata->useddlen = dlen;
+	for (i = 0, soffset = 0, doffset = 0;
+	     i < comprdata->numchunks;
+	     i++, soffset += sstride, doffset += dstride) {
+		int ret = crypto_comp_compress(comprdata->tfm,
+			comprdata->srcbuf + soffset, comprdata->chunklens[i],
+			comprdata->dstbuf + doffset, &comprdata->chunkdlens[i]);
+		if (ret)
+			return ret;
+	}
 
 	if (sg_copy_from_buffer(dst, sg_nents_for_len(dst, dlen), comprdata->dstbuf, dlen) != dlen)
 		return -EINVAL;
 
-	return ret;
+	return 0;
 }
 
 ssize_t cryptodev_compr_decompress(struct compr_data *comprdata,
 		const struct scatterlist *src, struct scatterlist *dst,
 		unsigned int slen, unsigned int dlen)
 {
-	int ret;
+	unsigned i, soffset, doffset;
+	unsigned int sstride = slen / comprdata->numchunks;
+	unsigned int dstride = dlen / comprdata->numchunks;
 
 	if (slen > COMPR_BUFFER_SIZE || dlen > COMPR_BUFFER_SIZE)
+		return -EINVAL;
+
+	if ((slen % comprdata->numchunks) || (dlen % comprdata->numchunks))
 		return -EINVAL;
 
 	if (sg_copy_to_buffer((struct scatterlist *) src, sg_nents_for_len((struct scatterlist *) src, slen), comprdata->srcbuf, slen) != slen)
 		return -EINVAL;
 
-	ret = crypto_comp_decompress(comprdata->tfm, comprdata->srcbuf, slen, comprdata->dstbuf, &dlen);
-	comprdata->have_useddlen = 1;
-	comprdata->useddlen = dlen;
+	for (i = 0, soffset = 0, doffset = 0;
+	     i < comprdata->numchunks;
+	     i++, soffset += sstride, doffset += dstride) {
+		int ret = crypto_comp_decompress(comprdata->tfm,
+			comprdata->srcbuf + soffset, comprdata->chunklens[i],
+			comprdata->dstbuf + doffset, &comprdata->chunkdlens[i]);
+		if (ret)
+			return ret;
+	}
 
 	if (sg_copy_from_buffer(dst, sg_nents_for_len(dst, dlen), comprdata->dstbuf, dlen) != dlen)
 		return -EINVAL;
 
-	return ret;
+	return 0;
 }
 #ifdef CIOCCPHASH
 /* import the current hash state of src to dst */
