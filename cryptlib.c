@@ -498,32 +498,30 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 		const struct scatterlist *src, struct scatterlist *dst,
 		unsigned int slen, unsigned int dlen, bool compress)
 {
-	unsigned i, soffset, doffset;
+	unsigned i, soffset, doffset, sstride, dstride;
 	int ret;
-	unsigned int sstride = slen / comprdata->numchunks;
-	unsigned int dstride = dlen / comprdata->numchunks;
-
 	unsigned long flags;
 	struct scatterlist *srcm = (struct scatterlist *)src;
 	struct sg_mapping_iter miter_src, miter_dst;
-
 	static unsigned long warned = 0;
 
-	if (slen > COMPR_BUFFER_SIZE || dlen > COMPR_BUFFER_SIZE)
-		return -EINVAL;
+	if (!comprdata->numchunks)
+		return 0;
 
 	if ((slen % comprdata->numchunks) || (dlen % comprdata->numchunks))
 		return -EINVAL;
+
+	sstride = slen / comprdata->numchunks;
+	dstride = dlen / comprdata->numchunks;
 
 	// Try to do zero-copy (de)compression
 	// This requires that the source and destination are aligned to PAGE_SIZE,
 	// and that also the source and destination strides are fractions of PAGE_SIZE
 	// This allows us to iterate over the scatterlist, map every page, and
 	// call the (de)compression function over the mapped page without any copy
-	if ((PAGE_SIZE % sstride) || (PAGE_SIZE % dstride)) {
-		derr(0, "JSLOW");
+	if ((sstride && (PAGE_SIZE % sstride)) ||
+	    (dstride && (PAGE_SIZE % dstride)))
 		goto slowpath;
-	}
 
 	local_irq_save(flags);
 	sg_miter_start(&miter_src, srcm, sg_nents(srcm),
@@ -531,36 +529,35 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 	sg_miter_start(&miter_dst, dst, sg_nents(dst),
 				SG_MITER_ATOMIC | SG_MITER_TO_SG);
 
-	for (i = 0, soffset = 0, doffset = 0;
+	for (i = 0, soffset = PAGE_SIZE, doffset = PAGE_SIZE;
 	     i < comprdata->numchunks;
 	     i++, soffset += sstride, doffset += dstride) {
-		unsigned int spoffset = soffset % PAGE_SIZE;
-		unsigned int dpoffset = doffset % PAGE_SIZE;
-
-		if (spoffset == 0) {
+		if (soffset == PAGE_SIZE) {
 			bool have_next_src = sg_miter_next(&miter_src);
 			if (!have_next_src)
 				goto abort_and_slowpath;
+			soffset = 0;
 		}
-		if (spoffset + sstride > miter_src.length)
+		if (soffset + sstride > miter_src.length)
 			goto abort_and_slowpath;
 
-		if (dpoffset == 0) {
+		if (doffset == PAGE_SIZE) {
 			bool have_next_dst = sg_miter_next(&miter_dst);
 			if (!have_next_dst)
 				goto abort_and_slowpath;
+			doffset = 0;
 		}
-		if (dpoffset + dstride > miter_dst.length)
+		if (doffset + dstride > miter_dst.length)
 			goto abort_and_slowpath;
 
 		if (compress) {
 			ret = crypto_comp_compress(comprdata->tfm,
-				miter_src.addr + spoffset, comprdata->chunklens[i],
-				miter_dst.addr + dpoffset, &comprdata->chunkdlens[i]);
+				miter_src.addr + soffset, comprdata->chunklens[i],
+				miter_dst.addr + doffset, &comprdata->chunkdlens[i]);
 		} else {
 			ret = crypto_comp_decompress(comprdata->tfm,
-				miter_src.addr + spoffset, comprdata->chunklens[i],
-				miter_dst.addr + dpoffset, &comprdata->chunkdlens[i]);
+				miter_src.addr + soffset, comprdata->chunklens[i],
+				miter_dst.addr + doffset, &comprdata->chunkdlens[i]);
 		}
 		if (ret != 0)
 			break;
@@ -569,7 +566,7 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 	sg_miter_stop(&miter_src);
 	sg_miter_stop(&miter_dst);
 	local_irq_restore(flags);
-	return 0;
+	return ret;
 
 abort_and_slowpath:
 	sg_miter_stop(&miter_src);
@@ -579,6 +576,9 @@ abort_and_slowpath:
 slowpath:
 	if (!test_and_set_bit(0, &warned))
 		dwarning(0, "cryptodev compression fell back to slow (non-zero copy) path");
+
+	if (slen > COMPR_BUFFER_SIZE || dlen > COMPR_BUFFER_SIZE)
+		return -EINVAL;
 
 	// If zero copy (de)compression isn't possible, copy the buffer to an
 	// auxiliary linear buffer, and run the compression / decompression there
