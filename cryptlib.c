@@ -471,6 +471,7 @@ int cryptodev_compr_init(struct compr_data *comprdata, const char *alg_name)
 	}
 
 	comprdata->alignmask = crypto_tfm_alg_alignmask(crypto_comp_tfm(comprdata->tfm));
+	comprdata->slowpath_warned = 0;
 	comprdata->init = 1;
 
 	return 0;
@@ -503,7 +504,6 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 	unsigned long flags;
 	struct scatterlist *srcm = (struct scatterlist *)src;
 	struct sg_mapping_iter miter_src, miter_dst;
-	static unsigned long warned = 0;
 
 	if (!comprdata->numchunks)
 		return 0;
@@ -574,8 +574,10 @@ abort_and_slowpath:
 	local_irq_restore(flags);
 
 slowpath:
-	if (!test_and_set_bit(0, &warned))
+	if (!comprdata->slowpath_warned) {
 		dwarning(0, "cryptodev compression fell back to slow (non-zero copy) path");
+		comprdata->slowpath_warned = 1;
+	}
 
 	if (slen > COMPR_BUFFER_SIZE || dlen > COMPR_BUFFER_SIZE)
 		return -EINVAL;

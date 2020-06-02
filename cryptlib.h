@@ -112,6 +112,7 @@ struct compr_data {
 	struct crypto_comp *tfm;
 	u8 *srcbuf;
 	u8 *dstbuf;
+	int slowpath_warned;
 
 	uint32_t numchunks;
 	uint32_t chunklens[CRYPTODEV_COMP_MAX_CHUNKS];
