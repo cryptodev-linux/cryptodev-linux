@@ -589,6 +589,17 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 		zerocopy_src = sstride <= src_available;
 		zerocopy_dst = dstride <= dst_available;
 
+		// TODOXXX: Zerocopy mode seems to fail in some cases, but only in real hardware
+		//          (NX842 compressor), Simply running the testsuite of lib842 in zerocopy
+		//          mode reveals some failing tests that crash with SIGSEGV randomly.
+		//          Thankfully, the kernel doesn't seem to crash though.
+		//          If this happens, try to uncomment the following lines to disable zerocopy
+		//zerocopy_src = false;
+		//zerocopy_dst = false;
+		// Those seem to minimize but not solve the problem
+		//zerocopy_src &= IS_ALIGNED((unsigned long)(miter_src.addr + miter_src.length - src_available), 65536);
+		//zerocopy_dst &= IS_ALIGNED((unsigned long)(miter_dst.addr + miter_dst.length - dst_available), 65536);
+
 		if (zerocopy_src) {
 			chunk_src = miter_src.addr + miter_src.length - src_available;
 			src_available -= sstride;
