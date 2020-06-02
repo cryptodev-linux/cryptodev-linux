@@ -554,8 +554,6 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 	sstride = slen / comprdata->numchunks;
 	dstride = dlen / comprdata->numchunks;
 
-	sg_copy_to_buffer(srcm, sg_nents_for_len(srcm, slen), comprdata->srcbuf, slen);
-
 	local_irq_save(flags);
 	sg_miter_start(&miter_src, srcm, sg_nents_for_len(srcm, slen),
 				SG_MITER_ATOMIC | SG_MITER_FROM_SG);
