@@ -495,15 +495,55 @@ void cryptodev_compr_deinit(struct compr_data *comprdata)
 	comprdata->init = 0;
 }
 
+/**
+ * Copy buflen bytes of data from a mapping iterator to a linear buffer,
+ * or viceversa. This is similar to Linux's sg_copy_buffer, but takes a
+ * mapping iterator instead of a scatterlist.
+ * sg_mapping_iter.consumed must/is be adjusted before/after calling.
+ */
+static size_t cryptodev_compr_miter_copy_buffer(struct sg_mapping_iter *miter,
+					        size_t *miter_available,
+					        void *buf, size_t buflen,
+					        bool to_buffer)
+{
+	unsigned int offset = 0;
+
+	while (offset < buflen) {
+		unsigned int len;
+		void *mptr;
+
+		if (!*miter_available) {
+			if (!sg_miter_next(miter))
+				break;
+			*miter_available = miter->length;
+		}
+		len = min(*miter_available, (size_t)(buflen - offset));
+		mptr = miter->addr + miter->length - *miter_available;
+
+		if (to_buffer)
+			memcpy(buf + offset, mptr, len);
+		else
+			memcpy(mptr, buf + offset, len);
+
+		offset += len;
+		*miter_available -= len;
+	}
+
+	return offset;
+}
+
 static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 		const struct scatterlist *src, struct scatterlist *dst,
 		unsigned int slen, unsigned int dlen, bool compress)
 {
-	unsigned i, soffset, doffset, sstride, dstride;
+	struct scatterlist *srcm = (struct scatterlist *)src;
+	unsigned int i, sstride, dstride;
 	int ret;
 	unsigned long flags;
-	struct scatterlist *srcm = (struct scatterlist *)src;
 	struct sg_mapping_iter miter_src, miter_dst;
+	size_t src_available, dst_available;
+	bool zerocopy_src, zerocopy_dst;
+	u8 *chunk_src, *chunk_dst;
 
 	if (!comprdata->numchunks)
 		return 0;
@@ -514,104 +554,108 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 	sstride = slen / comprdata->numchunks;
 	dstride = dlen / comprdata->numchunks;
 
-	// Try to do zero-copy (de)compression
-	// This requires that the source and destination are aligned to PAGE_SIZE,
-	// and that also the source and destination strides are fractions of PAGE_SIZE
-	// This allows us to iterate over the scatterlist, map every page, and
-	// call the (de)compression function over the mapped page without any copy
-	if ((sstride && (PAGE_SIZE % sstride)) ||
-	    (dstride && (PAGE_SIZE % dstride)))
-		goto slowpath;
+	sg_copy_to_buffer(srcm, sg_nents_for_len(srcm, slen), comprdata->srcbuf, slen);
 
 	local_irq_save(flags);
 	sg_miter_start(&miter_src, srcm, sg_nents_for_len(srcm, slen),
 				SG_MITER_ATOMIC | SG_MITER_FROM_SG);
 	sg_miter_start(&miter_dst, dst, sg_nents_for_len(dst, dlen),
 				SG_MITER_ATOMIC | SG_MITER_TO_SG);
+	src_available = dst_available = 0;
 
-	for (i = 0, soffset = PAGE_SIZE, doffset = PAGE_SIZE;
-	     i < comprdata->numchunks;
-	     i++, soffset += sstride, doffset += dstride) {
-		if (soffset == PAGE_SIZE) {
-			bool have_next_src = sg_miter_next(&miter_src);
-			if (!have_next_src)
-				goto abort_and_slowpath;
-			soffset = 0;
+	for (i = 0; i < comprdata->numchunks; i++) {
+		if ((comprdata->chunklens[i] > sstride) ||
+		    (comprdata->chunkdlens[i] > dstride)) {
+			ret = -EINVAL;
+			break;
 		}
-		if (soffset + sstride > miter_src.length)
-			goto abort_and_slowpath;
 
-		if (doffset == PAGE_SIZE) {
-			bool have_next_dst = sg_miter_next(&miter_dst);
-			if (!have_next_dst)
-				goto abort_and_slowpath;
-			doffset = 0;
+		// Map the page corresponding to the beginning of the source and
+		// destination buffers of the chunk, to see if we can zerocopy
+		if (!src_available && sstride) {
+			if (!sg_miter_next(&miter_src)) {
+				ret = -EINVAL;
+				break;
+			}
+			src_available = miter_src.length;
+
 		}
-		if (doffset + dstride > miter_dst.length)
-			goto abort_and_slowpath;
+		if (!dst_available && dstride) {
+			if (!sg_miter_next(&miter_dst)) {
+				ret = -EINVAL;
+				break;
+			}
+			dst_available = miter_dst.length;
+		}
+
+		zerocopy_src = sstride <= src_available;
+		zerocopy_dst = dstride <= dst_available;
+
+		if (zerocopy_src) {
+			chunk_src = miter_src.addr + miter_src.length - src_available;
+			src_available -= sstride;
+		} else {
+			chunk_src = comprdata->srcbuf;
+
+			// Copy the source data from source buffer to auxiliary
+			if (cryptodev_compr_miter_copy_buffer(&miter_src, &src_available,
+				comprdata->srcbuf, comprdata->chunklens[i],
+				true) != comprdata->chunklens[i]) {
+				ret = -EINVAL;
+				break;
+			}
+
+			// Skip the gap until the next chunk
+			miter_src.consumed = miter_src.length - src_available;
+			sg_miter_skip(&miter_src, sstride - comprdata->chunklens[i]);
+			src_available = 0;
+		}
+
+		if (zerocopy_dst) {
+			chunk_dst = miter_dst.addr + miter_dst.length - dst_available;
+		} else {
+			chunk_dst = comprdata->dstbuf;
+		}
+
+		if ((!zerocopy_src || !zerocopy_dst) && !comprdata->slowpath_warned) {
+			dwarning(0, "cryptodev compression fell back to slow (non-zero copy) path");
+			comprdata->slowpath_warned = 1;
+		}
 
 		if (compress) {
 			ret = crypto_comp_compress(comprdata->tfm,
-				miter_src.addr + soffset, comprdata->chunklens[i],
-				miter_dst.addr + doffset, &comprdata->chunkdlens[i]);
+				chunk_src, comprdata->chunklens[i],
+				chunk_dst, &comprdata->chunkdlens[i]);
 		} else {
 			ret = crypto_comp_decompress(comprdata->tfm,
-				miter_src.addr + soffset, comprdata->chunklens[i],
-				miter_dst.addr + doffset, &comprdata->chunkdlens[i]);
+				chunk_src, comprdata->chunklens[i],
+				chunk_dst, &comprdata->chunkdlens[i]);
 		}
 		if (ret != 0)
 			break;
+
+		if (zerocopy_dst) {
+			dst_available -= dstride;
+		} else {
+			// Copy the destination data from auxiliary to destination buffer
+			if (cryptodev_compr_miter_copy_buffer(&miter_dst, &dst_available,
+				comprdata->dstbuf, comprdata->chunkdlens[i],
+				false) != comprdata->chunkdlens[i]) {
+				ret = -EINVAL;
+				break;
+			}
+
+			// Skip the gap until the next chunk
+			miter_dst.consumed = miter_dst.length - dst_available;
+			sg_miter_skip(&miter_dst, dstride - comprdata->chunkdlens[i]);
+			dst_available = 0;
+		}
 	}
 
 	sg_miter_stop(&miter_src);
 	sg_miter_stop(&miter_dst);
 	local_irq_restore(flags);
 	return ret;
-
-abort_and_slowpath:
-	sg_miter_stop(&miter_src);
-	sg_miter_stop(&miter_dst);
-	local_irq_restore(flags);
-
-slowpath:
-	if (!comprdata->slowpath_warned) {
-		dwarning(0, "cryptodev compression fell back to slow (non-zero copy) path");
-		comprdata->slowpath_warned = 1;
-	}
-
-	if (slen > COMPR_BUFFER_SIZE || dlen > COMPR_BUFFER_SIZE)
-		return -EINVAL;
-
-	// If zero copy (de)compression isn't possible, copy the buffer to an
-	// auxiliary linear buffer, and run the compression / decompression there
-	// TODO: This restarts compression from the beginning and requires the
-	//       auxiliary linear buffers to be the size of the entire buffer
-	//       instead of the size of a single chunk. This could be avoided by
-	//       iterating over the scatterlist and filling/draining the auxiliary
-	///      buffers chunk by chunk
-	if (sg_copy_to_buffer(srcm, sg_nents_for_len(srcm, slen), comprdata->srcbuf, slen) != slen)
-		return -EINVAL;
-
-	for (i = 0, soffset = 0, doffset = 0;
-	     i < comprdata->numchunks;
-	     i++, soffset += sstride, doffset += dstride) {
-		if (compress) {
-			ret = crypto_comp_compress(comprdata->tfm,
-				comprdata->srcbuf + soffset, comprdata->chunklens[i],
-				comprdata->dstbuf + doffset, &comprdata->chunkdlens[i]);
-		} else {
-			ret = crypto_comp_decompress(comprdata->tfm,
-				comprdata->srcbuf + soffset, comprdata->chunklens[i],
-				comprdata->dstbuf + doffset, &comprdata->chunkdlens[i]);
-		}
-		if (ret)
-			return ret;
-	}
-
-	if (sg_copy_from_buffer(dst, sg_nents_for_len(dst, dlen), comprdata->dstbuf, dlen) != dlen)
-		return -EINVAL;
-
-	return 0;
 }
 
 ssize_t cryptodev_compr_compress(struct compr_data *comprdata,
