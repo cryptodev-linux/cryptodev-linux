@@ -596,7 +596,8 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 			chunk_src = comprdata->srcbuf;
 
 			// Copy the source data from source buffer to auxiliary
-			if (cryptodev_compr_miter_copy_buffer(&miter_src, &src_available,
+			if (comprdata->chunklens[i] > COMPR_BUFFER_SIZE ||
+			    cryptodev_compr_miter_copy_buffer(&miter_src, &src_available,
 				comprdata->srcbuf, comprdata->chunklens[i],
 				true) != comprdata->chunklens[i]) {
 				ret = -EINVAL;
@@ -636,7 +637,8 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 			dst_available -= dstride;
 		} else {
 			// Copy the destination data from auxiliary to destination buffer
-			if (cryptodev_compr_miter_copy_buffer(&miter_dst, &dst_available,
+			if (comprdata->chunkdlens[i] > COMPR_BUFFER_SIZE ||
+			    cryptodev_compr_miter_copy_buffer(&miter_dst, &dst_available,
 				comprdata->dstbuf, comprdata->chunkdlens[i],
 				false) != comprdata->chunkdlens[i]) {
 				ret = -EINVAL;
