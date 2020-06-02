@@ -494,13 +494,20 @@ void cryptodev_compr_deinit(struct compr_data *comprdata)
 	comprdata->init = 0;
 }
 
-ssize_t cryptodev_compr_compress(struct compr_data *comprdata,
+static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 		const struct scatterlist *src, struct scatterlist *dst,
-		unsigned int slen, unsigned int dlen)
+		unsigned int slen, unsigned int dlen, bool compress)
 {
 	unsigned i, soffset, doffset;
+	int ret;
 	unsigned int sstride = slen / comprdata->numchunks;
 	unsigned int dstride = dlen / comprdata->numchunks;
+
+	unsigned long flags;
+	struct scatterlist *srcm = (struct scatterlist *)src;
+	struct sg_mapping_iter miter_src, miter_dst;
+
+	static unsigned long warned = 0;
 
 	if (slen > COMPR_BUFFER_SIZE || dlen > COMPR_BUFFER_SIZE)
 		return -EINVAL;
@@ -508,15 +515,93 @@ ssize_t cryptodev_compr_compress(struct compr_data *comprdata,
 	if ((slen % comprdata->numchunks) || (dlen % comprdata->numchunks))
 		return -EINVAL;
 
+	// Try to do zero-copy (de)compression
+	// This requires that the source and destination are aligned to PAGE_SIZE,
+	// and that also the source and destination strides are fractions of PAGE_SIZE
+	// This allows us to iterate over the scatterlist, map every page, and
+	// call the (de)compression function over the mapped page without any copy
+	if ((PAGE_SIZE % sstride) || (PAGE_SIZE % dstride)) {
+		derr(0, "JSLOW");
+		goto slowpath;
+	}
+
+	local_irq_save(flags);
+	sg_miter_start(&miter_src, srcm, sg_nents(srcm),
+				SG_MITER_ATOMIC | SG_MITER_FROM_SG);
+	sg_miter_start(&miter_dst, dst, sg_nents(dst),
+				SG_MITER_ATOMIC | SG_MITER_TO_SG);
+
+	for (i = 0, soffset = 0, doffset = 0;
+	     i < comprdata->numchunks;
+	     i++, soffset += sstride, doffset += dstride) {
+		unsigned int spoffset = soffset % PAGE_SIZE;
+		unsigned int dpoffset = doffset % PAGE_SIZE;
+
+		if (spoffset == 0) {
+			bool have_next_src = sg_miter_next(&miter_src);
+			if (!have_next_src)
+				goto abort_and_slowpath;
+		}
+		if (spoffset + sstride > miter_src.length)
+			goto abort_and_slowpath;
+
+		if (dpoffset == 0) {
+			bool have_next_dst = sg_miter_next(&miter_dst);
+			if (!have_next_dst)
+				goto abort_and_slowpath;
+		}
+		if (dpoffset + dstride > miter_dst.length)
+			goto abort_and_slowpath;
+
+		if (compress) {
+			ret = crypto_comp_compress(comprdata->tfm,
+				miter_src.addr + spoffset, comprdata->chunklens[i],
+				miter_dst.addr + dpoffset, &comprdata->chunkdlens[i]);
+		} else {
+			ret = crypto_comp_decompress(comprdata->tfm,
+				miter_src.addr + spoffset, comprdata->chunklens[i],
+				miter_dst.addr + dpoffset, &comprdata->chunkdlens[i]);
+		}
+		if (ret != 0)
+			break;
+	}
+
+	sg_miter_stop(&miter_src);
+	sg_miter_stop(&miter_dst);
+	local_irq_restore(flags);
+	return 0;
+
+abort_and_slowpath:
+	sg_miter_stop(&miter_src);
+	sg_miter_stop(&miter_dst);
+	local_irq_restore(flags);
+
+slowpath:
+	if (!test_and_set_bit(0, &warned))
+		dwarning(0, "cryptodev compression fell back to slow (non-zero copy) path");
+
+	// If zero copy (de)compression isn't possible, copy the buffer to an
+	// auxiliary linear buffer, and run the compression / decompression there
+	// TODO: This restarts compression from the beginning and requires the
+	//       auxiliary linear buffers to be the size of the entire buffer
+	//       instead of the size of a single chunk. This could be avoided by
+	//       iterating over the scatterlist and filling/draining the auxiliary
+	///      buffers chunk by chunk
 	if (sg_copy_to_buffer((struct scatterlist *) src, sg_nents_for_len((struct scatterlist *) src, slen), comprdata->srcbuf, slen) != slen)
 		return -EINVAL;
 
 	for (i = 0, soffset = 0, doffset = 0;
 	     i < comprdata->numchunks;
 	     i++, soffset += sstride, doffset += dstride) {
-		int ret = crypto_comp_compress(comprdata->tfm,
-			comprdata->srcbuf + soffset, comprdata->chunklens[i],
-			comprdata->dstbuf + doffset, &comprdata->chunkdlens[i]);
+		if (compress) {
+			ret = crypto_comp_compress(comprdata->tfm,
+				comprdata->srcbuf + soffset, comprdata->chunklens[i],
+				comprdata->dstbuf + doffset, &comprdata->chunkdlens[i]);
+		} else {
+			ret = crypto_comp_decompress(comprdata->tfm,
+				comprdata->srcbuf + soffset, comprdata->chunklens[i],
+				comprdata->dstbuf + doffset, &comprdata->chunkdlens[i]);
+		}
 		if (ret)
 			return ret;
 	}
@@ -525,40 +610,22 @@ ssize_t cryptodev_compr_compress(struct compr_data *comprdata,
 		return -EINVAL;
 
 	return 0;
+}
+
+ssize_t cryptodev_compr_compress(struct compr_data *comprdata,
+		const struct scatterlist *src, struct scatterlist *dst,
+		unsigned int slen, unsigned int dlen)
+{
+	return cryptodev_compr_run(comprdata, src, dst, slen, dlen, true);
 }
 
 ssize_t cryptodev_compr_decompress(struct compr_data *comprdata,
 		const struct scatterlist *src, struct scatterlist *dst,
 		unsigned int slen, unsigned int dlen)
 {
-	unsigned i, soffset, doffset;
-	unsigned int sstride = slen / comprdata->numchunks;
-	unsigned int dstride = dlen / comprdata->numchunks;
-
-	if (slen > COMPR_BUFFER_SIZE || dlen > COMPR_BUFFER_SIZE)
-		return -EINVAL;
-
-	if ((slen % comprdata->numchunks) || (dlen % comprdata->numchunks))
-		return -EINVAL;
-
-	if (sg_copy_to_buffer((struct scatterlist *) src, sg_nents_for_len((struct scatterlist *) src, slen), comprdata->srcbuf, slen) != slen)
-		return -EINVAL;
-
-	for (i = 0, soffset = 0, doffset = 0;
-	     i < comprdata->numchunks;
-	     i++, soffset += sstride, doffset += dstride) {
-		int ret = crypto_comp_decompress(comprdata->tfm,
-			comprdata->srcbuf + soffset, comprdata->chunklens[i],
-			comprdata->dstbuf + doffset, &comprdata->chunkdlens[i]);
-		if (ret)
-			return ret;
-	}
-
-	if (sg_copy_from_buffer(dst, sg_nents_for_len(dst, dlen), comprdata->dstbuf, dlen) != dlen)
-		return -EINVAL;
-
-	return 0;
+	return cryptodev_compr_run(comprdata, src, dst, slen, dlen, false);
 }
+
 #ifdef CIOCCPHASH
 /* import the current hash state of src to dst */
 int cryptodev_hash_copy(struct hash_data *dst, struct hash_data *src)
