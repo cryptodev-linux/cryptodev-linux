@@ -524,9 +524,9 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 		goto slowpath;
 
 	local_irq_save(flags);
-	sg_miter_start(&miter_src, srcm, sg_nents(srcm),
+	sg_miter_start(&miter_src, srcm, sg_nents_for_len(srcm, slen),
 				SG_MITER_ATOMIC | SG_MITER_FROM_SG);
-	sg_miter_start(&miter_dst, dst, sg_nents(dst),
+	sg_miter_start(&miter_dst, dst, sg_nents_for_len(dst, dlen),
 				SG_MITER_ATOMIC | SG_MITER_TO_SG);
 
 	for (i = 0, soffset = PAGE_SIZE, doffset = PAGE_SIZE;
@@ -589,7 +589,7 @@ slowpath:
 	//       instead of the size of a single chunk. This could be avoided by
 	//       iterating over the scatterlist and filling/draining the auxiliary
 	///      buffers chunk by chunk
-	if (sg_copy_to_buffer((struct scatterlist *) src, sg_nents_for_len((struct scatterlist *) src, slen), comprdata->srcbuf, slen) != slen)
+	if (sg_copy_to_buffer(srcm, sg_nents_for_len(srcm, slen), comprdata->srcbuf, slen) != slen)
 		return -EINVAL;
 
 	for (i = 0, soffset = 0, doffset = 0;
