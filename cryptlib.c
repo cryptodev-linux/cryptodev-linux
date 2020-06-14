@@ -562,8 +562,24 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 	src_available = dst_available = 0;
 
 	for (i = 0; i < comprdata->numchunks; i++) {
-		if ((comprdata->chunklens[i] > sstride) ||
-		    (comprdata->chunkdlens[i] > dstride)) {
+		if (comprdata->chunklens[i] == UINT_MAX) { // Chunk not present - skip
+			// Skip source chunk
+			miter_src.consumed = miter_src.length - src_available;
+			sg_miter_skip(&miter_src, sstride);
+			src_available = 0;
+
+			// Skip destination chunk
+			miter_dst.consumed = miter_dst.length - dst_available;
+			sg_miter_skip(&miter_dst, dstride);
+			dst_available = 0;
+
+			comprdata->chunkrets[i] = 0;
+			comprdata->chunkdlens[i] = 0;
+			ret = 0;
+			continue;
+		}
+		else if ((comprdata->chunklens[i] > sstride) ||
+			 (comprdata->chunkdlens[i] > dstride)) {
 			ret = -EINVAL;
 			break;
 		}
