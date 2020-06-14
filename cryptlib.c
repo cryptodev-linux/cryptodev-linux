@@ -641,8 +641,10 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 				chunk_src, comprdata->chunklens[i],
 				chunk_dst, &comprdata->chunkdlens[i]);
 		}
-		if (ret != 0)
+		if (ret != 0 && ret != -ENOSPC)
 			break;
+		comprdata->chunkrets[i] = ret;
+		ret = 0;
 
 		if (zerocopy_dst) {
 			dst_available -= dstride;

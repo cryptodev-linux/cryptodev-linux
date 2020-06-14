@@ -293,7 +293,7 @@ int crypto_run(struct fcrypt *fcr, struct kernel_crypt_op *kcop)
 
 	if (ses_ptr->comprdata.init != 0) {
 		cryptodev_compr_get_chunkdlens(&ses_ptr->comprdata,
-			kcop->chunkdlens);
+			kcop->chunkdlens, kcop->chunkrets);
 	}
 
 out_unlock:

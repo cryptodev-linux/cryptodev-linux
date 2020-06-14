@@ -742,8 +742,8 @@ static int fill_kcop_from_cop(struct kernel_crypt_op *kcop, struct fcrypt *fcr)
 		return -EINVAL;
 	}
 
-	if (cop->numchunks && (!cop->chunklens || !cop->chunkdlens)) {
-		derr(1, "got numchunks=%u but chunklens or chunkdlens is NULL", cop->numchunks);
+	if (cop->numchunks && (!cop->chunklens || !cop->chunkdlens || !cop->chunkrets)) {
+		derr(1, "got numchunks=%u but chunklens, chunkdlens or chunkrets is NULL", cop->numchunks);
 		return -EINVAL;
 	}
 
@@ -787,6 +787,11 @@ static int fill_cop_from_kcop(struct kernel_crypt_op *kcop, struct fcrypt *fcr)
 	if (kcop->numchunks) {
 		ret = copy_to_user(kcop->cop.chunkdlens,
 				kcop->chunkdlens, kcop->numchunks * sizeof(__u32));
+		if (unlikely(ret))
+			return -EFAULT;
+
+		ret = copy_to_user(kcop->cop.chunkrets,
+				kcop->chunkrets, kcop->numchunks * sizeof(__s32));
 		if (unlikely(ret))
 			return -EFAULT;
 	}

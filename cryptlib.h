@@ -117,6 +117,7 @@ struct compr_data {
 	uint32_t numchunks;
 	uint32_t chunklens[CRYPTODEV_COMP_MAX_CHUNKS];
 	uint32_t chunkdlens[CRYPTODEV_COMP_MAX_CHUNKS];
+	int chunkrets[CRYPTODEV_COMP_MAX_CHUNKS];
 };
 
 void cryptodev_compr_deinit(struct compr_data *cdata);
@@ -137,9 +138,11 @@ static inline void cryptodev_compr_set_chunks(struct compr_data *comprdata,
 }
 
 static inline void cryptodev_compr_get_chunkdlens(
-	const struct compr_data *comprdata, uint32_t *chunkdlens)
+	const struct compr_data *comprdata,
+	uint32_t *chunkdlens, int *chunkrets)
 {
 	memcpy(chunkdlens, comprdata->chunkdlens, comprdata->numchunks * sizeof(uint32_t));
+	memcpy(chunkrets, comprdata->chunkrets, comprdata->numchunks * sizeof(int));
 }
 
 #endif

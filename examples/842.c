@@ -61,6 +61,7 @@ int c842_compress(struct cryptodev_ctx* ctx, const void* in, unsigned int ilen,
 {
 	struct crypt_op cryp;
 	void* p;
+	int cret;
 
 	/* check input and output alignment */
 	if (ctx->alignmask) {
@@ -89,8 +90,13 @@ int c842_compress(struct cryptodev_ctx* ctx, const void* in, unsigned int ilen,
 	cryp.numchunks = 1;
 	cryp.chunklens = &ilen;
 	cryp.chunkdlens = olen;
+	cryp.chunkrets = &cret;
 	if (ioctl(ctx->cfd, CIOCCRYPT, &cryp)) {
 		perror("ioctl(CIOCCRYPT)");
+		return -1;
+	}
+	if (cret != 0) {
+		printf("Out of space\n");
 		return -1;
 	}
 
@@ -102,6 +108,7 @@ int c842_decompress(struct cryptodev_ctx* ctx, const void* in, unsigned int ilen
 {
 	struct crypt_op cryp;
 	void* p;
+	int cret;
 
 	/* check input and output alignment */
 	if (ctx->alignmask) {
@@ -130,8 +137,13 @@ int c842_decompress(struct cryptodev_ctx* ctx, const void* in, unsigned int ilen
 	cryp.numchunks = 1;
 	cryp.chunklens = &ilen;
 	cryp.chunkdlens = olen;
+	cryp.chunkrets = &cret;
 	if (ioctl(ctx->cfd, CIOCCRYPT, &cryp)) {
 		perror("ioctl(CIOCCRYPT)");
+		return -1;
+	}
+	if (cret != 0) {
+		printf("Out of space\n");
 		return -1;
 	}
 

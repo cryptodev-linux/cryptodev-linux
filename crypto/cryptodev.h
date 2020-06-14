@@ -144,6 +144,8 @@ struct crypt_op {
 	__u32	__user *chunklens;
 	/* length of every output chunk that is compressed or decompressed */
 	__u32	__user *chunkdlens;
+	/* compression result for each chunk (either 0 or -ENOSPC) */
+	__s32	__user *chunkrets;
 };
 
 /* input of CIOCAUTHCRYPT */
