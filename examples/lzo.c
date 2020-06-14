@@ -46,11 +46,14 @@ int lzo_ctx_init(struct cryptodev_ctx* ctx, int cfd)
 	return 0;
 }
 
-void lzo_ctx_deinit(struct cryptodev_ctx* ctx)
+int lzo_ctx_deinit(struct cryptodev_ctx* ctx)
 {
 	if (ioctl(ctx->cfd, CIOCFSESSION, &ctx->sess.ses)) {
 		perror("ioctl(CIOCFSESSION)");
+		return -1;
 	}
+
+	return 0;
 }
 
 int lzo_compress(struct cryptodev_ctx* ctx, const void* in, unsigned int ilen,
@@ -161,7 +164,8 @@ main()
 		return 1;
 	}
 
-	lzo_ctx_init(&ctx, cfd);
+	if (lzo_ctx_init(&ctx, cfd))
+		return 1;
 
 	printf("Raw data:\n");
 	for (i = 0; i < strlen(tmp); i++) {
@@ -169,7 +173,8 @@ main()
 	}
 	printf("\n");
 
-	lzo_compress(&ctx, input, strlen(tmp), output, &olen);
+	if (lzo_compress(&ctx, input, strlen(tmp), output, &olen))
+		return 1;
 
 	printf("Compressed result:\n");
 	for (i = 0; i < olen; i++) {
@@ -177,7 +182,8 @@ main()
 	}
 	printf("\n");
 
-	lzo_decompress(&ctx, output, olen, decompressed, &dlen);
+	if (lzo_decompress(&ctx, output, olen, decompressed, &dlen))
+		return 1;
 
 	printf("Restored raw data:\n");
 	for (i = 0; i < dlen; i++) {
@@ -185,7 +191,8 @@ main()
 	}
 	printf("\n");
 
-	lzo_ctx_deinit(&ctx);
+	if (lzo_ctx_deinit(&ctx))
+		return 1;
 
 	/* Close the original descriptor */
 	if (close(cfd)) {

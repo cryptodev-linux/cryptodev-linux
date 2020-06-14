@@ -46,11 +46,14 @@ int c842_ctx_init(struct cryptodev_ctx* ctx, int cfd)
 	return 0;
 }
 
-void c842_ctx_deinit(struct cryptodev_ctx* ctx)
+int c842_ctx_deinit(struct cryptodev_ctx* ctx)
 {
 	if (ioctl(ctx->cfd, CIOCFSESSION, &ctx->sess.ses)) {
 		perror("ioctl(CIOCFSESSION)");
+		return -1;
 	}
+
+	return 0;
 }
 
 int c842_compress(struct cryptodev_ctx* ctx, const void* in, unsigned int ilen,
@@ -161,7 +164,8 @@ main()
 		return 1;
 	}
 
-	c842_ctx_init(&ctx, cfd);
+	if (c842_ctx_init(&ctx, cfd))
+		return 1;
 
 	printf("Raw data:\n");
 	for (i = 0; i < strlen(tmp); i++) {
@@ -170,7 +174,8 @@ main()
 	printf("\n");
 
 
-	c842_compress(&ctx, input, strlen(tmp), output, &olen);
+	if (c842_compress(&ctx, input, strlen(tmp), output, &olen))
+		return 1;
 
 	printf("Compressed result:\n");
 	for (i = 0; i < olen; i++) {
@@ -178,7 +183,8 @@ main()
 	}
 	printf("\n");
 
-	c842_decompress(&ctx, output, olen, decompressed, &dlen);
+	if (c842_decompress(&ctx, output, olen, decompressed, &dlen))
+		return 1;
 
 	printf("Restored raw data:\n");
 	for (i = 0; i < dlen; i++) {
@@ -186,7 +192,8 @@ main()
 	}
 	printf("\n");
 
-	c842_ctx_deinit(&ctx);
+	if (c842_ctx_deinit(&ctx))
+		return 1;
 
 
 
