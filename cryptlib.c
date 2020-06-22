@@ -47,6 +47,7 @@ extern const struct crypto_type crypto_givcipher_type;
 #define COMPR_BUFFER_SIZE (65536*2)
 static const unsigned int compr_buffer_order =
 	order_base_2((COMPR_BUFFER_SIZE + PAGE_SIZE - 1) / PAGE_SIZE);
+#define COMPR_ENSURE_RAW_842_BITSTREAMS
 
 static void cryptodev_complete(struct crypto_async_request *req, int err)
 {
@@ -544,6 +545,9 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 	size_t src_available, dst_available;
 	bool zerocopy_src, zerocopy_dst;
 	u8 *chunk_src, *chunk_dst;
+#ifdef COMPR_ENSURE_RAW_842_BITSTREAMS
+	bool is_842 = strcmp(crypto_tfm_alg_name(&comprdata->tfm->base), "842") == 0;
+#endif /* COMPR_ENSURE_RAW_842_BITSTREAMS */
 
 	if (!comprdata->numchunks)
 		return 0;
@@ -605,16 +609,23 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 		zerocopy_src = sstride <= src_available;
 		zerocopy_dst = dstride <= dst_available;
 
-		// TODOXXX: Zerocopy mode seems to fail in some cases, but only in real hardware
-		//          (NX842 compressor), Simply running the testsuite of lib842 in zerocopy
-		//          mode reveals some failing tests that crash with SIGSEGV randomly.
-		//          Thankfully, the kernel doesn't seem to crash though.
-		//          If this happens, try to uncomment the following lines to disable zerocopy
-		//zerocopy_src = false;
-		//zerocopy_dst = false;
-		// Those seem to minimize but not solve the problem
-		//zerocopy_src &= IS_ALIGNED((unsigned long)(miter_src.addr + miter_src.length - src_available), 65536);
-		//zerocopy_dst &= IS_ALIGNED((unsigned long)(miter_dst.addr + miter_dst.length - dst_available), 65536);
+#ifdef COMPR_ENSURE_RAW_842_BITSTREAMS
+		if (is_842) {
+			// The hardware-accelerated 842 driver will add a 'magic' header
+			// upon compression if the buffer is not aligned to 128 bytes
+			// This will make the 842 compressed bitstream incompatible
+			// with the rest of the implementations (it is only compatible
+			// with itself, i.e. with the hardware-accelerated 842 driver,
+			// but not with the kernel's software 842 fallback implementation)
+			//
+			// For more information, look for 'DDE_BUFFER_ALIGN' and
+			// 'nx842_crypto_add_header' in the Linux kernel (as of v5.7)
+			const void *src_ptr = miter_src.addr + miter_src.length - src_available;
+			const void *dst_ptr = miter_dst.addr + miter_dst.length - dst_available;
+			zerocopy_src &= IS_ALIGNED((unsigned long)src_ptr, 128);
+			zerocopy_dst &= IS_ALIGNED((unsigned long)dst_ptr, 128);
+		}
+#endif /* COMPR_ENSURE_RAW_842_BITSTREAMS */
 
 		if (zerocopy_src) {
 			chunk_src = miter_src.addr + miter_src.length - src_available;
