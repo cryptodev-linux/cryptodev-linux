@@ -610,7 +610,7 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 		zerocopy_dst = dstride <= dst_available;
 
 #ifdef COMPR_ENSURE_RAW_842_BITSTREAMS
-		if (is_842) {
+		if (is_842 && compress) {
 			// The hardware-accelerated 842 driver will add a 'magic' header
 			// upon compression if the buffer is not aligned to 128 bytes
 			// This will make the 842 compressed bitstream incompatible
