@@ -500,17 +500,16 @@ void cryptodev_compr_deinit(struct compr_data *comprdata)
  * Copy buflen bytes of data from a mapping iterator to a linear buffer,
  * or viceversa. This is similar to Linux's sg_copy_buffer, but takes a
  * mapping iterator instead of a scatterlist.
- * sg_mapping_iter.consumed must/is be adjusted before/after calling.
  */
 static size_t cryptodev_compr_miter_copy_buffer(struct sg_mapping_iter *miter,
 					        size_t *miter_available,
 					        void *buf, size_t buflen,
 					        bool to_buffer)
 {
-	unsigned int offset = 0;
+	size_t offset = 0;
 
 	while (offset < buflen) {
-		unsigned int len;
+		size_t len;
 		void *mptr;
 
 		if (!*miter_available) {
@@ -518,7 +517,7 @@ static size_t cryptodev_compr_miter_copy_buffer(struct sg_mapping_iter *miter,
 				break;
 			*miter_available = miter->length;
 		}
-		len = min(*miter_available, (size_t)(buflen - offset));
+		len = min(*miter_available, buflen - offset);
 		mptr = miter->addr + miter->length - *miter_available;
 
 		if (to_buffer)
@@ -546,7 +545,7 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 	bool zerocopy_src, zerocopy_dst;
 	u8 *chunk_src, *chunk_dst;
 #ifdef COMPR_ENSURE_RAW_842_BITSTREAMS
-	bool is_842 = strcmp(crypto_tfm_alg_name(&comprdata->tfm->base), "842") == 0;
+	bool is_842 = strcmp(crypto_tfm_alg_name(crypto_comp_tfm(comprdata->tfm)), "842") == 0;
 #endif /* COMPR_ENSURE_RAW_842_BITSTREAMS */
 
 	if (!comprdata->numchunks)
