@@ -48,6 +48,7 @@ extern const struct crypto_type crypto_givcipher_type;
 static const unsigned int compr_buffer_order =
 	order_base_2((COMPR_BUFFER_SIZE + PAGE_SIZE - 1) / PAGE_SIZE);
 #define COMPR_ENSURE_RAW_842_BITSTREAMS
+//#define COMPR_WORKAROUND_DISABLE_ZEROCOPY
 
 static void cryptodev_complete(struct crypto_async_request *req, int err)
 {
@@ -625,6 +626,17 @@ static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
 			zerocopy_dst &= IS_ALIGNED((unsigned long)dst_ptr, 128);
 		}
 #endif /* COMPR_ENSURE_RAW_842_BITSTREAMS */
+
+#ifdef COMPR_WORKAROUND_DISABLE_ZEROCOPY
+		// When the userspace application crashes, there's a tendency to
+		// kernel panic. It may be related to this bug:
+		// https://github.com/cryptodev-linux/cryptodev-linux/issues/33
+		// It appears disabling zerocopy makes userspace crashes much
+		// more rarely fatal, so you may want to enable this for testing
+		// or if you don't absolutely need the best performance
+		zerocopy_src = false;
+		zerocopy_dst = false;
+#endif /* COMPR_WORKAROUND_DISABLE_ZEROCOPY */
 
 		if (zerocopy_src) {
 			chunk_src = miter_src.addr + miter_src.length - src_available;
