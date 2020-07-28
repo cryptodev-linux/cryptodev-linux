@@ -4,7 +4,7 @@
 # corresponding CFLAG.
 #
 CRYPTODEV_CFLAGS ?= #-DENABLE_ASYNC
-KBUILD_CFLAGS += -I$(src) $(CRYPTODEV_CFLAGS)
+KBUILD_CFLAGS += -I$(src) $(CRYPTODEV_CFLAGS) -Wvla
 KERNEL_DIR ?= /lib/modules/$(shell uname -r)/build
 VERSION = 1.10
 
