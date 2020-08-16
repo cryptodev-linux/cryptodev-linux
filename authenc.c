@@ -312,9 +312,10 @@ static void read_tls_hash(struct scatterlist *dst_sg, int len, void *hash, int h
 	scatterwalk_map_and_copy(hash, dst_sg, len - hash_len, hash_len, 0);
 }
 
+#define TLS_MAX_PADDING_SIZE 256
 static int pad_record(struct scatterlist *dst_sg, int len, int block_size)
 {
-	uint8_t pad[block_size];
+	uint8_t pad[TLS_MAX_PADDING_SIZE];
 	int pad_size = block_size - (len % block_size);
 
 	memset(pad, pad_size - 1, pad_size);
@@ -326,7 +327,7 @@ static int pad_record(struct scatterlist *dst_sg, int len, int block_size)
 
 static int verify_tls_record_pad(struct scatterlist *dst_sg, int len, int block_size)
 {
-	uint8_t pad[256]; /* the maximum allowed */
+	uint8_t pad[TLS_MAX_PADDING_SIZE];
 	uint8_t pad_size;
 	int i;
 
