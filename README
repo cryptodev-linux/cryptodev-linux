@@ -1,6 +1,6 @@
 === cryptodev-linux with compression support ===
 
-Build status: [![Build Status](https://travis-ci.org/github/plauth/cryptodev-linux.svg?branch=master)](https://travis-ci.org/github/plauth/cryptodev-linux)
+Build status: https://travis-ci.org/github/plauth/cryptodev-linux
 
 This repository contains a fork of cryptodev-linux ( http://cryptodev-linux.org/ ) with compression support, which allows accessing hardware compressors from userspace.
 
