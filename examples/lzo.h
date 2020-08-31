@@ -10,7 +10,10 @@ struct cryptodev_ctx {
 };
 
 int lzo_ctx_init(struct cryptodev_ctx* ctx, int cfd);
-void lzo_ctx_deinit(struct cryptodev_ctx* ctx) ;
-int lzo_compress(struct cryptodev_ctx* ctx, const void* input, void* output, size_t size);
+int lzo_ctx_deinit(struct cryptodev_ctx* ctx) ;
+int lzo_compress(struct cryptodev_ctx* ctx, const void* in, unsigned int ilen,
+					    void* out, unsigned int *olen);
+int lzo_decompress(struct cryptodev_ctx* ctx, const void* in, unsigned int ilen,
+					      void* out, unsigned int *olen);
 
 #endif

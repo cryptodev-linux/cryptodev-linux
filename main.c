@@ -56,7 +56,7 @@
 static int
 hash_n_crypt(struct csession *ses_ptr, struct crypt_op *cop,
 		struct scatterlist *src_sg, struct scatterlist *dst_sg,
-		unsigned int slen, unsigned int dlen)
+		uint32_t slen, uint32_t dlen)
 {
 	int ret;
 
@@ -184,11 +184,10 @@ __crypto_run_zc(struct csession *ses_ptr, struct kernel_crypt_op *kcop)
 
 	if (ses_ptr->comprdata.init != 0) {
 		ret = get_userbuf(ses_ptr, cop->src, cop->len, cop->dst, cop->dlen,
-		                  kcop->task, kcop->mm, &src_sg, &dst_sg);	
-	
+		                  kcop->task, kcop->mm, &src_sg, &dst_sg);
 	} else {
 		ret = get_userbuf(ses_ptr, cop->src, cop->len, cop->dst, cop->len,
-		                  kcop->task, kcop->mm, &src_sg, &dst_sg);	
+		                  kcop->task, kcop->mm, &src_sg, &dst_sg);
 	}
 
 	if (unlikely(ret)) {
@@ -242,7 +241,12 @@ int crypto_run(struct fcrypt *fcr, struct kernel_crypt_op *kcop)
 				min(ses_ptr->cdata.ivsize, kcop->ivlen));
 	}
 
-	if (likely(cop->len)) {
+	if (ses_ptr->comprdata.init != 0) {
+		cryptodev_compr_set_chunks(&ses_ptr->comprdata,
+			kcop->numchunks, kcop->chunklens, kcop->chunkdlens);
+	}
+
+	if (likely(cop->len || ses_ptr->comprdata.init != 0)) {
 		if (!(cop->flags & COP_FLAG_NO_ZC)) {
 			if (unlikely(ses_ptr->alignmask && !IS_ALIGNED((unsigned long)cop->src, ses_ptr->alignmask + 1))) {
 				dwarning(2, "source address %p is not %d byte aligned - disabling zero copy",
@@ -285,6 +289,11 @@ int crypto_run(struct fcrypt *fcr, struct kernel_crypt_op *kcop)
 			goto out_unlock;
 		}
 		kcop->digestsize = ses_ptr->hdata.digestsize;
+	}
+
+	if (ses_ptr->comprdata.init != 0) {
+		cryptodev_compr_get_chunkdlens(&ses_ptr->comprdata,
+			kcop->chunkdlens, kcop->chunkrets);
 	}
 
 out_unlock:

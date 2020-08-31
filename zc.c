@@ -58,10 +58,17 @@ int __get_userbuf(uint8_t __user *addr, uint32_t len, int write,
 		return 0;
 	}
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0))
 	down_read(&mm->mmap_sem);
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0))
+#else
+	mmap_read_lock(mm);
+#endif
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 4, 168))
 	ret = get_user_pages(task, mm,
 			(unsigned long)addr, pgcount, write, 0, pg, NULL);
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(4, 6, 0))
+	ret = get_user_pages(task, mm,
+			(unsigned long)addr, pgcount, write, pg, NULL);
 #elif (LINUX_VERSION_CODE < KERNEL_VERSION(4, 9, 0))
 	ret = get_user_pages_remote(task, mm,
 			(unsigned long)addr, pgcount, write, 0, pg, NULL);
@@ -74,7 +81,11 @@ int __get_userbuf(uint8_t __user *addr, uint32_t len, int write,
 			(unsigned long)addr, pgcount, write ? FOLL_WRITE : 0,
 			pg, NULL, NULL);
 #endif
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 8, 0))
 	up_read(&mm->mmap_sem);
+#else
+	mmap_read_unlock(mm);
+#endif
 	if (ret != pgcount)
 		return -EINVAL;
 

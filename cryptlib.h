@@ -105,14 +105,19 @@ int cryptodev_hash_init(struct hash_data *hdata, const char *alg_name,
 int cryptodev_hash_copy(struct hash_data *dst, struct hash_data *src);
 #endif
 
-			
 /* Compression */
 struct compr_data {
 	int init; /* 0 uninitialized */
 	int alignmask;
 	struct crypto_comp *tfm;
-	u8 *srcBuffer;
-	u8 *dstBuffer;
+	u8 *srcbuf;
+	u8 *dstbuf;
+	int slowpath_warned;
+
+	uint32_t numchunks;
+	uint32_t chunklens[CRYPTODEV_COMP_MAX_CHUNKS];
+	uint32_t chunkdlens[CRYPTODEV_COMP_MAX_CHUNKS];
+	int chunkrets[CRYPTODEV_COMP_MAX_CHUNKS];
 };
 
 void cryptodev_compr_deinit(struct compr_data *cdata);
@@ -123,5 +128,21 @@ ssize_t cryptodev_compr_compress(struct compr_data *cdata,
 ssize_t cryptodev_compr_decompress(struct compr_data *cdata,
 		const struct scatterlist *src, struct scatterlist *dst,
 		unsigned int slen, unsigned int dlen);
+
+static inline void cryptodev_compr_set_chunks(struct compr_data *comprdata,
+	size_t numchunks, const uint32_t *chunklens, const uint32_t *chunkdlens)
+{
+	comprdata->numchunks = numchunks;
+	memcpy(comprdata->chunklens, chunklens, numchunks * sizeof(uint32_t));
+	memcpy(comprdata->chunkdlens, chunkdlens, numchunks * sizeof(uint32_t));
+}
+
+static inline void cryptodev_compr_get_chunkdlens(
+	const struct compr_data *comprdata,
+	uint32_t *chunkdlens, int *chunkrets)
+{
+	memcpy(chunkdlens, comprdata->chunkdlens, comprdata->numchunks * sizeof(uint32_t));
+	memcpy(chunkrets, comprdata->chunkrets, comprdata->numchunks * sizeof(int));
+}
 
 #endif

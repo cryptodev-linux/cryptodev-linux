@@ -92,6 +92,11 @@ struct kernel_crypt_op {
 	int digestsize;
 	uint8_t hash_output[AALG_MAX_RESULT_LEN];
 
+	uint32_t numchunks;
+	uint32_t chunklens[CRYPTODEV_COMP_MAX_CHUNKS];
+	uint32_t chunkdlens[CRYPTODEV_COMP_MAX_CHUNKS];
+	int chunkrets[CRYPTODEV_COMP_MAX_CHUNKS];
+
 	struct task_struct *task;
 	struct mm_struct *mm;
 };

@@ -1,3 +1,12 @@
+Version 1.11 (released 2020-7-28)
+
+* Fix Module loading with Linux kernel <= 5.0
+* Fix compilation issues against Linux kernel >= 5.5
+* Fix compilation issues against Linux kernel >= 5.8
+* enable support for TLS1.1 - AES128-SHA1 and AES256-SHA1
+* fix cipher-aead-strp dts buffer alignment issue
+* remove VLA usage from authenc.c
+
 Version 1.10 (released 2018-12-20)
 
 * Fix compilation issues against Linux kernel >= 4.11 and gcc >= 5

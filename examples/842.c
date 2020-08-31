@@ -46,81 +46,104 @@ int c842_ctx_init(struct cryptodev_ctx* ctx, int cfd)
 	return 0;
 }
 
-void c842_ctx_deinit(struct cryptodev_ctx* ctx) 
+int c842_ctx_deinit(struct cryptodev_ctx* ctx)
 {
 	if (ioctl(ctx->cfd, CIOCFSESSION, &ctx->sess.ses)) {
 		perror("ioctl(CIOCFSESSION)");
-	}
-}
-
-int c842_compress(struct cryptodev_ctx* ctx, const void* input, void* output, size_t size)
-{
-	struct crypt_op cryp;
-	void* p;
-	
-	/* check input and output alignment */
-	if (ctx->alignmask) {
-		p = (void*)(((unsigned long)input + ctx->alignmask) & ~ctx->alignmask);
-		if (input != p) {
-			fprintf(stderr, "input is not aligned\n");
-			return -1;
-		}
-
-		p = (void*)(((unsigned long)output + ctx->alignmask) & ~ctx->alignmask);
-		if (output != p) {
-			fprintf(stderr, "output is not aligned\n");
-			return -1;
-		}
-	}
-
-	memset(&cryp, 0, sizeof(cryp));
-
-	/* Encrypt data.in to data.encrypted */
-	cryp.ses = ctx->sess.ses;
-	cryp.len = size;
-	cryp.dlen = size + 8;
-	cryp.src = (void*)input;
-	cryp.dst = output;
-	cryp.op = COP_ENCRYPT;
-	if (ioctl(ctx->cfd, CIOCCRYPT, &cryp)) {
-		perror("ioctl(CIOCCRYPT)");
 		return -1;
 	}
 
 	return 0;
 }
 
-int c842_decompress(struct cryptodev_ctx* ctx, const void* input, void* output, size_t size)
+int c842_compress(struct cryptodev_ctx* ctx, const void* in, unsigned int ilen,
+					     void* out, unsigned int *olen)
 {
 	struct crypt_op cryp;
 	void* p;
-	
+	int cret;
+
 	/* check input and output alignment */
 	if (ctx->alignmask) {
-		p = (void*)(((unsigned long)input + ctx->alignmask) & ~ctx->alignmask);
-		if (input != p) {
-			fprintf(stderr, "input is not aligned\n");
+		p = (void*)(((unsigned long)in + ctx->alignmask) & ~ctx->alignmask);
+		if (in != p) {
+			fprintf(stderr, "in is not aligned\n");
 			return -1;
 		}
 
-		p = (void*)(((unsigned long)output + ctx->alignmask) & ~ctx->alignmask);
-		if (output != p) {
-			fprintf(stderr, "output is not aligned\n");
+		p = (void*)(((unsigned long)out + ctx->alignmask) & ~ctx->alignmask);
+		if (out != p) {
+			fprintf(stderr, "out is not aligned\n");
 			return -1;
 		}
 	}
 
 	memset(&cryp, 0, sizeof(cryp));
 
-	/* Encrypt data.in to data.encrypted */
+	/* Compress cryp.src to cryp.dst */
 	cryp.ses = ctx->sess.ses;
-	cryp.len = size;
-	cryp.dlen = size;
-	cryp.src = (void*)input;
-	cryp.dst = output;
-	cryp.op = COP_DECRYPT;
+	cryp.op = COP_ENCRYPT;
+	cryp.len = ilen;
+	cryp.dlen = *olen;
+	cryp.src = (void*)in;
+	cryp.dst = out;
+	cryp.numchunks = 1;
+	cryp.chunklens = &ilen;
+	cryp.chunkdlens = olen;
+	cryp.chunkrets = &cret;
 	if (ioctl(ctx->cfd, CIOCCRYPT, &cryp)) {
 		perror("ioctl(CIOCCRYPT)");
+		return -1;
+	}
+	if (cret != 0) {
+		printf("Out of space\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+int c842_decompress(struct cryptodev_ctx* ctx, const void* in, unsigned int ilen,
+					       void* out, unsigned int *olen)
+{
+	struct crypt_op cryp;
+	void* p;
+	int cret;
+
+	/* check input and output alignment */
+	if (ctx->alignmask) {
+		p = (void*)(((unsigned long)in + ctx->alignmask) & ~ctx->alignmask);
+		if (in != p) {
+			fprintf(stderr, "in is not aligned\n");
+			return -1;
+		}
+
+		p = (void*)(((unsigned long)out + ctx->alignmask) & ~ctx->alignmask);
+		if (out != p) {
+			fprintf(stderr, "out is not aligned\n");
+			return -1;
+		}
+	}
+
+	memset(&cryp, 0, sizeof(cryp));
+
+	/* Decompress cryp.src to cryp.dst */
+	cryp.ses = ctx->sess.ses;
+	cryp.op = COP_DECRYPT;
+	cryp.len = ilen;
+	cryp.dlen = *olen;
+	cryp.src = (void*)in;
+	cryp.dst = out;
+	cryp.numchunks = 1;
+	cryp.chunklens = &ilen;
+	cryp.chunkdlens = olen;
+	cryp.chunkrets = &cret;
+	if (ioctl(ctx->cfd, CIOCCRYPT, &cryp)) {
+		perror("ioctl(CIOCCRYPT)");
+		return -1;
+	}
+	if (cret != 0) {
+		printf("Out of space\n");
 		return -1;
 	}
 
@@ -132,15 +155,13 @@ main()
 {
 	int cfd = -1, i;
 	struct cryptodev_ctx ctx;
-	uint8_t output[16];
-	char input[8];
-	char decompressed[32];
-	uint8_t tmp[] = {0x30, 0x30, 0x31, 0x31, 0x32, 0x32, 0x33, 0x33};
+	uint8_t output[128] = {0};
+	uint8_t input[128] = {0};
+	uint8_t decompressed[128] = {0};
+	char tmp[] = "How much wood would a woodchuck chuck, if a woodchuck could chuck wood?";
+	unsigned int olen = sizeof(output), dlen = sizeof(decompressed);
 
-	memset(input, 0, 8);
-	memset(output, 0, 16);
-	memset(decompressed, 0, 32);
-	strncpy(input, tmp, 8);
+	strncpy(input, tmp, sizeof(input) - 1);
 
 	/* Open the crypto device */
 	cfd = open("/dev/crypto", O_RDWR, 0);
@@ -155,33 +176,36 @@ main()
 		return 1;
 	}
 
-	c842_ctx_init(&ctx, cfd);
-	
+	if (c842_ctx_init(&ctx, cfd))
+		return 1;
 
 	printf("Raw data:\n");
-	for (i = 0; i < 8; i++) {
+	for (i = 0; i < strlen(tmp); i++) {
 		printf("%02x:", input[i]);
 	}
 	printf("\n");
 
 
-	c842_compress(&ctx, input, output, 8);
+	if (c842_compress(&ctx, input, strlen(tmp), output, &olen))
+		return 1;
 
 	printf("Compressed result:\n");
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < olen; i++) {
 		printf("%02x:", output[i]);
 	}
 	printf("\n");
 
-	c842_decompress(&ctx, output, decompressed, 16);
+	if (c842_decompress(&ctx, output, olen, decompressed, &dlen))
+		return 1;
 
 	printf("Restored raw data:\n");
-	for (i = 0; i < 16; i++) {
+	for (i = 0; i < dlen; i++) {
 		printf("%02x:", decompressed[i]);
 	}
 	printf("\n");
 
-	c842_ctx_deinit(&ctx);
+	if (c842_ctx_deinit(&ctx))
+		return 1;
 
 
 

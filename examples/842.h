@@ -10,7 +10,10 @@ struct cryptodev_ctx {
 };
 
 int c842_ctx_init(struct cryptodev_ctx* ctx, int cfd);
-void c842_ctx_deinit(struct cryptodev_ctx* ctx) ;
-int c842_compress(struct cryptodev_ctx* ctx, const void* input, void* output, size_t size);
+int c842_ctx_deinit(struct cryptodev_ctx* ctx) ;
+int c842_compress(struct cryptodev_ctx* ctx, const void* in, unsigned int ilen,
+					     void* out, unsigned int *olen);
+int c842_decompress(struct cryptodev_ctx* ctx, const void* in, unsigned int ilen,
+					       void* out, unsigned int *olen);
 
 #endif

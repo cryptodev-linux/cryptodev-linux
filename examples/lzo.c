@@ -36,74 +36,44 @@ int lzo_ctx_init(struct cryptodev_ctx* ctx, int cfd)
 	}
 	printf("Got %s with driver %s\n",
 			siop.compr_info.cra_name, siop.compr_info.cra_driver_name);
+	printf("SIOP_FLAG_KERNEL_DRIVER_ONLY: %d", SIOP_FLAG_KERNEL_DRIVER_ONLY);
+	printf("siop.flags %02x\n", siop.flags);
 	if (!(siop.flags & SIOP_FLAG_KERNEL_DRIVER_ONLY)) {
-		printf("Note: This is not an accelerated cipher\n");
+		printf("Note: This is not an accelerated compressor\n");
 	}
 	ctx->alignmask = siop.alignmask;
 #endif
 	return 0;
 }
 
-void lzo_ctx_deinit(struct cryptodev_ctx* ctx) 
+int lzo_ctx_deinit(struct cryptodev_ctx* ctx)
 {
 	if (ioctl(ctx->cfd, CIOCFSESSION, &ctx->sess.ses)) {
 		perror("ioctl(CIOCFSESSION)");
-	}
-}
-
-int lzo_compress(struct cryptodev_ctx* ctx, const void* input, void* output, size_t size)
-{
-	struct crypt_op cryp;
-	void* p;
-	
-	/* check input and output alignment */
-	if (ctx->alignmask) {
-		p = (void*)(((unsigned long)input + ctx->alignmask) & ~ctx->alignmask);
-		if (input != p) {
-			fprintf(stderr, "input is not aligned\n");
-			return -1;
-		}
-
-		p = (void*)(((unsigned long)output + ctx->alignmask) & ~ctx->alignmask);
-		if (output != p) {
-			fprintf(stderr, "output is not aligned\n");
-			return -1;
-		}
-	}
-
-	memset(&cryp, 0, sizeof(cryp));
-
-	/* Compress cryp.src to cryp.dst */
-	cryp.ses = ctx->sess.ses;
-	cryp.len = size;
-	cryp.dlen = size + 8;
-	cryp.src = (void*)input;
-	cryp.dst = output;
-	cryp.op = COP_ENCRYPT;
-	if (ioctl(ctx->cfd, CIOCCRYPT, &cryp)) {
-		perror("ioctl(CIOCCRYPT)");
 		return -1;
 	}
 
 	return 0;
 }
 
-int lzo_decompress(struct cryptodev_ctx* ctx, const void* input, void* output, size_t size)
+int lzo_compress(struct cryptodev_ctx* ctx, const void* in, unsigned int ilen,
+					    void* out, unsigned int *olen)
 {
 	struct crypt_op cryp;
 	void* p;
-	
+	int cret;
+
 	/* check input and output alignment */
 	if (ctx->alignmask) {
-		p = (void*)(((unsigned long)input + ctx->alignmask) & ~ctx->alignmask);
-		if (input != p) {
-			fprintf(stderr, "input is not aligned\n");
+		p = (void*)(((unsigned long)in + ctx->alignmask) & ~ctx->alignmask);
+		if (in != p) {
+			fprintf(stderr, "in is not aligned\n");
 			return -1;
 		}
 
-		p = (void*)(((unsigned long)output + ctx->alignmask) & ~ctx->alignmask);
-		if (output != p) {
-			fprintf(stderr, "output is not aligned\n");
+		p = (void*)(((unsigned long)out + ctx->alignmask) & ~ctx->alignmask);
+		if (out != p) {
+			fprintf(stderr, "out is not aligned\n");
 			return -1;
 		}
 	}
@@ -112,13 +82,68 @@ int lzo_decompress(struct cryptodev_ctx* ctx, const void* input, void* output, s
 
 	/* Compress cryp.src to cryp.dst */
 	cryp.ses = ctx->sess.ses;
-	cryp.len = size;
-	cryp.dlen = size*2;
-	cryp.src = (void*)input;
-	cryp.dst = output;
-	cryp.op = COP_DECRYPT;
+	cryp.op = COP_ENCRYPT;
+	cryp.len = ilen;
+	cryp.dlen = *olen;
+	cryp.src = (void*)in;
+	cryp.dst = out;
+	cryp.numchunks = 1;
+	cryp.chunklens = &ilen;
+	cryp.chunkdlens = olen;
+	cryp.chunkrets = &cret;
 	if (ioctl(ctx->cfd, CIOCCRYPT, &cryp)) {
 		perror("ioctl(CIOCCRYPT)");
+		return -1;
+	}
+	if (cret != 0) {
+		printf("Out of space\n");
+		return -1;
+	}
+
+	return 0;
+}
+
+int lzo_decompress(struct cryptodev_ctx* ctx, const void* in, unsigned int ilen,
+					      void* out, unsigned int *olen)
+{
+	struct crypt_op cryp;
+	void* p;
+	int cret;
+
+	/* check input and output alignment */
+	if (ctx->alignmask) {
+		p = (void*)(((unsigned long)in + ctx->alignmask) & ~ctx->alignmask);
+		if (in != p) {
+			fprintf(stderr, "in is not aligned\n");
+			return -1;
+		}
+
+		p = (void*)(((unsigned long)out + ctx->alignmask) & ~ctx->alignmask);
+		if (out != p) {
+			fprintf(stderr, "out is not aligned\n");
+			return -1;
+		}
+	}
+
+	memset(&cryp, 0, sizeof(cryp));
+
+	/* Decompress cryp.src to cryp.dst */
+	cryp.ses = ctx->sess.ses;
+	cryp.op = COP_DECRYPT;
+	cryp.len = ilen;
+	cryp.dlen = *olen;
+	cryp.src = (void*)in;
+	cryp.dst = out;
+	cryp.numchunks = 1;
+	cryp.chunklens = &ilen;
+	cryp.chunkdlens = olen;
+	cryp.chunkrets = &cret;
+	if (ioctl(ctx->cfd, CIOCCRYPT, &cryp)) {
+		perror("ioctl(CIOCCRYPT)");
+		return -1;
+	}
+	if (cret != 0) {
+		printf("Out of space\n");
 		return -1;
 	}
 
@@ -130,13 +155,13 @@ main()
 {
 	int cfd = -1, i;
 	struct cryptodev_ctx ctx;
-	uint8_t output[64];
-	char input[64];
-	char tmp[] = "The quick brown fox jumps over the lazy dog";
+	uint8_t output[128] = {0};
+	uint8_t input[128] = {0};
+	uint8_t decompressed[128] = {0};
+	char tmp[] = "How much wood would a woodchuck chuck, if a woodchuck could chuck wood?";
+	unsigned int olen = sizeof(output), dlen = sizeof(decompressed);
 
-	memset(input, 0, 64);
-	memset(output, 0, 64);
-	strncpy(input, tmp, sizeof input - 1);
+	strncpy(input, tmp, sizeof(input) - 1);
 
 	/* Open the crypto device */
 	cfd = open("/dev/crypto", O_RDWR, 0);
@@ -151,23 +176,35 @@ main()
 		return 1;
 	}
 
-	lzo_ctx_init(&ctx, cfd);
+	if (lzo_ctx_init(&ctx, cfd))
+		return 1;
 
 	printf("Raw data:\n");
-	for (i = 0; i < strlen(input); i++) {
+	for (i = 0; i < strlen(tmp); i++) {
 		printf("%02x:", input[i]);
 	}
 	printf("\n");
 
-	lzo_compress(&ctx, input, output, strlen(input));
+	if (lzo_compress(&ctx, input, strlen(tmp), output, &olen))
+		return 1;
 
 	printf("Compressed result:\n");
-	for (i = 0; i < 64; i++) {
+	for (i = 0; i < olen; i++) {
 		printf("%02x:", output[i]);
 	}
 	printf("\n");
 
-	lzo_ctx_deinit(&ctx);
+	if (lzo_decompress(&ctx, output, olen, decompressed, &dlen))
+		return 1;
+
+	printf("Restored raw data:\n");
+	for (i = 0; i < dlen; i++) {
+		printf("%02x:", decompressed[i]);
+	}
+	printf("\n");
+
+	if (lzo_ctx_deinit(&ctx))
+		return 1;
 
 	/* Close the original descriptor */
 	if (close(cfd)) {
