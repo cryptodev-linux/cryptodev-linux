@@ -1,3 +1,7 @@
+Version 1.12 (released 2021-02-09)
+
+* Fix compilation issues against Linux kernel 5.9 and 5.11
+
 Version 1.11 (released 2020-7-28)
 
 * Fix Module loading with Linux kernel <= 5.0
