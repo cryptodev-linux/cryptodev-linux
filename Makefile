@@ -22,6 +22,9 @@ endif
 ifneq ($(CROSS_COMPILE),)
 KERNEL_MAKE_OPTS += CROSS_COMPILE=$(CROSS_COMPILE)
 endif
+ifneq ($(INSTALL_MOD_PATH),)
+KERNEL_MAKE_OPTS += INSTALL_MOD_PATH=$(INSTALL_MOD_PATH)
+endif
 
 build: version.h
 	$(MAKE) $(KERNEL_MAKE_OPTS) modules
