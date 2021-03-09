@@ -38,13 +38,20 @@ modules_install:
 	$(MAKE) $(KERNEL_MAKE_OPTS) modules_install
 	install -m 644 -D crypto/cryptodev.h $(DESTDIR)/$(includedir)/crypto/cryptodev.h
 
+install_tests: tests
+	$(MAKE) -C tests install DESTDIR=$(PREFIX)
+
 clean:
 	$(MAKE) $(KERNEL_MAKE_OPTS) clean
-	rm -f $(hostprogs) *~
 	CFLAGS=$(CRYPTODEV_CFLAGS) KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C tests clean
 
 check:
 	CFLAGS=$(CRYPTODEV_CFLAGS) KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C tests check
+
+tests:
+	KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C tests
+
+.PHONY: install modules_install tests install_tests
 
 CPOPTS =
 ifneq ($(SHOW_TYPES),)
