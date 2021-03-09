@@ -43,6 +43,8 @@ enum cryptodev_crypto_op_t {
 	CRYPTO_AES_XTS = 22,
 	CRYPTO_AES_ECB = 23,
 	CRYPTO_AES_GCM = 50,
+	CRYPTO_842 = 65,
+	CRYPTO_LZO = 66,
 
 	CRYPTO_CAMELLIA_CBC = 101,
 	CRYPTO_RIPEMD160,
@@ -79,12 +81,15 @@ enum cryptodev_crypto_op_t {
 
 #define HASH_MAX_LEN 64
 
+#define CRYPTODEV_COMP_MAX_CHUNKS	64
+
 /* input of CIOCGSESSION */
 struct session_op {
-	/* Specify either cipher or mac
+	/* Specify cipher, mac or compr
 	 */
 	__u32	cipher;		/* cryptodev_crypto_op_t */
 	__u32	mac;		/* cryptodev_crypto_op_t */
+	__u32	compr;		/* cryptodev_crypto_op_t */
 
 	__u32	keylen;
 	__u8	__user *key;
@@ -101,7 +106,7 @@ struct session_info_op {
 	struct alg_info {
 		char cra_name[CRYPTODEV_MAX_ALG_NAME];
 		char cra_driver_name[CRYPTODEV_MAX_ALG_NAME];
-	} cipher_info, hash_info;
+	} cipher_info, hash_info, compr_info;
 
 	__u16	alignmask;	/* alignment constraints */
 	__u32   flags;          /* SIOP_FLAGS_* */
@@ -125,12 +130,22 @@ struct crypt_op {
 	__u16	op;		/* COP_ENCRYPT or COP_DECRYPT */
 	__u16	flags;		/* see COP_FLAG_* */
 	__u32	len;		/* length of source data */
+	__u32	dlen;		/* length of output data */
 	__u8	__user *src;	/* source data */
 	__u8	__user *dst;	/* pointer to output data */
 	/* pointer to output data for hash/MAC operations */
 	__u8	__user *mac;
 	/* initialization vector for encryption operations */
 	__u8	__user *iv;
+
+	/* number of chunks to compress or decompress */
+	__u32 numchunks;
+	/* length of every source chunk to compress or decompress */
+	__u32	__user *chunklens;
+	/* length of every output chunk that is compressed or decompressed */
+	__u32	__user *chunkdlens;
+	/* compression result for each chunk (either 0 or -ENOSPC) */
+	__s32	__user *chunkrets;
 };
 
 /* input of CIOCAUTHCRYPT */
