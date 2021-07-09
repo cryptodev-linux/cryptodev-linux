@@ -451,7 +451,8 @@ int cryptodev_hash_copy(struct hash_data *dst, struct hash_data *src)
 	void *statedata = NULL;
 	struct crypto_tfm *tfm;
 
-	if (unlikely(src == NULL || dst == NULL)) {
+	if (unlikely(src == NULL || !src->init ||
+		     dst == NULL || !dst->init)) {
 		return -EINVAL;
 	}
 
