@@ -135,6 +135,10 @@ struct csession {
 };
 
 struct csession *crypto_get_session_by_sid(struct fcrypt *fcr, uint32_t sid);
+int
+crypto_get_sessions_by_sid(struct fcrypt *fcr,
+			   uint32_t sid_1, struct csession **ses_ptr_1,
+			   uint32_t sid_2, struct csession **ses_ptr_2);
 
 static inline void crypto_put_session(struct csession *ses_ptr)
 {
