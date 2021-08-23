@@ -52,6 +52,7 @@ struct compat_session_op {
 	 */
 	uint32_t	cipher;		/* cryptodev_crypto_op_t */
 	uint32_t	mac;		/* cryptodev_crypto_op_t */
+	uint32_t	compr;		/* cryptodev_crypto_op_t */
 
 	uint32_t	keylen;
 	compat_uptr_t	key;		/* pointer to key data */
@@ -91,6 +92,11 @@ struct kernel_crypt_op {
 	int digestsize;
 	uint8_t hash_output[AALG_MAX_RESULT_LEN];
 
+	uint32_t numchunks;
+	uint32_t chunklens[CRYPTODEV_COMP_MAX_CHUNKS];
+	uint32_t chunkdlens[CRYPTODEV_COMP_MAX_CHUNKS];
+	int chunkrets[CRYPTODEV_COMP_MAX_CHUNKS];
+
 	struct task_struct *task;
 	struct mm_struct *mm;
 };
@@ -123,6 +129,7 @@ struct csession {
 	struct mutex sem;
 	struct cipher_data cdata;
 	struct hash_data hdata;
+	struct compr_data comprdata;
 	uint32_t sid;
 	uint32_t alignmask;
 

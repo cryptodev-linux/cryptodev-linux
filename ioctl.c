@@ -34,6 +34,7 @@
  */
 
 #include <crypto/hash.h>
+#include <crypto/acompress.h>
 #include <linux/mm.h>
 #include <linux/highmem.h>
 #include <linux/ioctl.h>
@@ -110,6 +111,7 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 	int ret = 0;
 	const char *alg_name = NULL;
 	const char *hash_name = NULL;
+	const char *compr_name = NULL;
 	int hmac_mode = 1, stream = 0, aead = 0;
 	/*
 	 * With composite aead ciphers, only ckey is used and it can cover all the
@@ -124,8 +126,8 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 	} keys;
 
 	/* Does the request make sense? */
-	if (unlikely(!sop->cipher && !sop->mac)) {
-		ddebug(1, "Both 'cipher' and 'mac' unset.");
+	if (unlikely(!sop->cipher && !sop->mac && !sop->compr)) {
+		ddebug(1, "All, 'cipher', 'mac' and 'compr' are unset.");
 		return -EINVAL;
 	}
 
@@ -241,6 +243,20 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 		return -EINVAL;
 	}
 
+	switch (sop->compr) {
+	case 0:
+		break;
+	case CRYPTO_842:
+		compr_name = "842";
+		break;
+	case CRYPTO_LZO:
+		compr_name = "lzo";
+		break;
+	default:
+		ddebug(1, "bad compr: %d", sop->compr);
+		return -EINVAL;
+	}
+
 	/* Create a session and put it to the list. Zeroing the structure helps
 	 * also with a single exit point in case of errors */
 	ses_new = kzalloc(sizeof(*ses_new), GFP_KERNEL);
@@ -298,8 +314,17 @@ crypto_create_session(struct fcrypt *fcr, struct session_op *sop)
 		}
 	}
 
-	ses_new->alignmask = max(ses_new->cdata.alignmask,
-	                                          ses_new->hdata.alignmask);
+	if (compr_name) {
+		ret = cryptodev_compr_init(&ses_new->comprdata, compr_name);
+		if (ret < 0) {
+			ddebug(1, "Failed to load compressor for %s", compr_name);
+			ret = -EINVAL;
+			goto session_error;
+		}
+	}
+
+	ses_new->alignmask = max(max(ses_new->cdata.alignmask,
+	                                          ses_new->hdata.alignmask),ses_new->comprdata.alignmask);
 	ddebug(2, "got alignmask %d", ses_new->alignmask);
 
 	ses_new->array_size = DEFAULT_PREALLOC_PAGES;
@@ -344,6 +369,7 @@ restart:
 session_error:
 	cryptodev_hash_deinit(&ses_new->hdata);
 	cryptodev_cipher_deinit(&ses_new->cdata);
+	cryptodev_compr_deinit(&ses_new->comprdata);
 	kfree(ses_new->sg);
 	kfree(ses_new->pages);
 	kfree(ses_new);
@@ -361,6 +387,7 @@ crypto_destroy_session(struct csession *ses_ptr)
 	ddebug(2, "Removed session 0x%08X", ses_ptr->sid);
 	cryptodev_cipher_deinit(&ses_ptr->cdata);
 	cryptodev_hash_deinit(&ses_ptr->hdata);
+	cryptodev_compr_deinit(&ses_ptr->comprdata);
 	ddebug(2, "freeing space for %d user pages", ses_ptr->array_size);
 	kfree(ses_ptr->pages);
 	kfree(ses_ptr->sg);
@@ -760,6 +787,34 @@ static int fill_kcop_from_cop(struct kernel_crypt_op *kcop, struct fcrypt *fcr)
 		}
 	}
 
+	if (cop->numchunks > CRYPTODEV_COMP_MAX_CHUNKS) {
+		derr(1, "got numchunks=%u but maximum is %u", cop->numchunks,
+			(unsigned)CRYPTODEV_COMP_MAX_CHUNKS);
+		return -EINVAL;
+	}
+
+	if (cop->numchunks && (!cop->chunklens || !cop->chunkdlens || !cop->chunkrets)) {
+		derr(1, "got numchunks=%u but chunklens, chunkdlens or chunkrets is NULL", cop->numchunks);
+		return -EINVAL;
+	}
+
+	kcop->numchunks = cop->numchunks;
+	if (kcop->numchunks) {
+		rc = copy_from_user(kcop->chunklens, cop->chunklens, kcop->numchunks * sizeof(__u32));
+		if (unlikely(rc)) {
+			derr(1, "error copying chunklens (%zu bytes), copy_from_user returned %d for address %p",
+					kcop->numchunks * sizeof(__u32), rc, cop->chunklens);
+			return -EFAULT;
+		}
+
+		rc = copy_from_user(kcop->chunkdlens, cop->chunkdlens, kcop->numchunks * sizeof(__u32));
+		if (unlikely(rc)) {
+			derr(1, "error copying chunkdlens (%zu bytes), copy_from_user returned %d for address %p",
+					kcop->numchunks * sizeof(__u32), rc, cop->chunkdlens);
+			return -EFAULT;
+		}
+	}
+
 	return 0;
 }
 
@@ -780,6 +835,18 @@ static int fill_cop_from_kcop(struct kernel_crypt_op *kcop, struct fcrypt *fcr)
 		if (unlikely(ret))
 			return -EFAULT;
 	}
+	if (kcop->numchunks) {
+		ret = copy_to_user(kcop->cop.chunkdlens,
+				kcop->chunkdlens, kcop->numchunks * sizeof(__u32));
+		if (unlikely(ret))
+			return -EFAULT;
+
+		ret = copy_to_user(kcop->cop.chunkrets,
+				kcop->chunkrets, kcop->numchunks * sizeof(__s32));
+		if (unlikely(ret))
+			return -EFAULT;
+	}
+
 	return 0;
 }
 
@@ -838,6 +905,7 @@ static unsigned int is_known_accelerated(struct crypto_tfm *tfm)
 	    strstr(name, "-s5p")	||
 	    strstr(name, "-ppc4xx")	||
 	    strstr(name, "-caam")	||
+	    strstr(name, "-nx")		||
 	    strstr(name, "-n2"))
 		return 1;
 
@@ -876,6 +944,17 @@ static int get_session_info(struct fcrypt *fcr, struct session_info_op *siop)
 	if (ses_ptr->hdata.init) {
 		tfm = crypto_ahash_tfm(ses_ptr->hdata.async.s);
 		tfm_info_to_alg_info(&siop->hash_info, tfm);
+#ifdef CRYPTO_ALG_KERN_DRIVER_ONLY
+		if (tfm->__crt_alg->cra_flags & CRYPTO_ALG_KERN_DRIVER_ONLY)
+			siop->flags |= SIOP_FLAG_KERNEL_DRIVER_ONLY;
+#else
+		if (is_known_accelerated(tfm))
+			siop->flags |= SIOP_FLAG_KERNEL_DRIVER_ONLY;
+#endif
+	}
+	if (ses_ptr->comprdata.init) {
+		tfm = crypto_comp_tfm(ses_ptr->comprdata.tfm);
+		tfm_info_to_alg_info(&siop->compr_info, tfm);
 #ifdef CRYPTO_ALG_KERN_DRIVER_ONLY
 		if (tfm->__crt_alg->cra_flags & CRYPTO_ALG_KERN_DRIVER_ONLY)
 			siop->flags |= SIOP_FLAG_KERNEL_DRIVER_ONLY;
@@ -968,7 +1047,6 @@ cryptodev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg_)
 			dwarning(1, "Error copying from user");
 			return ret;
 		}
-
 		ret = crypto_run(fcr, &kcop);
 		if (unlikely(ret)) {
 			dwarning(1, "Error in crypto_run");
@@ -1014,6 +1092,7 @@ compat_to_session_op(struct compat_session_op *compat, struct session_op *sop)
 {
 	sop->cipher = compat->cipher;
 	sop->mac = compat->mac;
+	sop->compr = compat->compr;
 	sop->keylen = compat->keylen;
 
 	sop->key       = compat_ptr(compat->key);
@@ -1027,6 +1106,7 @@ session_op_to_compat(struct session_op *sop, struct compat_session_op *compat)
 {
 	compat->cipher = sop->cipher;
 	compat->mac = sop->mac;
+	compat->compr = sop->compr;
 	compat->keylen = sop->keylen;
 
 	compat->key       = ptr_to_compat(sop->key);

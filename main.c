@@ -56,7 +56,7 @@
 static int
 hash_n_crypt(struct csession *ses_ptr, struct crypt_op *cop,
 		struct scatterlist *src_sg, struct scatterlist *dst_sg,
-		uint32_t len)
+		uint32_t slen, uint32_t dlen)
 {
 	int ret;
 
@@ -66,13 +66,20 @@ hash_n_crypt(struct csession *ses_ptr, struct crypt_op *cop,
 	if (cop->op == COP_ENCRYPT) {
 		if (ses_ptr->hdata.init != 0) {
 			ret = cryptodev_hash_update(&ses_ptr->hdata,
-							src_sg, len);
+							src_sg, slen);
 			if (unlikely(ret))
 				goto out_err;
 		}
 		if (ses_ptr->cdata.init != 0) {
 			ret = cryptodev_cipher_encrypt(&ses_ptr->cdata,
-							src_sg, dst_sg, len);
+							src_sg, dst_sg, slen);
+
+			if (unlikely(ret))
+				goto out_err;
+		}
+		if (ses_ptr->comprdata.init != 0) {
+			ret = cryptodev_compr_compress(&ses_ptr->comprdata,
+							src_sg, dst_sg, slen, dlen);
 
 			if (unlikely(ret))
 				goto out_err;
@@ -80,7 +87,7 @@ hash_n_crypt(struct csession *ses_ptr, struct crypt_op *cop,
 	} else {
 		if (ses_ptr->cdata.init != 0) {
 			ret = cryptodev_cipher_decrypt(&ses_ptr->cdata,
-							src_sg, dst_sg, len);
+							src_sg, dst_sg, slen);
 
 			if (unlikely(ret))
 				goto out_err;
@@ -88,7 +95,14 @@ hash_n_crypt(struct csession *ses_ptr, struct crypt_op *cop,
 
 		if (ses_ptr->hdata.init != 0) {
 			ret = cryptodev_hash_update(&ses_ptr->hdata,
-								dst_sg, len);
+								dst_sg, slen);
+			if (unlikely(ret))
+				goto out_err;
+		}
+		if (ses_ptr->comprdata.init != 0) {
+			ret = cryptodev_compr_decompress(&ses_ptr->comprdata,
+							src_sg, dst_sg, slen, dlen);
+
 			if (unlikely(ret))
 				goto out_err;
 		}
@@ -134,7 +148,7 @@ __crypto_run_std(struct csession *ses_ptr, struct crypt_op *cop)
 
 		sg_init_one(&sg, data, current_len);
 
-		ret = hash_n_crypt(ses_ptr, cop, &sg, &sg, current_len);
+		ret = hash_n_crypt(ses_ptr, cop, &sg, &sg, current_len, current_len);
 
 		if (unlikely(ret)) {
 		        derr(1, "hash_n_crypt failed.");
@@ -168,14 +182,20 @@ __crypto_run_zc(struct csession *ses_ptr, struct kernel_crypt_op *kcop)
 	struct crypt_op *cop = &kcop->cop;
 	int ret = 0;
 
-	ret = get_userbuf(ses_ptr, cop->src, cop->len, cop->dst, cop->len,
-	                  kcop->task, kcop->mm, &src_sg, &dst_sg);
+	if (ses_ptr->comprdata.init != 0) {
+		ret = get_userbuf(ses_ptr, cop->src, cop->len, cop->dst, cop->dlen,
+		                  kcop->task, kcop->mm, &src_sg, &dst_sg);
+	} else {
+		ret = get_userbuf(ses_ptr, cop->src, cop->len, cop->dst, cop->len,
+		                  kcop->task, kcop->mm, &src_sg, &dst_sg);
+	}
+
 	if (unlikely(ret)) {
 		derr(1, "Error getting user pages. Falling back to non zero copy.");
 		return __crypto_run_std(ses_ptr, cop);
 	}
 
-	ret = hash_n_crypt(ses_ptr, cop, src_sg, dst_sg, cop->len);
+	ret = hash_n_crypt(ses_ptr, cop, src_sg, dst_sg, cop->len, cop->dlen);
 
 	release_user_pages(ses_ptr);
 	return ret;
@@ -221,7 +241,12 @@ int crypto_run(struct fcrypt *fcr, struct kernel_crypt_op *kcop)
 				min(ses_ptr->cdata.ivsize, kcop->ivlen));
 	}
 
-	if (likely(cop->len)) {
+	if (ses_ptr->comprdata.init != 0) {
+		cryptodev_compr_set_chunks(&ses_ptr->comprdata,
+			kcop->numchunks, kcop->chunklens, kcop->chunkdlens);
+	}
+
+	if (likely(cop->len || ses_ptr->comprdata.init != 0)) {
 		if (!(cop->flags & COP_FLAG_NO_ZC)) {
 			if (unlikely(ses_ptr->alignmask && !IS_ALIGNED((unsigned long)cop->src, ses_ptr->alignmask + 1))) {
 				dwarning(2, "source address %p is not %d byte aligned - disabling zero copy",
@@ -236,10 +261,15 @@ int crypto_run(struct fcrypt *fcr, struct kernel_crypt_op *kcop)
 			}
 		}
 
-		if (cop->flags & COP_FLAG_NO_ZC)
+		if (cop->flags & COP_FLAG_NO_ZC) {
+			if (unlikely(ses_ptr->comprdata.init != 0)) {
+				derr(0, "Compression algorithms are only supported through the zero-copy API");
+				goto out_unlock;
+			}
 			ret = __crypto_run_std(ses_ptr, &kcop->cop);
-		else
+		} else {
 			ret = __crypto_run_zc(ses_ptr, kcop);
+		}
 		if (unlikely(ret))
 			goto out_unlock;
 	}
@@ -259,6 +289,11 @@ int crypto_run(struct fcrypt *fcr, struct kernel_crypt_op *kcop)
 			goto out_unlock;
 		}
 		kcop->digestsize = ses_ptr->hdata.digestsize;
+	}
+
+	if (ses_ptr->comprdata.init != 0) {
+		cryptodev_compr_get_chunkdlens(&ses_ptr->comprdata,
+			kcop->chunkdlens, kcop->chunkrets);
 	}
 
 out_unlock:

@@ -29,8 +29,10 @@
 #include <linux/random.h>
 #include <linux/scatterlist.h>
 #include <linux/uaccess.h>
+#include <linux/log2.h>
 #include <crypto/algapi.h>
 #include <crypto/hash.h>
+#include <crypto/acompress.h>
 #include <crypto/cryptodev.h>
 #include <crypto/aead.h>
 #include <linux/rtnetlink.h>
@@ -41,6 +43,12 @@
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 0, 0))
 extern const struct crypto_type crypto_givcipher_type;
 #endif
+
+#define COMPR_BUFFER_SIZE (65536*2)
+static const unsigned int compr_buffer_order =
+	order_base_2((COMPR_BUFFER_SIZE + PAGE_SIZE - 1) / PAGE_SIZE);
+#define COMPR_ENSURE_RAW_842_BITSTREAMS
+//#define COMPR_WORKAROUND_DISABLE_ZEROCOPY
 
 static void cryptodev_complete(struct crypto_async_request *req, int err)
 {
@@ -441,6 +449,278 @@ int cryptodev_hash_final(struct hash_data *hdata, void *output)
 	ret = crypto_ahash_final(hdata->async.request);
 
 	return waitfor(&hdata->async.result, ret);
+}
+
+int cryptodev_compr_init(struct compr_data *comprdata, const char *alg_name)
+{
+	comprdata->tfm = crypto_alloc_comp(alg_name, 0, 0);
+	if (IS_ERR(comprdata->tfm)) {
+		pr_err("could not create compressor %s : %ld\n",
+			 alg_name, PTR_ERR(comprdata->tfm));
+		return PTR_ERR(comprdata->tfm);
+	}
+
+	comprdata->srcbuf = (u8 *)__get_free_pages(GFP_KERNEL, compr_buffer_order);
+	if (!comprdata->srcbuf) {
+		pr_err("could not allocate temporary compression source buffer\n");
+		goto allocerr_free_tfm;
+	}
+
+	comprdata->dstbuf = (u8 *)__get_free_pages(GFP_KERNEL, compr_buffer_order);
+	if (!comprdata->dstbuf) {
+		pr_err("could not allocate temporary compression destination buffer\n");
+		goto allocerr_free_srcbuf;
+	}
+
+	comprdata->alignmask = crypto_tfm_alg_alignmask(crypto_comp_tfm(comprdata->tfm));
+	comprdata->slowpath_warned = 0;
+	comprdata->init = 1;
+
+	return 0;
+
+allocerr_free_srcbuf:
+	free_pages((unsigned long)comprdata->srcbuf, compr_buffer_order);
+allocerr_free_tfm:
+	crypto_free_comp(comprdata->tfm);
+	return -ENOMEM;
+}
+
+void cryptodev_compr_deinit(struct compr_data *comprdata)
+{
+	if (comprdata->init == 1  && comprdata->tfm && !IS_ERR(comprdata->tfm)) {
+		free_pages((unsigned long)comprdata->srcbuf, compr_buffer_order);
+		free_pages((unsigned long)comprdata->dstbuf, compr_buffer_order);
+		crypto_free_comp(comprdata->tfm);
+	}
+
+	comprdata->tfm = NULL;
+	comprdata->init = 0;
+}
+
+/**
+ * Copy buflen bytes of data from a mapping iterator to a linear buffer,
+ * or viceversa. This is similar to Linux's sg_copy_buffer, but takes a
+ * mapping iterator instead of a scatterlist.
+ */
+static size_t cryptodev_compr_miter_copy_buffer(struct sg_mapping_iter *miter,
+					        size_t *miter_available,
+					        void *buf, size_t buflen,
+					        bool to_buffer)
+{
+	size_t offset = 0;
+
+	while (offset < buflen) {
+		size_t len;
+		void *mptr;
+
+		if (!*miter_available) {
+			if (!sg_miter_next(miter))
+				break;
+			*miter_available = miter->length;
+		}
+		len = min(*miter_available, buflen - offset);
+		mptr = miter->addr + miter->length - *miter_available;
+
+		if (to_buffer)
+			memcpy(buf + offset, mptr, len);
+		else
+			memcpy(mptr, buf + offset, len);
+
+		offset += len;
+		*miter_available -= len;
+	}
+
+	return offset;
+}
+
+static ssize_t cryptodev_compr_run(struct compr_data *comprdata,
+		const struct scatterlist *src, struct scatterlist *dst,
+		unsigned int slen, unsigned int dlen, bool compress)
+{
+	struct scatterlist *srcm = (struct scatterlist *)src;
+	unsigned int i, sstride, dstride;
+	int ret;
+	unsigned long flags;
+	struct sg_mapping_iter miter_src, miter_dst;
+	size_t src_available, dst_available;
+	bool zerocopy_src, zerocopy_dst;
+	u8 *chunk_src, *chunk_dst;
+#ifdef COMPR_ENSURE_RAW_842_BITSTREAMS
+	bool is_842 = strcmp(crypto_tfm_alg_name(crypto_comp_tfm(comprdata->tfm)), "842") == 0;
+#endif /* COMPR_ENSURE_RAW_842_BITSTREAMS */
+
+	if (!comprdata->numchunks)
+		return 0;
+
+	if ((slen % comprdata->numchunks) || (dlen % comprdata->numchunks))
+		return -EINVAL;
+
+	sstride = slen / comprdata->numchunks;
+	dstride = dlen / comprdata->numchunks;
+
+	local_irq_save(flags);
+	sg_miter_start(&miter_src, srcm, sg_nents_for_len(srcm, slen),
+				SG_MITER_ATOMIC | SG_MITER_FROM_SG);
+	sg_miter_start(&miter_dst, dst, sg_nents_for_len(dst, dlen),
+				SG_MITER_ATOMIC | SG_MITER_TO_SG);
+	src_available = dst_available = 0;
+
+	for (i = 0; i < comprdata->numchunks; i++) {
+		if (comprdata->chunklens[i] == UINT_MAX) { // Chunk not present - skip
+			// Skip source chunk
+			miter_src.consumed = miter_src.length - src_available;
+			sg_miter_skip(&miter_src, sstride);
+			src_available = 0;
+
+			// Skip destination chunk
+			miter_dst.consumed = miter_dst.length - dst_available;
+			sg_miter_skip(&miter_dst, dstride);
+			dst_available = 0;
+
+			comprdata->chunkrets[i] = 0;
+			comprdata->chunkdlens[i] = 0;
+			ret = 0;
+			continue;
+		}
+		else if ((comprdata->chunklens[i] > sstride) ||
+			 (comprdata->chunkdlens[i] > dstride)) {
+			ret = -EINVAL;
+			break;
+		}
+
+		// Map the page corresponding to the beginning of the source and
+		// destination buffers of the chunk, to see if we can zerocopy
+		if (!src_available && sstride) {
+			if (!sg_miter_next(&miter_src)) {
+				ret = -EINVAL;
+				break;
+			}
+			src_available = miter_src.length;
+
+		}
+		if (!dst_available && dstride) {
+			if (!sg_miter_next(&miter_dst)) {
+				ret = -EINVAL;
+				break;
+			}
+			dst_available = miter_dst.length;
+		}
+
+		zerocopy_src = sstride <= src_available;
+		zerocopy_dst = dstride <= dst_available;
+
+#ifdef COMPR_ENSURE_RAW_842_BITSTREAMS
+		if (is_842 && compress) {
+			// The hardware-accelerated 842 driver will add a 'magic' header
+			// upon compression if the buffer is not aligned to 128 bytes
+			// This will make the 842 compressed bitstream incompatible
+			// with the rest of the implementations (it is only compatible
+			// with itself, i.e. with the hardware-accelerated 842 driver,
+			// but not with the kernel's software 842 fallback implementation)
+			//
+			// For more information, look for 'DDE_BUFFER_ALIGN' and
+			// 'nx842_crypto_add_header' in the Linux kernel (as of v5.7)
+			const void *src_ptr = miter_src.addr + miter_src.length - src_available;
+			const void *dst_ptr = miter_dst.addr + miter_dst.length - dst_available;
+			zerocopy_src &= IS_ALIGNED((unsigned long)src_ptr, 128);
+			zerocopy_dst &= IS_ALIGNED((unsigned long)dst_ptr, 128);
+		}
+#endif /* COMPR_ENSURE_RAW_842_BITSTREAMS */
+
+#ifdef COMPR_WORKAROUND_DISABLE_ZEROCOPY
+		// When the userspace application crashes, there's a tendency to
+		// kernel panic. It may be related to this bug:
+		// https://github.com/cryptodev-linux/cryptodev-linux/issues/33
+		// It appears disabling zerocopy makes userspace crashes much
+		// more rarely fatal, so you may want to enable this for testing
+		// or if you don't absolutely need the best performance
+		zerocopy_src = false;
+		zerocopy_dst = false;
+#endif /* COMPR_WORKAROUND_DISABLE_ZEROCOPY */
+
+		if (zerocopy_src) {
+			chunk_src = miter_src.addr + miter_src.length - src_available;
+			src_available -= sstride;
+		} else {
+			chunk_src = comprdata->srcbuf;
+
+			// Copy the source data from source buffer to auxiliary
+			if (comprdata->chunklens[i] > COMPR_BUFFER_SIZE ||
+			    cryptodev_compr_miter_copy_buffer(&miter_src, &src_available,
+				comprdata->srcbuf, comprdata->chunklens[i],
+				true) != comprdata->chunklens[i]) {
+				ret = -EINVAL;
+				break;
+			}
+
+			// Skip the gap until the next chunk
+			miter_src.consumed = miter_src.length - src_available;
+			sg_miter_skip(&miter_src, sstride - comprdata->chunklens[i]);
+			src_available = 0;
+		}
+
+		if (zerocopy_dst) {
+			chunk_dst = miter_dst.addr + miter_dst.length - dst_available;
+		} else {
+			chunk_dst = comprdata->dstbuf;
+		}
+
+		if ((!zerocopy_src || !zerocopy_dst) && !comprdata->slowpath_warned) {
+			dwarning(0, "cryptodev compression fell back to slow (non-zero copy) path");
+			comprdata->slowpath_warned = 1;
+		}
+
+		if (compress) {
+			ret = crypto_comp_compress(comprdata->tfm,
+				chunk_src, comprdata->chunklens[i],
+				chunk_dst, &comprdata->chunkdlens[i]);
+		} else {
+			ret = crypto_comp_decompress(comprdata->tfm,
+				chunk_src, comprdata->chunklens[i],
+				chunk_dst, &comprdata->chunkdlens[i]);
+		}
+		if (ret != 0 && ret != -ENOSPC)
+			break;
+		comprdata->chunkrets[i] = ret;
+		ret = 0;
+
+		if (zerocopy_dst) {
+			dst_available -= dstride;
+		} else {
+			// Copy the destination data from auxiliary to destination buffer
+			if (comprdata->chunkdlens[i] > COMPR_BUFFER_SIZE ||
+			    cryptodev_compr_miter_copy_buffer(&miter_dst, &dst_available,
+				comprdata->dstbuf, comprdata->chunkdlens[i],
+				false) != comprdata->chunkdlens[i]) {
+				ret = -EINVAL;
+				break;
+			}
+
+			// Skip the gap until the next chunk
+			miter_dst.consumed = miter_dst.length - dst_available;
+			sg_miter_skip(&miter_dst, dstride - comprdata->chunkdlens[i]);
+			dst_available = 0;
+		}
+	}
+
+	sg_miter_stop(&miter_src);
+	sg_miter_stop(&miter_dst);
+	local_irq_restore(flags);
+	return ret;
+}
+
+ssize_t cryptodev_compr_compress(struct compr_data *comprdata,
+		const struct scatterlist *src, struct scatterlist *dst,
+		unsigned int slen, unsigned int dlen)
+{
+	return cryptodev_compr_run(comprdata, src, dst, slen, dlen, true);
+}
+
+ssize_t cryptodev_compr_decompress(struct compr_data *comprdata,
+		const struct scatterlist *src, struct scatterlist *dst,
+		unsigned int slen, unsigned int dlen)
+{
+	return cryptodev_compr_run(comprdata, src, dst, slen, dlen, false);
 }
 
 #ifdef CIOCCPHASH
