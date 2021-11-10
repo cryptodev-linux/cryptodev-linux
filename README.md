@@ -5,8 +5,10 @@ FreeBSD. The main idea is to access of existing ciphers in kernel space
 from userspace, thus enabling the re-use of a hardware implementation of a
 cipher.
 
-For questions and suggestions please use the mailing lists at:
-http://cryptodev-linux.org/lists.html
+For questions and suggestions please use the homepage at github.com .
+Cryptodev-linux is hosted at https://github.com/cryptodev-linux/cryptodev-linux
+
+Older releases are available also at http://cryptodev-linux.org
 
 ## How to combine with cryptographic libraries
 
