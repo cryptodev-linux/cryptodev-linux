@@ -1,14 +1,14 @@
 # cryptodev-linux
 
 This is a `/dev/crypto` device driver, equivalent to those in OpenBSD or
-FreeBSD. The main idea is to access of existing ciphers in kernel space
+FreeBSD. The main idea is to access existing ciphers in kernel space
 from userspace, thus enabling the re-use of a hardware implementation of a
 cipher.
 
-For questions and suggestions please use the homepage at github.com .
-Cryptodev-linux is hosted at https://github.com/cryptodev-linux/cryptodev-linux
+For questions and suggestions, please use the homepage at https://github.com.
+Cryptodev-linux is hosted at https://github.com/cryptodev-linux/cryptodev-linux.
 
-Older releases are available also at http://cryptodev-linux.org
+Older releases are also available at http://cryptodev-linux.org.
 
 ## How to combine with cryptographic libraries
 
@@ -25,7 +25,7 @@ a performance penalty in some systems.
 
 ## Modifying and viewing verbosity at runtime
 
-For debugging often the verbosity of the driver needs to be adjusted.
+The verbosity of the driver often needs to be adjusted for debugging.
 The `sysctl` tool can be used for that.
 
 ```
