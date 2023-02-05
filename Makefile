@@ -44,6 +44,7 @@ install_tests: tests
 clean:
 	$(MAKE) $(KERNEL_MAKE_OPTS) clean
 	CFLAGS=$(CRYPTODEV_CFLAGS) KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C tests clean
+	@rm -f cscope*
 
 check:
 	CFLAGS=$(CRYPTODEV_CFLAGS) KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C tests check
@@ -75,3 +76,8 @@ dist: clean
 	@echo Signing $(OUTPUT)
 	@gpg --output $(OUTPUT).sig -sb $(OUTPUT)
 	@gpg --verify $(OUTPUT).sig $(OUTPUT)
+
+cscope:
+	@find . -name "*.[ch]" > cscope.files
+	@cscope -bkq -i cscope.files -f cscope.out
+
