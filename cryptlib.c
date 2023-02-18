@@ -42,9 +42,9 @@
 extern const struct crypto_type crypto_givcipher_type;
 #endif
 
-static void cryptodev_complete(struct crypto_async_request *req, int err)
+static void cryptodev_complete(void *data, int err)
 {
-	struct cryptodev_result *res = req->data;
+	struct cryptodev_result *res = data;
 
 	if (err == -EINPROGRESS)
 		return;
@@ -52,6 +52,14 @@ static void cryptodev_complete(struct crypto_async_request *req, int err)
 	res->err = err;
 	complete(&res->completion);
 }
+
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 3, 0))
+static void cryptodev_complete_shim(struct crypto_async_request *req, int err)
+{
+	cryptodev_complete(req->data, err);
+}
+#define cryptodev_complete cryptodev_complete_shim
+#endif
 
 int cryptodev_get_cipher_keylen(unsigned int *keylen, struct session_op *sop,
 		int aead)
