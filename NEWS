@@ -1,3 +1,10 @@
+Version 1.13 (released 2023-03-15)
+
+* Fix compilation issues against Linux kernel 6.3
+* Add support for xts, cfb, ofb and ccm aes algorithms
+* Fix for a potential issue with CIOCCPHASH
+* clean-up and maintenance
+
 Version 1.12 (released 2021-02-09)
 
 * Fix compilation issues against Linux kernel 5.9 and 5.11
