@@ -1246,7 +1246,7 @@ static struct ctl_table verbosity_ctl_root[] = {
 	{
 		.procname       = "ioctl",
 		.mode           = 0555,
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 5, 0))
 		.child          = verbosity_ctl_dir,
 #endif
 	},
@@ -1269,7 +1269,7 @@ static int __init init_cryptodev(void)
 		return rc;
 	}
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 4, 0))
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 5, 0))
 	verbosity_sysctl_header = register_sysctl_table(verbosity_ctl_root);
 #else
 	verbosity_sysctl_header = register_sysctl(verbosity_ctl_root->procname, verbosity_ctl_dir);
