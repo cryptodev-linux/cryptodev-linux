@@ -381,7 +381,11 @@ int cryptodev_hash_init(struct hash_data *hdata, const char *alg_name,
 	}
 
 	hdata->digestsize = crypto_ahash_digestsize(hdata->async.s);
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 7, 0))
 	hdata->alignmask = crypto_ahash_alignmask(hdata->async.s);
+#else
+	hdata->alignmask = 0;
+#endif
 
 	init_completion(&hdata->async.result.completion);
 
