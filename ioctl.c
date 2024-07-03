@@ -933,7 +933,7 @@ cryptodev_ioctl(struct file *filp, unsigned int cmd, unsigned long arg_)
 		if (unlikely(ret)) {
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(4, 17, 0))
 			sys_close(fd);
-#elif (LINUX_VERSION_CODE < KERNEL_VERSION(5, 11, 0))
+#elif (LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 220))
 			ksys_close(fd);
 #else
 			close_fd(fd);
