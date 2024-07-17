@@ -32,11 +32,13 @@ build: version.h
 version.h: Makefile
 	@echo "#define VERSION \"$(VERSION)\"" > version.h
 
-install: modules_install
+install: headers_install modules_install
+
+headers_install:
+	install -m 644 -D crypto/cryptodev.h $(DESTDIR)/$(includedir)/crypto/cryptodev.h
 
 modules_install:
 	$(MAKE) $(KERNEL_MAKE_OPTS) modules_install
-	install -m 644 -D crypto/cryptodev.h $(DESTDIR)/$(includedir)/crypto/cryptodev.h
 
 install_tests: tests
 	$(MAKE) -C tests install DESTDIR=$(PREFIX)
@@ -52,7 +54,7 @@ check:
 tests:
 	KERNEL_DIR=$(KERNEL_DIR) $(MAKE) -C tests
 
-.PHONY: install modules_install tests install_tests
+.PHONY: install headers_install modules_install tests install_tests
 
 CPOPTS =
 ifneq ($(SHOW_TYPES),)
