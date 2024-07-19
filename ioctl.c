@@ -1231,6 +1231,7 @@ cryptodev_deregister(void)
 }
 
 /* ====== Module init/exit ====== */
+static const char verbosity_ctl_path[] = "ioctl";
 static struct ctl_table verbosity_ctl_dir[] = {
 	{
 		.procname       = "cryptodev_verbosity",
@@ -1244,16 +1245,16 @@ static struct ctl_table verbosity_ctl_dir[] = {
 #endif
 };
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 5, 0))
 static struct ctl_table verbosity_ctl_root[] = {
 	{
-		.procname       = "ioctl",
+		.procname       = verbosity_ctl_path,
 		.mode           = 0555,
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 5, 0))
 		.child          = verbosity_ctl_dir,
-#endif
 	},
 	{},
 };
+#endif
 static struct ctl_table_header *verbosity_sysctl_header;
 static int __init init_cryptodev(void)
 {
@@ -1274,7 +1275,7 @@ static int __init init_cryptodev(void)
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 5, 0))
 	verbosity_sysctl_header = register_sysctl_table(verbosity_ctl_root);
 #else
-	verbosity_sysctl_header = register_sysctl(verbosity_ctl_root->procname, verbosity_ctl_dir);
+	verbosity_sysctl_header = register_sysctl(verbosity_ctl_path, verbosity_ctl_dir);
 #endif
 
 	pr_info(PFX "driver %s loaded.\n", VERSION);
