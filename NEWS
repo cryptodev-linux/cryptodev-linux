@@ -1,3 +1,9 @@
+Version 1.14 (released 2024-07-19)
+
+* Fix compilation issues after API changes in several Linux kernels
+* Split install targets to help package maintainers
+
+
 Version 1.13 (released 2023-03-15)
 
 * Fix compilation issues against Linux kernel 6.3
