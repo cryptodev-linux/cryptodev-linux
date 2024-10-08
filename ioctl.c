@@ -506,7 +506,8 @@ out:
 static int
 crypto_copy_hash_state(struct fcrypt *fcr, uint32_t dst_sid, uint32_t src_sid)
 {
-	struct csession *src_ses, *dst_ses;
+	struct csession *src_ses = NULL;
+	struct csession *dst_ses = NULL;
 	int ret;
 
 	ret = crypto_get_sessions_by_sid(fcr, src_sid, &src_ses,
