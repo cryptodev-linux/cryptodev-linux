@@ -11,7 +11,7 @@ struct benchmark_st
   sighandler_t old_handler;
 };
 
-extern int benchmark_must_finish;
+extern volatile int benchmark_must_finish;
 
 int start_benchmark(struct benchmark_st * st);
 int stop_benchmark(struct benchmark_st * st, unsigned long * elapsed);

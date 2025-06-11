@@ -35,7 +35,7 @@ static double udifftimeval(struct timeval start, struct timeval end)
 	       (double)(end.tv_sec - start.tv_sec) * 1000 * 1000;
 }
 
-static int must_finish = 0;
+static volatile int must_finish = 0;
 
 static void alarm_handler(int signo)
 {
