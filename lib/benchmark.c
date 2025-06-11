@@ -25,7 +25,7 @@
 #include <unistd.h>
 #include "benchmark.h"
 
-int benchmark_must_finish = 0;
+volatile int benchmark_must_finish = 0;
 
 static void
 alarm_handler (int signo)
